@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 564" width="700" height="564" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+<style>
+.bg{fill:#ffffff}.lb{fill:#ffffff}
+.h{fill:#1f2328;font-weight:600}.t{fill:#1f2328}.s{fill:#59636e;font-size:12px}
+.ln{stroke:#818b98;stroke-width:1.5;fill:none}.ln.d{stroke-dasharray:5 4}.ah{fill:#818b98}
+.al{fill:#59636e;font-size:12px}
+.n{fill:#f6f8fa;stroke:#d1d9e0}.ext{fill:#f6f8fa;stroke:#d1d9e0;stroke-dasharray:4 3}
+.host{fill:#ddf4ff;stroke:#54aeff}.cf{fill:#fff1e5;stroke:#fb8f44}
+.st{fill:#dafbe1;stroke:#4ac26b}.warn{fill:#ffebe9;stroke:#ff8182}
+.grp{fill:none;stroke:#d1d9e0;stroke-dasharray:6 4}.gl{fill:#59636e;font-size:12px;font-weight:600}
+@media (prefers-color-scheme: dark){
+.bg,.lb{fill:#0d1117}
+.h,.t{fill:#e6edf3}.s,.al,.gl{fill:#9198a1}
+.ln{stroke:#656c76}.ah{fill:#656c76}
+.n,.ext{fill:#151b23;stroke:#3d444d}
+.host{fill:#0c2d6b;stroke:#1f6feb}.cf{fill:#3b1d0a;stroke:#db6d28}
+.st{fill:#04260f;stroke:#2ea043}.warn{fill:#3c0d0d;stroke:#f85149}
+.grp{stroke:#3d444d}
+}
+</style>
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<rect class="bg" width="700" height="564" rx="12"/>
+<path class="ln" d="M180.0,84 L180.0,147.0 L290.0,147.0 L290.0,210" marker-end="url(#ah)"/>
+<path class="ln" d="M520.0,84 L520.0,120" marker-end="url(#ah)"/>
+<path class="ln" d="M520.0,174 L520.0,192.0 L410.0,192.0 L410.0,210" marker-end="url(#ah)"/>
+<path class="ln" d="M350.0,264 L350.0,300" marker-end="url(#ah)"/>
+<path class="ln" d="M350.0,354 L350.0,390" marker-end="url(#ah)"/>
+<path class="ln" d="M350.0,444 L350.0,480" marker-end="url(#ah)"/>
+<rect class="st" x="60.0" y="30" width="240" height="54" rx="8"/><text class="h" x="180.0" y="53.0" text-anchor="middle">H1 · Backfill done</text><text class="s" x="180.0" y="70.0" text-anchor="middle">HEAD = B</text>
+<rect class="host" x="400.0" y="30" width="240" height="54" rx="8"/><text class="h" x="520.0" y="53.0" text-anchor="middle">H2 · Restore live node</text><text class="s" x="520.0" y="70.0" text-anchor="middle">pruned snapshot, new datadir</text>
+<rect class="host" x="400.0" y="120" width="240" height="54" rx="8"/><text class="h" x="520.0" y="143.0" text-anchor="middle">H3 · Live node synced</text><text class="s" x="520.0" y="160.0" text-anchor="middle">past block B+1</text>
+<rect class="n" x="220.0" y="210" width="260" height="54" rx="8"/><text class="h" x="350.0" y="233.0" text-anchor="middle">H4 · Check state root at B</text><text class="s" x="350.0" y="250.0" text-anchor="middle">live node = header B</text>
+<rect class="host" x="220.0" y="300" width="260" height="54" rx="8"/><text class="h" x="350.0" y="323.0" text-anchor="middle">H5 · Start daemon at B+1</text><text class="s" x="350.0" y="340.0" text-anchor="middle">writes the DOs from B+1</text>
+<rect class="host" x="220.0" y="390" width="260" height="54" rx="8"/><text class="h" x="350.0" y="413.0" text-anchor="middle">H6 · Daemon at head</text><text class="s" x="350.0" y="430.0" text-anchor="middle">live window complete</text>
+<rect class="n" x="220.0" y="480" width="260" height="54" rx="8"/><text class="h" x="350.0" y="503.0" text-anchor="middle">H7 · Delete archive</text><text class="s" x="350.0" y="520.0" text-anchor="middle">release the backfill machine</text>
+</svg>

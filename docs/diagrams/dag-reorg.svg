@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 654" width="800" height="654" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+<style>
+.bg{fill:#ffffff}.lb{fill:#ffffff}
+.h{fill:#1f2328;font-weight:600}.t{fill:#1f2328}.s{fill:#59636e;font-size:12px}
+.ln{stroke:#818b98;stroke-width:1.5;fill:none}.ln.d{stroke-dasharray:5 4}.ah{fill:#818b98}
+.al{fill:#59636e;font-size:12px}
+.n{fill:#f6f8fa;stroke:#d1d9e0}.ext{fill:#f6f8fa;stroke:#d1d9e0;stroke-dasharray:4 3}
+.host{fill:#ddf4ff;stroke:#54aeff}.cf{fill:#fff1e5;stroke:#fb8f44}
+.st{fill:#dafbe1;stroke:#4ac26b}.warn{fill:#ffebe9;stroke:#ff8182}
+.grp{fill:none;stroke:#d1d9e0;stroke-dasharray:6 4}.gl{fill:#59636e;font-size:12px;font-weight:600}
+@media (prefers-color-scheme: dark){
+.bg,.lb{fill:#0d1117}
+.h,.t{fill:#e6edf3}.s,.al,.gl{fill:#9198a1}
+.ln{stroke:#656c76}.ah{fill:#656c76}
+.n,.ext{fill:#151b23;stroke:#3d444d}
+.host{fill:#0c2d6b;stroke:#1f6feb}.cf{fill:#3b1d0a;stroke:#db6d28}
+.st{fill:#04260f;stroke:#2ea043}.warn{fill:#3c0d0d;stroke:#f85149}
+.grp{stroke:#3d444d}
+}
+</style>
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<rect class="bg" width="800" height="654" rx="12"/>
+<path class="ln" d="M300.0,84 L300.0,120" marker-end="url(#ah)"/>
+<path class="ln" d="M300.0,174 L300.0,210" marker-end="url(#ah)"/>
+<path class="ln" d="M300.0,264 L300.0,300" marker-end="url(#ah)"/>
+<path class="ln" d="M300.0,354 L300.0,390" marker-end="url(#ah)"/>
+<path class="ln" d="M300.0,444 L300.0,480" marker-end="url(#ah)"/>
+<path class="ln" d="M300.0,534 L300.0,570" marker-end="url(#ah)"/>
+<path class="ln" d="M450.0,147.0 L540.0,147.0" marker-end="url(#ah)"/>
+<rect class="n" x="150.0" y="30" width="300" height="54" rx="8"/><text class="h" x="300.0" y="53.0" text-anchor="middle">G1 · Parent mismatch</text><text class="s" x="300.0" y="70.0" text-anchor="middle">at block n</text>
+<rect class="host" x="150.0" y="120" width="300" height="54" rx="8"/><text class="h" x="300.0" y="143.0" text-anchor="middle">G2 · Find ancestor A</text><text class="s" x="300.0" y="160.0" text-anchor="middle">walk back on the node</text>
+<rect class="warn" x="540.0" y="120" width="200" height="54" rx="8"/><text class="h" x="640.0" y="143.0" text-anchor="middle">Stop and alert</text><text class="s" x="640.0" y="160.0" text-anchor="middle">A &lt; F</text>
+<rect class="cf" x="150.0" y="210" width="300" height="54" rx="8"/><text class="h" x="300.0" y="233.0" text-anchor="middle">G3 · Fence</text><text class="s" x="300.0" y="250.0" text-anchor="middle">fence(removed) on every shard</text>
+<rect class="cf" x="150.0" y="300" width="300" height="54" rx="8"/><text class="h" x="300.0" y="323.0" text-anchor="middle">G4 · Lower head</text><text class="s" x="300.0" y="340.0" text-anchor="middle">ChainDO head = A</text>
+<rect class="cf" x="150.0" y="390" width="300" height="54" rx="8"/><text class="h" x="300.0" y="413.0" text-anchor="middle">G5 · Truncate</text><text class="s" x="300.0" y="430.0" text-anchor="middle">truncateAbove(A), shards and ChainDO</text>
+<rect class="host" x="150.0" y="480" width="300" height="54" rx="8"/><text class="h" x="300.0" y="503.0" text-anchor="middle">G6 · Spool</text><text class="s" x="300.0" y="520.0" text-anchor="middle">removed blocks to orphaned/</text>
+<rect class="n" x="150.0" y="570" width="300" height="54" rx="8"/><text class="h" x="300.0" y="593.0" text-anchor="middle">G7 · Apply new branch</text><text class="s" x="300.0" y="610.0" text-anchor="middle">block DAG, A+1 … new head</text>
+<rect class="lb" x="466.48" y="137.5" width="57.040000000000006" height="19" rx="3"/><text class="al" x="495.0" y="151.0" text-anchor="middle">below F</text>
+</svg>

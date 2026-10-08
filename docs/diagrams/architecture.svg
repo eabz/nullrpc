@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 560" width="1120" height="560" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+<style>
+.bg{fill:#ffffff}.lb{fill:#ffffff}
+.h{fill:#1f2328;font-weight:600}.t{fill:#1f2328}.s{fill:#59636e;font-size:12px}
+.ln{stroke:#818b98;stroke-width:1.5;fill:none}.ln.d{stroke-dasharray:5 4}.ah{fill:#818b98}
+.al{fill:#59636e;font-size:12px}
+.n{fill:#f6f8fa;stroke:#d1d9e0}.ext{fill:#f6f8fa;stroke:#d1d9e0;stroke-dasharray:4 3}
+.host{fill:#ddf4ff;stroke:#54aeff}.cf{fill:#fff1e5;stroke:#fb8f44}
+.st{fill:#dafbe1;stroke:#4ac26b}.warn{fill:#ffebe9;stroke:#ff8182}
+.grp{fill:none;stroke:#d1d9e0;stroke-dasharray:6 4}.gl{fill:#59636e;font-size:12px;font-weight:600}
+@media (prefers-color-scheme: dark){
+.bg,.lb{fill:#0d1117}
+.h,.t{fill:#e6edf3}.s,.al,.gl{fill:#9198a1}
+.ln{stroke:#656c76}.ah{fill:#656c76}
+.n,.ext{fill:#151b23;stroke:#3d444d}
+.host{fill:#0c2d6b;stroke:#1f6feb}.cf{fill:#3b1d0a;stroke:#db6d28}
+.st{fill:#04260f;stroke:#2ea043}.warn{fill:#3c0d0d;stroke:#f85149}
+.grp{stroke:#3d444d}
+}
+</style>
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<rect class="bg" width="1120" height="560" rx="12"/>
+<rect class="grp" x="20" y="40" width="330" height="410" rx="12"/><text class="gl" x="34" y="60">Live machine</text>
+<rect class="grp" x="500" y="40" width="600" height="410" rx="12"/><text class="gl" x="514" y="60">Cloudflare</text>
+<path class="ln" d="M185.0,126 L185.0,170" marker-end="url(#ah)"/>
+<path class="ln" d="M185.0,234 L185.0,280" marker-end="url(#ah)"/>
+<path class="ln" d="M185.0,344 L185.0,384" marker-end="url(#ah)"/>
+<path class="ln" d="M325,296.0 L365,296.0 L365,122.0 L540,122.0" marker-end="url(#ah)"/>
+<path class="ln" d="M325,312.0 L380,312.0 L380,232.0 L540,232.0" marker-end="url(#ah)"/>
+<path class="ln" d="M325,328.0 L395,328.0 L395,362.0 L540,362.0" marker-end="url(#ah)"/>
+<path class="ln" d="M850,216.0 L795,216.0 L795,122.0 L770,122.0" marker-end="url(#ah)"/>
+<path class="ln" d="M850,232.0 L770,232.0" marker-end="url(#ah)"/>
+<path class="ln" d="M850,248.0 L825,248.0 L825,362.0 L770,362.0" marker-end="url(#ah)"/>
+<path class="ln" d="M960.0,480 L960.0,264" marker-end="url(#ah)"/>
+<path class="ln d" d="M655.0,394 L655.0,480" marker-end="url(#ah)"/>
+<rect class="ext" x="45" y="70" width="280" height="56" rx="8"/><text class="h" x="185.0" y="94.0" text-anchor="middle">Blockchain network</text><text class="s" x="185.0" y="111.0" text-anchor="middle">P2P · consensus</text>
+<rect class="host" x="45" y="170" width="280" height="64" rx="8"/><text class="h" x="185.0" y="198.0" text-anchor="middle">Node</text><text class="s" x="185.0" y="215.0" text-anchor="middle">the chain&#x27;s client, pruned</text>
+<rect class="host" x="45" y="280" width="280" height="64" rx="8"/><text class="h" x="185.0" y="308.0" text-anchor="middle">nullrpc daemon</text><text class="s" x="185.0" y="325.0" text-anchor="middle">extract · verify · write · promote</text>
+<rect class="n" x="45" y="384" width="280" height="48" rx="8"/><text class="h" x="185.0" y="404.0" text-anchor="middle">Spool</text><text class="s" x="185.0" y="421.0" text-anchor="middle">local disk</text>
+<rect class="cf" x="540" y="90" width="230" height="64" rx="8"/><text class="h" x="655.0" y="118.0" text-anchor="middle">ChainDO</text><text class="s" x="655.0" y="135.0" text-anchor="middle">head · block records · witnesses</text>
+<rect class="cf" x="540" y="200" width="230" height="64" rx="8"/><text class="h" x="655.0" y="228.0" text-anchor="middle">StateShard × N</text><text class="s" x="655.0" y="245.0" text-anchor="middle">state diffs, P+1 … head</text>
+<rect class="st" x="540" y="330" width="230" height="64" rx="8"/><text class="h" x="655.0" y="358.0" text-anchor="middle">R2</text><text class="s" x="655.0" y="375.0" text-anchor="middle">immutable history, genesis … P</text>
+<rect class="cf" x="850" y="200" width="220" height="64" rx="8"/><text class="h" x="960.0" y="228.0" text-anchor="middle">RPC Worker</text><text class="s" x="960.0" y="245.0" text-anchor="middle">JSON-RPC, reads only</text>
+<rect class="ext" x="850" y="480" width="220" height="50" rx="8"/><text class="h" x="960.0" y="501.0" text-anchor="middle">Clients</text><text class="s" x="960.0" y="518.0" text-anchor="middle">wallets · apps · indexers</text>
+<rect class="st" x="540" y="480" width="230" height="50" rx="8"/><text class="h" x="655.0" y="501.0" text-anchor="middle">Backblaze B2</text><text class="s" x="655.0" y="518.0" text-anchor="middle">backup copy of R2</text>
+<rect class="lb" x="159.84" y="138.5" width="50.32000000000001" height="19" rx="3"/><text class="al" x="185.0" y="152.0" text-anchor="middle">blocks</text>
+<rect class="lb" x="149.76" y="247.5" width="70.48" height="19" rx="3"/><text class="al" x="185.0" y="261.0" text-anchor="middle">local RPC</text>
+<rect class="lb" x="390.38" y="112.5" width="124.24000000000001" height="19" rx="3"/><text class="al" x="452.5" y="126.0" text-anchor="middle">blocks, witnesses</text>
+<rect class="lb" x="418.04" y="222.5" width="83.92" height="19" rx="3"/><text class="al" x="460.0" y="236.0" text-anchor="middle">state diffs</text>
+<rect class="lb" x="438.98" y="352.5" width="57.040000000000006" height="19" rx="3"/><text class="al" x="467.5" y="366.0" text-anchor="middle">promote</text>
+<rect class="lb" x="788.2" y="222.5" width="43.6" height="19" rx="3"/><text class="al" x="810.0" y="236.0" text-anchor="middle">reads</text>
+<rect class="lb" x="928.12" y="362.5" width="63.760000000000005" height="19" rx="3"/><text class="al" x="960.0" y="376.0" text-anchor="middle">JSON-RPC</text>
+<rect class="lb" x="636.56" y="427.5" width="36.88" height="19" rx="3"/><text class="al" x="655.0" y="441.0" text-anchor="middle">copy</text>
+</svg>
