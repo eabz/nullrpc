@@ -408,7 +408,7 @@ func witnessStage(w *workDir) error {
 // without writing anything: `backfill witness-test --from N --to M`.
 func runWitnessTest(args []string) {
 	fs := flag.NewFlagSet("witness-test", flag.ExitOnError)
-	datadir := fs.String("datadir", os.Getenv("NULLRPC_DATADIR"), "Erigon datadir (env NULLRPC_DATADIR; default: from the running erigon process)")
+	_, datadir, _ := workFlags(fs) // --work and --rpc are accepted and unused
 	from := fs.Uint64("from", 1, "first block")
 	to := fs.Uint64("to", 10000, "last block")
 	workers := fs.Int("exec-workers", runtime.NumCPU(), "blocks executed in parallel")

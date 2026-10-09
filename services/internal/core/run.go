@@ -412,6 +412,9 @@ func runPipeline(args []string) {
 	stream := fs.Bool("stream", false, "streaming mode for limited disk: upload the state layer, each segment and each witness range during the run and remove local data once uploaded (sticky per work directory)")
 	tmp := fs.String("tmp", "", "directory for the root check's sort runs, e.g. on another disk (default: WORK/trie.tmp)")
 	fs.Parse(args)
+	if fs.NArg() > 0 {
+		fail(fmt.Errorf("unexpected argument %q", fs.Arg(0)))
+	}
 	unlock, err := lockWork(mustMkdir(*work))
 	if err != nil {
 		fail(err)

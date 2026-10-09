@@ -92,16 +92,23 @@ var fileName = regexp.MustCompile(`^v[0-9.]+-([a-z]+)\.([0-9]+)-([0-9]+)\.(ef|v|
 
 // BackfillMain is the backfill command; args excludes the program name.
 func BackfillMain(args []string) {
-	if len(args) < 1 || strings.HasPrefix(args[0], "-") {
-		runPipeline(args)
-		return
-	}
 	commands := map[string]func([]string){
 		"run":          runPipeline,
 		"status":       runStatus,
 		"verify":       runVerify,
 		"state-verify": runStateVerify,
 		"witness-test": runWitnessTest,
+	}
+	// A command may follow flags (`backfill --datadir D witness-test ...`): move it first.
+	for i, a := range args {
+		if _, ok := commands[a]; ok && i > 0 {
+			args = append(append([]string{a}, args[:i]...), args[i+1:]...)
+			break
+		}
+	}
+	if len(args) < 1 || strings.HasPrefix(args[0], "-") {
+		runPipeline(args)
+		return
 	}
 	cmd, ok := commands[args[0]]
 	if !ok {

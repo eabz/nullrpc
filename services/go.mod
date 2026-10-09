@@ -12,6 +12,7 @@ require (
 	github.com/coder/websocket v1.8.15
 	github.com/erigontech/erigon v1.9.7-0.20261001184353-8c1e3893d77d
 	github.com/erigontech/fastkeccak v0.1.1-0.20260408010752-08e7b6602268
+	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/holiman/uint256 v1.3.3-0.20260228135838-087f4b32f234
 	github.com/klauspost/compress v1.19.2
 	golang.org/x/crypto v0.57.0
@@ -95,7 +96,6 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.4 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect
-	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/heimdalr/dag v1.5.1 // indirect
 	github.com/holiman/bloomfilter/v2 v2.0.3 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
