@@ -396,7 +396,7 @@ R2 range reads on a cache miss. Index roots, filter blocks, code and immutable f
 |---|---|
 | Block, header, receipts by number | 2: offset record, frame |
 | Block or transaction by hash | 2 per index object in parallel, then 2 for the block |
-| `eth_getLogs` | 2 per field per partition per object, in parallel; then 2 per candidate block |
+| `eth_getLogs` | per index object: 2 when it is small (directory ≤ 64 KiB and pack ≤ 256 KiB, read whole), else 2 per field value per partition touched; then 1 per 256 offsets records and 1 per run of candidate blocks (`blocks.pack` in aligned 256 KiB windows, ≤ 2 MiB per read), six reads at a time, under a budget of 256 reads per query |
 | Balance, nonce, storage, code at a block | 1 round of filter blocks, then 2 pages |
 | `eth_call`, `eth_estimateGas` | the state lookup above for each new key, in dependent rounds |
 | Trace of a mined transaction | 2 for the witness, 2 for the block, plus uncached code |

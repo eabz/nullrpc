@@ -6,7 +6,7 @@
 // retries once. A promotion moves blocks out of the live window before the cached manifest may
 // know they are in R2; a live miss at or below the live `promoted` pointer re-reads HEAD.json.
 
-import type { Archive, Pin } from "./archive/archive";
+import type { Archive, BlockRun, Pin } from "./archive/archive";
 import { blockCandidates, transactionCandidates } from "./archive/hashindex";
 import { StateHistory, type Domain } from "./archive/state";
 import { archiveWitness } from "./archive/witness";
@@ -119,10 +119,49 @@ export class Chain {
 
   private async archiveBlock(n: number): Promise<BlockRecord | null> {
     const found = await this.archive.blockFrame(this.pin, n);
-    if (!found) return null;
+    return found && this.archiveRecord(n, found);
+  }
+
+  private archiveRecord(n: number, found: { hash: Uint8Array; frame: Uint8Array }): BlockRecord {
     const rec = decodeRecord(found.frame);
     if (rec.block.header.number !== n || !equal(rec.block.header.hash, found.hash)) throw new ArchiveError(`block ${n} does not match its offsets record`);
     return rec;
+  }
+
+  // ---- bulk reads (eth_getLogs)
+
+  /** Per archived block of `numbers` (sorted), whether it adds an offsets page read. */
+  offsetsPages(numbers: number[]): boolean[] {
+    return this.archive.offsetsPages(this.pin, numbers);
+  }
+
+  /** The coalesced range reads that fetch archived blocks `numbers` (sorted); reads their offsets. */
+  planArchived(numbers: number[]): Promise<BlockRun[]> {
+    return this.archive.planBlockRuns(this.pin, numbers);
+  }
+
+  /**
+   * Reads planned runs `wave` at a time, in order, and hands every block to `each` in block
+   * order (decoded records join the request's block cache). `each` returning false stops.
+   */
+  async readArchived(runs: BlockRun[], wave: number, each: (rec: BlockRecord) => boolean | void): Promise<void> {
+    for (let i = 0; i < runs.length; i += wave) {
+      const found = await Promise.all(runs.slice(i, i + wave).map((r) => this.archive.readRun(r)));
+      for (const run of found)
+        for (const b of run) {
+          const rec = this.archiveRecord(b.n, b);
+          this.blocks.set(b.n, Promise.resolve(rec));
+          if (each(rec) === false) return;
+        }
+    }
+  }
+
+  /** Reads blocks `numbers` (any source) `wave` at a time and hands them to `each` in order. */
+  async readBlocks(numbers: number[], wave: number, each: (rec: BlockRecord) => boolean | void): Promise<void> {
+    for (let i = 0; i < numbers.length; i += wave) {
+      const found = await Promise.all(numbers.slice(i, i + wave).map((n) => this.block(n)));
+      for (const rec of found) if (rec && each(rec) === false) return;
+    }
   }
 
   private liveRecord(found: { number: number; hash: string; record: Uint8Array }): BlockRecord {
