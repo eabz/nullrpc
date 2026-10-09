@@ -49,11 +49,15 @@ describe("blocks", () => {
     expect(await call("eth_getBlockByHash", "0x" + "11".repeat(32), false)).toBeNull();
   });
 
-  test("a block by number costs one offsets read and the block's two frames after the pin", async () => {
+  test("a block by number costs one offsets read and the block frame after the pin; its receipts cost the receipts frame", async () => {
     const f = FIXTURES[5]!;
     await call("eth_getBlockByNumber", f.block.number, false); // warms meta.json
     source.reads.length = 0;
     await call("eth_getBlockByNumber", FIXTURES[4]!.block.number, false);
+    expect(source.reads.map((r) => r.key.split("/").at(-1)).sort()).toEqual(["blocks.pack"]);
+    source.reads.length = 0;
+    await call("eth_getBlockReceipts", FIXTURES[4]!.block.number);
+    // The request keeps what it read: the block frame is not read again.
     expect(source.reads.map((r) => r.key.split("/").at(-1)).sort()).toEqual(["blocks.pack", "receipts.pack"]);
   });
 });

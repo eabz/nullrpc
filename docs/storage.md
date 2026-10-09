@@ -374,7 +374,12 @@ An index object covers a block range and has two parts, transactions and blocks:
 
 **Lookup:** for every object, one 56-byte directory read and one frame read, all objects in
 parallel. Each candidate is confirmed by reading its block and comparing the full hash, so a
-6-byte prefix collision never returns the wrong block.
+6-byte prefix collision never returns the wrong block. The RPC Worker reads directory records
+in aligned pages of 128 kept per isolate (directories are immutable), and keeps each verified
+location per isolate with the generation that verified it: a block in the archive never moves,
+so the location answers every later generation without the index; a request pinned to an
+earlier generation ignores it. Hashes the live window answered are not kept (a reorg may move
+them).
 
 ### Log index
 

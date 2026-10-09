@@ -40,6 +40,17 @@ function frameRefAt(rec: Uint8Array, at: number, pack: ObjectRef): FrameRef {
 /** What a block run decodes: whole records (layout 1, blocks.pack) or receipts frames (layout 2, receipts.pack). */
 export type RunKind = "record" | "receipts";
 /**
+ * What a caller needs of a block: the whole record (receipts too), or only the block (header,
+ * transactions, senders), which a layout-2 segment answers from its block frame alone.
+ */
+export type BlockNeed = "record" | "block";
+/** What `blockFrame` returned: a whole record, or (layout 2, need "block") the block frame alone. */
+export interface BlockFrame {
+  hash: Uint8Array;
+  kind: BlockNeed;
+  frame: Uint8Array;
+}
+/**
  * Coalesced block reads (`planBlockRuns`): blocks.pack is viewed as aligned windows of this many
  * bytes; a run is the consecutive windows that hold wanted blocks, within one aligned group of
  * RUN_WINDOWS windows, so the same region reads under the same cache key whatever the query.
@@ -198,9 +209,11 @@ export class Archive {
   /**
    * Block `n`'s record (uncompressed; storage.md, "Block records") and its hash, or null
    * outside the archive. A layout-2 segment's block and receipts frames are read together and
-   * joined, so the record is the same whatever the layout.
+   * joined, so the record is the same whatever the layout; when the caller needs only the block
+   * (`need` "block"), the receipts frame is not read and the block frame is returned as is
+   * (`kind` "block"). A layout-1 segment always answers with the record.
    */
-  async blockFrame(pin: Pin, n: number): Promise<{ hash: Uint8Array; frame: Uint8Array } | null> {
+  async blockFrame(pin: Pin, n: number, need: BlockNeed = "record"): Promise<BlockFrame | null> {
     const seg = this.segment(pin, n);
     if (!seg) return null;
     const meta = await this.json<SegmentMeta>(seg.meta);
@@ -208,9 +221,10 @@ export class Archive {
     const rec = await this.offsetsRecord(meta, n, len);
     const hash = rec.subarray(0, 32);
     const block = this.frame(frameRefAt(rec, 32, meta.files["blocks.pack"]));
-    if (len === 80) return { hash, frame: await block };
+    if (len === 80) return { hash, kind: "record", frame: await block };
+    if (need === "block") return { hash, kind: "block", frame: await block };
     const [b, r] = await Promise.all([block, this.frame(frameRefAt(rec, 80, meta.files["receipts.pack"]!))]);
-    return { hash, frame: joinRecord(b, r) };
+    return { hash, kind: "record", frame: joinRecord(b, r) };
   }
 
   // ---- coalesced block reads

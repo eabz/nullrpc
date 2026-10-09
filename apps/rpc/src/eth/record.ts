@@ -22,23 +22,41 @@ export interface ReceiptRecord {
   logs: Rlp[][];
 }
 
-export interface BlockRecord {
-  /** The record's encoding, as stored (passed to the executor). */
-  frame: Uint8Array;
+/**
+ * A block without its receipts: the header, transactions, senders and blob gas price. What a
+ * layout-2 block frame holds, and all that blocks, headers and transactions are formatted from.
+ */
+export interface BlockPart {
   block: Block;
   senders: Uint8Array[];
-  receipts: ReceiptRecord[];
   blobGasPrice: bigint;
+}
+
+export interface BlockRecord extends BlockPart {
+  /** The record's encoding, as stored (passed to the executor). */
+  frame: Uint8Array;
+  receipts: ReceiptRecord[];
   /** Per transaction: [[name, value], …] receipt fields the chain adds (empty on Ethereum). */
   extras: [string, bigint][][];
+}
+
+function decodeSenders(block: Block, raw: Uint8Array): Uint8Array[] {
+  if (raw.length !== block.txs.length * 20) throw new Error("senders do not match the transactions");
+  return block.txs.map((_, i) => raw.subarray(i * 20, i * 20 + 20));
+}
+
+/** A layout-2 block frame [raw_block, senders, blob_gas_price] (storage.md, "Block bundles"). */
+export function decodeBlockFrame(frame: Uint8Array): BlockPart {
+  const top = list(decode(frame));
+  if (top.length !== 3) throw new Error("block frame is not a list of 3 items");
+  const block = decodeBlock(bytes(top[0]));
+  return { block, senders: decodeSenders(block, bytes(top[1])), blobGasPrice: toBigInt(bytes(top[2])) };
 }
 
 export function decodeRecord(frame: Uint8Array): BlockRecord {
   const top = list(decode(frame));
   const block = decodeBlock(bytes(top[0]));
-  const sendersRaw = bytes(top[1]);
-  if (sendersRaw.length !== block.txs.length * 20) throw new Error("senders do not match the transactions");
-  const senders = block.txs.map((_, i) => sendersRaw.subarray(i * 20, i * 20 + 20));
+  const senders = decodeSenders(block, bytes(top[1]));
   const receipts = list(top[2]).map((r) => {
     const [type, status, cumulative, logs] = list(r);
     return { type: toNumber(bytes(type)), status: bytes(status), cumulativeGasUsed: toBigInt(bytes(cumulative)), logs: list(logs).map((l) => list(l)) };
@@ -67,19 +85,19 @@ export function joinRecord(block: Uint8Array, receipts: Uint8Array): Uint8Array 
   return encodeList([b[0]!.raw, b[1]!.raw, r[3]!.raw, b[2]!.raw, r[4]!.raw]);
 }
 
-export function txContext(rec: BlockRecord, index: number) {
+export function txContext(rec: BlockPart, index: number) {
   const h = rec.block.header;
   return { blockHash: h.hash, blockNumber: h.number, blockTimestamp: h.timestamp, index, from: rec.senders[index]!, baseFee: h.baseFee };
 }
 
 /** The block's JSON-RPC object; `full` includes transaction objects instead of hashes. */
-export function blockResult(rec: BlockRecord, full: boolean): Record<string, unknown> {
+export function blockResult(rec: BlockPart, full: boolean): Record<string, unknown> {
   const out = blockJson(rec.block);
   out.transactions = rec.block.txs.map((tx, i) => (full ? txJson(tx, txContext(rec, i)) : data(tx.hash)));
   return out;
 }
 
-export function txResult(rec: BlockRecord, index: number): Record<string, unknown> | null {
+export function txResult(rec: BlockPart, index: number): Record<string, unknown> | null {
   const tx = rec.block.txs[index];
   return tx ? txJson(tx, txContext(rec, index)) : null;
 }

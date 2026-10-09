@@ -1,0 +1,1392 @@
+{
+ "target": {
+  "url": "https://hoodi.nullrpc.dev",
+  "chainId": 560048,
+  "keyed": true
+ },
+ "head": 3785357,
+ "archived_through": 3785298,
+ "generation": 203,
+ "windows": {
+  "calls": {
+   "started": "2026-10-09T21:46:57.964Z",
+   "ended": "2026-10-09T21:47:35.196Z"
+  }
+ },
+ "cases": [
+  {
+   "cls": "normal",
+   "label": "eth_chainId"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_blockNumber"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_gasPrice"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_maxPriorityFeePerGas"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_feeHistory 4"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getBlockByNumber latest hashes"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getBlockByNumber recent hashes"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getBlockByHash recent"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getBlockTransactionCountByNumber"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getBalance latest"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getTransactionCount latest"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getCode latest"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getStorageAt latest"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getTransactionByHash recent"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getTransactionReceipt recent"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getTransactionByBlockNumberAndIndex"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getLogs 10 blocks, token"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_call balanceOf"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_estimateGas transfer"
+  },
+  {
+   "cls": "normal",
+   "label": "web3_clientVersion"
+  },
+  {
+   "cls": "normal",
+   "label": "net_version"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_getBlockByNumber recent full"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_getBlockReceipts recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_getLogs 1000 blocks, no filter"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_getLogs 10000 blocks, token"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_getLogs 1000 blocks, Transfer topic"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_call real calldata latest"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_estimateGas real calldata"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_createAccessList"
+  },
+  {
+   "cls": "heavy",
+   "label": "debug_traceCall callTracer"
+  },
+  {
+   "cls": "heavy",
+   "label": "trace_call"
+  },
+  {
+   "cls": "heavy",
+   "label": "debug_traceTransaction recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "trace_transaction recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "trace_replayTransaction recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "debug_traceBlockByNumber recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "debug_traceBlockByHash recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "trace_block recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "trace_replayBlockTransactions recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "debug_getRawBlock recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "debug_getRawReceipts recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "batch of 10 mixed"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getBlockByNumber deep hashes"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getBlockByHash deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getBalance deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getTransactionCount deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getCode deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getStorageAt deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getTransactionByHash deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getTransactionReceipt deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getLogs 10 blocks deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_feeHistory 4 deep"
+  },
+  {
+   "cls": "deep",
+   "label": "debug_getRawHeader deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "eth_getBlockByNumber deep full"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "eth_getBlockReceipts deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "eth_getLogs 1000 blocks deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "eth_getLogs 10000 blocks deep, Transfer"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "eth_call replay at n-1"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "eth_estimateGas replay at n-1"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "debug_traceCall replay at n-1"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "debug_traceTransaction deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "trace_transaction deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "trace_replayTransaction deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "debug_traceBlockByNumber deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "trace_block deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "trace_replayBlockTransactions deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "debug_getRawBlock deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "debug_getRawReceipts deep"
+  }
+ ],
+ "samples": {
+  "calls": [
+   {
+    "cls": "deep-heavy",
+    "label": "eth_estimateGas replay at n-1",
+    "method": "eth_estimateGas",
+    "ms": 1063.6477080000004,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=13 miss=7",
+    "response": "miss immutable",
+    "exec": "rounds=1 keys=3 hints=964 live=0 archive=15"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_call balanceOf",
+    "method": "eth_call",
+    "ms": 1283.7302499999987,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=15 miss=7",
+    "response": "miss head",
+    "exec": "rounds=2 keys=5 hints=966 live=4 archive=12"
+   },
+   {
+    "cls": "heavy",
+    "label": "trace_call",
+    "method": "trace_call",
+    "ms": 971.6072090000016,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=7 miss=3",
+    "response": "bypass",
+    "exec": "rounds=1 keys=3 hints=966 live=3 archive=11"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_call replay at n-1",
+    "method": "eth_call",
+    "ms": 3161.720959,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=134 miss=38",
+    "response": "miss immutable",
+    "exec": "rounds=3 keys=19 hints=2002 live=0 archive=67"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_estimateGas replay at n-1",
+    "method": "eth_estimateGas",
+    "ms": 1348.2287919999999,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=138 miss=11",
+    "response": "miss immutable",
+    "exec": "rounds=3 keys=7 hints=1106 live=0 archive=55"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_call real calldata latest",
+    "method": "eth_call",
+    "ms": 1863.5047499999982,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": 3,
+    "message": "execution reverted",
+    "credits": 30,
+    "archive": "hit=23 miss=6",
+    "response": "bypass",
+    "exec": "rounds=9 keys=13 hints=966 live=6 archive=18",
+    "params": [
+     {
+      "from": "0x824e38c94df5ded62c35889bb5bd7b35daec5fec",
+      "to": "0x76c9cf548b4179f8901cda1f8623568b58215e62",
+      "data": "0x1128956500000000000000000000000061d5c7a08e9182a09782d3d06ce4179a08c0fc570000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000014000000000000000000000000000000000000000000000000000000000000001c0000000000000000000000000000000000000000000000000000000000000008d01034440c7536e3cb709135cf84f0afa6a8c196572981428ef924b9089eeb0a4186ac9607d00000001000000010011b3ef2691c00f4576e2ba4ecd120b2c102b21478388a1c99f66420f5511d637373564626463393731180b3abc1adf56d82fc94e49078c0267a18e51ff0000000000000000000000000000000000000000000000000000000000006ac9607a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000060000e9c76cb2154723c504988d51e0baea4b255f51cb21ff221beee4087cba2b000000000000000000000000000000000000000000000000000000000971b5d00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001800000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000004199f3703eafd10001c8a0284006d2558826d1a081402ff6e0379df7330fb830ef26ef00f4494d7559a3757e64a32e0792703be9cddcad1f2b3a4763cbcb05017d010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000410ae3fd2047842bb3c707159cfea8019787e8825185261b90362055738a76ab51548db5e42aa0209306762e031d9cd97b298e9e42189a011ae1e4fd34b8343c8e0100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004169eb1deaf2fcb2fd8c3e59dd1ae6f4e799960f1206689d85c63432df7d86a1b63bd7e722ceffc5aa415af38de2c70174105097f5449803160bb7859b82432c99010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000411f51417a8e81025f4c6dfb2ac252c268eaca41ff68c3e0611d86d31eeacda04d445d334d280ab746fb935dc2219a16cdb36fb30f6c4b1b83e3504863e5e88d410000000000000000000000000000000000000000000000000000000000000000",
+      "value": "0x0"
+     },
+     "latest"
+    ]
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceCall replay at n-1",
+    "method": "debug_traceCall",
+    "ms": 1096.6603750000013,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=166 miss=8",
+    "response": "bypass",
+    "exec": "rounds=3 keys=7 hints=1106 live=0 archive=55"
+   },
+   {
+    "cls": "heavy",
+    "label": "trace_call",
+    "method": "trace_call",
+    "ms": 1367.283292,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=88 miss=2",
+    "response": "bypass",
+    "exec": "rounds=7 keys=10 hints=966 live=4 archive=17"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceCall replay at n-1",
+    "method": "debug_traceCall",
+    "ms": 399.9238749999986,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=30 miss=1",
+    "response": "bypass",
+    "exec": "rounds=1 keys=4 hints=1106 live=0 archive=52"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_estimateGas transfer",
+    "method": "eth_estimateGas",
+    "ms": 259.36062499999935,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=7 miss=1",
+    "response": "miss head",
+    "exec": "rounds=1 keys=2 hints=966 live=2 archive=11"
+   },
+   {
+    "cls": "heavy",
+    "label": "trace_call",
+    "method": "trace_call",
+    "ms": 1669.9707089999993,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=10 miss=19",
+    "response": "bypass",
+    "exec": "rounds=9 keys=18 hints=0 live=7 archive=11"
+   },
+   {
+    "cls": "heavy",
+    "label": "trace_call",
+    "method": "trace_call",
+    "ms": 2477.367791999999,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=66 miss=2",
+    "response": "bypass",
+    "exec": "rounds=14 keys=30 hints=966 live=16 archive=25"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_call replay at n-1",
+    "method": "eth_call",
+    "ms": 1033.7769590000007,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=131 miss=2",
+    "response": "miss immutable",
+    "exec": "rounds=3 keys=7 hints=1106 live=0 archive=55"
+   },
+   {
+    "cls": "heavy",
+    "label": "trace_call",
+    "method": "trace_call",
+    "ms": 3152.978083,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=19 miss=24",
+    "response": "bypass",
+    "exec": "rounds=13 keys=19 hints=0 live=4 archive=15"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_estimateGas real calldata",
+    "method": "eth_estimateGas",
+    "ms": 2724.317499999999,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": 3,
+    "message": "execution reverted: Duplicate submission from node",
+    "credits": 50,
+    "archive": "hit=33 miss=17",
+    "response": "bypass",
+    "exec": "rounds=13 keys=21 hints=966 live=5 archive=27",
+    "params": [
+     {
+      "from": "0x297ef1fe638ba10ea908ae3d9436e7b0e27a752a",
+      "to": "0x029d946f28f93399a5b0d09c879fc8c94e596aeb",
+      "data": "0xba214c3c000000000000000000000000000000000000000000000000000000000039c213000000000000000000000000000000000000000000000000000000006ac95a74000000000000000000000000000000000000000000000000000244fa45851176",
+      "value": "0x0"
+     },
+     "latest"
+    ]
+   },
+   {
+    "cls": "normal",
+    "label": "eth_estimateGas transfer",
+    "method": "eth_estimateGas",
+    "ms": 388.19358399999874,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=6 miss=1",
+    "response": "miss head",
+    "exec": "rounds=1 keys=2 hints=966 live=2 archive=11"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_call balanceOf",
+    "method": "eth_call",
+    "ms": 475.1748329999991,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=46 miss=0",
+    "response": "miss head",
+    "exec": "rounds=2 keys=6 hints=966 live=3 archive=14"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_estimateGas transfer",
+    "method": "eth_estimateGas",
+    "ms": 347.9183750000011,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=12 miss=0",
+    "response": "miss head",
+    "exec": "rounds=1 keys=2 hints=966 live=2 archive=11"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_call balanceOf",
+    "method": "eth_call",
+    "ms": 65.61016600000039,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_estimateGas replay at n-1",
+    "method": "eth_estimateGas",
+    "ms": 918.2822090000009,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": 3,
+    "message": "execution reverted",
+    "credits": 50,
+    "archive": "hit=12 miss=8",
+    "response": "bypass",
+    "exec": "rounds=1 keys=4 hints=193 live=0 archive=16",
+    "params": [
+     {
+      "from": "0x6a2cb0d4a32f4ab4b8c401307696da73b430733c",
+      "to": "0x91cb447bafc6e0ea0f4fe056f5a9b1f14bb06e5d",
+      "data": "0x96051d56000000000000000000000000722e3a999c17e017b01d291e97f25b0b2972ecd2000000000000000000000000000000000000000000000000000000000037eebe8709c475e2aa95dc002477f2ea317261b699994091f71f4dc1cf99d018e727994ec43fbb3552a54ab826527e16bd2a8f138f227e4eb5c3cedb95d8c7932c240100000000000000000000000000000000000000000000000000000000000001c000000000000000000000000000000000000000000000000000000000000002400c53b806221bcf001471a18bfdcfe62d39e2a8665545bd38335d589e46c3692406bb70c2d9b51a658b910ad3e91eb94633ae568f3d77a16563b59fdd3151d93429fca8e4dae0b198fecdb7131f600a3c7ec40431a4f47a18e803a2ada3cee53b2f4a6857f5655a4087cae6e434804d05ead218fe699296a48b44170eb8a72c6d19d350e46c05b0beef4700c5028a621638c5e50aed1ecc08fc80c93a98a6f6ab0186c1b62fcf8fa40136ba0433320ea0783e045e0c5940566accaeb58301dd042df611b9fe7843c962be11314f830639b7e0c7e3c47a3faa24c1731c826afe6a2d2df0ae71f12848aa2cb9c45834bfcc374044c9549c6f6b10d76428608976c60000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000096f6b7461793438313400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "value": "0x0"
+     },
+     "0x37eebe"
+    ]
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_call real calldata latest",
+    "method": "eth_call",
+    "ms": 1023.6633330000004,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=29 miss=3",
+    "response": "miss head",
+    "exec": "rounds=4 keys=7 hints=966 live=5 archive=13"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_estimateGas real calldata",
+    "method": "eth_estimateGas",
+    "ms": 60.96287500000108,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_estimateGas real calldata",
+    "method": "eth_estimateGas",
+    "ms": 376.62116700000115,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": 3,
+    "message": "execution reverted",
+    "credits": 50,
+    "archive": "hit=13 miss=2",
+    "response": "bypass",
+    "exec": "rounds=2 keys=4 hints=0 live=1 archive=3",
+    "params": [
+     {
+      "from": "0x39ae33894892f325f3dcef62f748c9ef60e8f9db",
+      "to": "0x89f88373077e955ac8e3e37cfdff24e27160e1ab",
+      "data": "0xe7ad199300000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000002e0000000000000000000000000000000000000000000000000000000000123fca70000000000000000000000000000000000000000000000000000000000000540000000000000000000000000fb893d812062f831726911e25f1191c5029ae80b0000000000000000000000000000000000000000000000000000000000000580e85509daceb3c6a52bdf6eeac51144dfbb8d5e93b55748c3bfdf48c7d364c9e9000000000000000000000000152dc5df5910028d7fa78f4eb01bca114c7f9fce000000000000000000000000152dc5df5910028d7fa78f4eb01bca114c7f9fce0000000000000000000000000000000000000000000000000000000000000000e359f5697e43b86e609f65207884d0a118692b581911592bf11dae58e596a9c0000000000000000000000000000000000000000000000000000000000123fca7000000000000000000000000000000000000000000000000001b5b1bf4c54000000000000000000000000000000000000000000000000000000000006ac96e79000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000fa0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001a000000000000000000000000000000000000000000000000000000000000000414ed4e7df2b12f11d6c6543c1d1c9b1a380143cfaaed984f31aeac0b0069c25c1056c3354f912c07f3fa514a7d313d5d7d50c664fe26e7e1793a71c58afbf0b361b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020534b266f9d379386b8774e0b33fa0b2d156eedca623875356410206a7b61ccf20000000000000000000000004ae1953ebc409192df87b75ed5e84c7e1338c7100000000000000000000000004ae1953ebc409192df87b75ed5e84c7e1338c7100000000000000000000000000000000000000000000000000000000000000000e359f5697e43b86e609f65207884d0a118692b581911592bf11dae58e596a9c0000000000000000000000000000000000000000000000000016345785d8a0000000000000000000000000000000000000000000000000000000000000ecf5608000000000000000000000000000000000000000000000000000000006ac966c3000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000fa0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001a000000000000000000000000000000000000000000000000000000000000000412761671fdca7d59d33bd65a7043dcf9f6a372b6613f25dd6361e14a462a86e4202465932a1226e3d12ddafc87e1726961c1aef377a8fd6aea3dba0b278c5989f1c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000001b5b1bf4c540000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000fb893d812062f831726911e25f1191c5029ae80b",
+      "value": "0x0"
+     },
+     "latest"
+    ]
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_call replay at n-1",
+    "method": "eth_call",
+    "ms": 980.7182079999984,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=13 miss=11",
+    "response": "miss immutable",
+    "exec": "rounds=2 keys=6 hints=136 live=0 archive=15"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_call real calldata latest",
+    "method": "eth_call",
+    "ms": 526.6971670000021,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=8 miss=0",
+    "response": "miss head",
+    "exec": "rounds=2 keys=3 hints=0 live=1 archive=2"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_estimateGas real calldata",
+    "method": "eth_estimateGas",
+    "ms": 1312.6842499999984,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": 3,
+    "message": "execution reverted",
+    "credits": 50,
+    "archive": "hit=17 miss=0",
+    "response": "bypass",
+    "exec": "rounds=7 keys=8 hints=0 live=3 archive=5",
+    "params": [
+     {
+      "from": "0x685d51dfd4f17a1f59517cba904e58dfae9066ec",
+      "to": "0xef4bb7a442bd68150a3aa61a6a097b86b91700bf",
+      "data": "0x9791e644000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000f0000000000000000000200000000000000000000000000000000000000000000",
+      "value": "0x0"
+     },
+     "latest"
+    ]
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_call real calldata latest",
+    "method": "eth_call",
+    "ms": 767.4311660000021,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=4 miss=3",
+    "response": "miss head",
+    "exec": "rounds=3 keys=4 hints=0 live=2 archive=2"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_estimateGas transfer",
+    "method": "eth_estimateGas",
+    "ms": 639.2806249999994,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=63 miss=0",
+    "response": "miss head",
+    "exec": "rounds=1 keys=2 hints=966 live=1 archive=12"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_estimateGas replay at n-1",
+    "method": "eth_estimateGas",
+    "ms": 724.4035829999993,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=139 miss=2",
+    "response": "miss immutable",
+    "exec": "rounds=3 keys=6 hints=1106 live=0 archive=54"
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_traceCall callTracer",
+    "method": "debug_traceCall",
+    "ms": 420.0673749999987,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=4 miss=0",
+    "response": "bypass",
+    "exec": "rounds=1 keys=2 hints=0 live=1 archive=1"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_estimateGas real calldata",
+    "method": "eth_estimateGas",
+    "ms": 257.706041999998,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=7 miss=1",
+    "response": "miss head",
+    "exec": "rounds=1 keys=3 hints=966 live=2 archive=12"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_call balanceOf",
+    "method": "eth_call",
+    "ms": 774.8165420000005,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=20 miss=0",
+    "response": "miss head",
+    "exec": "rounds=3 keys=6 hints=966 live=3 archive=14"
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_traceCall callTracer",
+    "method": "debug_traceCall",
+    "ms": 611.3098329999993,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=1 miss=4",
+    "response": "bypass",
+    "exec": "rounds=3 keys=3 hints=0 live=2 archive=1"
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_traceCall callTracer",
+    "method": "debug_traceCall",
+    "ms": 1018.3580000000002,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=36 miss=0",
+    "response": "bypass",
+    "exec": "rounds=2 keys=9 hints=966 live=4 archive=16"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_call balanceOf",
+    "method": "eth_call",
+    "ms": 514.0455839999995,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=7 miss=0",
+    "response": "miss head",
+    "exec": "rounds=3 keys=4 hints=0 live=2 archive=2"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_call replay at n-1",
+    "method": "eth_call",
+    "ms": 894.0736670000006,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": 3,
+    "message": "execution reverted",
+    "credits": 30,
+    "archive": "hit=175 miss=4",
+    "response": "bypass",
+    "exec": "rounds=3 keys=21 hints=2002 live=0 archive=69",
+    "params": [
+     {
+      "from": "0xd10c37575e5f8378830a1745455a51c790971d3e",
+      "to": "0x91cb447bafc6e0ea0f4fe056f5a9b1f14bb06e5d",
+      "data": "0x96051d560000000000000000000000007ebbc0aaefa44d4d8e62106c29250be20560a26500000000000000000000000000000000000000000000000000000000001897f8e5d049efad971043a1eb5fcad3ce345010205b1a35542bab799b9fbca4125b0a5eb80784dda9b3338967ad9e9381e96f1ac26b2fe336f47514f2809ac838180e00000000000000000000000000000000000000000000000000000000000001c000000000000000000000000000000000000000000000000000000000000002402fa77d136f9c41f8ca65f3a6ce3afee96f63c46e9a95022746baa0ea420b8c8b25c9fe8c4ed4c749fec7e713b3824ae8e88b30c33faf9f230cdc4bce34aa56000c81a54a950d4fbbc95dfcbf8f189c6d8de90dcfafa17735ff5812f6732d8ca6205e72762e88b645053c59fadd1d447d21ea6eeda5944e067cea5dece12248b9199f9726cfda01cde90242ce5f473d527169f4f1f2e62523cf9bc1959b79bf5a2d6921892fe932e36414759a8858a9be27e4a6f3340e47d55013b3977414a6231a53b6492340c2291f6b29c0be8914fa4093fa13c67910ca5ad7550131f0ac432f1385fe0fdab6cf0de939bddf0cd5e7556b5a89ad4934c521b3ae0e86ffdfd100000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000b62617269736e65776461790000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "value": "0x0",
+      "gas": "0x12dfa7"
+     },
+     "0x1897f8"
+    ]
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceCall replay at n-1",
+    "method": "debug_traceCall",
+    "ms": 69.15708399999858,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=1 miss=0",
+    "response": "bypass",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_call real calldata latest",
+    "method": "eth_call",
+    "ms": 1879.6490410000006,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": 3,
+    "message": "execution reverted: Duplicate submission from node",
+    "credits": 30,
+    "archive": "hit=41 miss=0",
+    "response": "bypass",
+    "exec": "rounds=13 keys=19 hints=0 live=4 archive=15",
+    "params": [
+     {
+      "from": "0x297ef1fe638ba10ea908ae3d9436e7b0e27a752a",
+      "to": "0x029d946f28f93399a5b0d09c879fc8c94e596aeb",
+      "data": "0xba214c3c000000000000000000000000000000000000000000000000000000000039c213000000000000000000000000000000000000000000000000000000006ac95a74000000000000000000000000000000000000000000000000000244fa45851176",
+      "value": "0x0"
+     },
+     "latest"
+    ]
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_call replay at n-1",
+    "method": "eth_call",
+    "ms": 1051.463125000002,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=147 miss=2",
+    "response": "miss immutable",
+    "exec": "rounds=3 keys=6 hints=1106 live=0 archive=54"
+   },
+   {
+    "cls": "heavy",
+    "label": "trace_call",
+    "method": "trace_call",
+    "ms": 456.257625000002,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=4 miss=3",
+    "response": "bypass",
+    "exec": "rounds=2 keys=5 hints=0 live=2 archive=3"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceCall replay at n-1",
+    "method": "debug_traceCall",
+    "ms": 754.4422500000001,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=103 miss=7",
+    "response": "bypass",
+    "exec": "rounds=2 keys=6 hints=294 live=0 archive=41"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_estimateGas replay at n-1",
+    "method": "eth_estimateGas",
+    "ms": 524.8364159999983,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=43 miss=0",
+    "response": "miss immutable",
+    "exec": "rounds=2 keys=5 hints=1106 live=0 archive=53"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_estimateGas transfer",
+    "method": "eth_estimateGas",
+    "ms": 875.1471669999992,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=63 miss=0",
+    "response": "miss head",
+    "exec": "rounds=1 keys=2 hints=966 live=2 archive=11"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_call balanceOf",
+    "method": "eth_call",
+    "ms": 245.49579200000153,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=13 miss=0",
+    "response": "miss head",
+    "exec": "rounds=1 keys=4 hints=966 live=2 archive=13"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_estimateGas replay at n-1",
+    "method": "eth_estimateGas",
+    "ms": 77.09554199999911,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_call replay at n-1",
+    "method": "eth_call",
+    "ms": 1400.9392499999994,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=25 miss=9",
+    "response": "miss immutable",
+    "exec": "rounds=2 keys=4 hints=396 live=0 archive=45"
+   },
+   {
+    "cls": "heavy",
+    "label": "trace_call",
+    "method": "trace_call",
+    "ms": 294.536709,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=3 miss=2",
+    "response": "bypass",
+    "exec": "rounds=1 keys=3 hints=0 live=1 archive=2"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_call replay at n-1",
+    "method": "eth_call",
+    "ms": 580.8072920000013,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=55 miss=1",
+    "response": "miss immutable",
+    "exec": "rounds=2 keys=4 hints=1106 live=0 archive=52"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_call real calldata latest",
+    "method": "eth_call",
+    "ms": 207.60620800000106,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": 3,
+    "message": "execution reverted",
+    "credits": 30,
+    "archive": "hit=4 miss=0",
+    "response": "bypass",
+    "exec": "rounds=1 keys=4 hints=0 live=2 archive=2",
+    "params": [
+     {
+      "from": "0xe591c76863f592d6bd64795e75b6b37b69ea9763",
+      "to": "0x89f88373077e955ac8e3e37cfdff24e27160e1ab",
+      "data": "0xe7ad199300000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000002e0000000000000000000000000000000000000000000000000016345785d8a00000000000000000000000000000000000000000000000000000000000000000540000000000000000000000000fb893d812062f831726911e25f1191c5029ae80b0000000000000000000000000000000000000000000000000000000000000580dbc164d1e408c02048b67f3c3a312303eab18055ffe54541a0a0aaa8dd25676f000000000000000000000000152dc5df5910028d7fa78f4eb01bca114c7f9fce000000000000000000000000152dc5df5910028d7fa78f4eb01bca114c7f9fce0000000000000000000000000000000000000000000000000000000000000000e359f5697e43b86e609f65207884d0a118692b581911592bf11dae58e596a9c0000000000000000000000000000000000000000000000000016345785d8a0000000000000000000000000000000000000000000000000000000000000ecffe00000000000000000000000000000000000000000000000000000000006ac96eab000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000fa0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001a000000000000000000000000000000000000000000000000000000000000000419a5035633e9ee825019dfc11edd753aa5cfe3f37884cc1a4787874ef182d6bf16aeff3b10af831c46c3ec339c3eb9e5d48f34729ac00c657de97564ded001ccf1c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020db8bcd5207e51022e1fc37a7e63f340dd4b72955d9e8f7c085628220d1c82c730000000000000000000000004ae1953ebc409192df87b75ed5e84c7e1338c7100000000000000000000000004ae1953ebc409192df87b75ed5e84c7e1338c7100000000000000000000000000000000000000000000000000000000000000000e359f5697e43b86e609f65207884d0a118692b581911592bf11dae58e596a9c0000000000000000000000000000000000000000000000000000000000ed001e8000000000000000000000000000000000000000000000000016345785d8a0000000000000000000000000000000000000000000000000000000000006ac96ea8000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000fa0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001a0000000000000000000000000000000000000000000000000000000000000004169b7cfcd01294fd539d1f820bf40b641e490c377fb78e4ee4fa0c6a4232db74731e89162fb2cf03a7f35efe1891c0aec6244c89f53ec40769090dcff2c328dbc1c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000ed001e80000000000000000000000000000000000000000000000000000000000000001000000000000000000000000fb893d812062f831726911e25f1191c5029ae80b",
+      "value": "0x0"
+     },
+     "latest"
+    ]
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_traceCall callTracer",
+    "method": "debug_traceCall",
+    "ms": 640.5964159999967,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=69 miss=0",
+    "response": "bypass",
+    "exec": "rounds=2 keys=4 hints=966 live=2 archive=13"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceCall replay at n-1",
+    "method": "debug_traceCall",
+    "ms": 283.0971669999999,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=1 miss=0",
+    "response": "bypass",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_traceCall callTracer",
+    "method": "debug_traceCall",
+    "ms": 59.790124999999534,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=0 miss=0",
+    "response": "bypass",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_estimateGas real calldata",
+    "method": "eth_estimateGas",
+    "ms": 1453.327792,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": 3,
+    "message": "execution reverted: L2OutputOracle: block number must be equal to next expected block number",
+    "credits": 50,
+    "archive": "hit=23 miss=3",
+    "response": "bypass",
+    "exec": "rounds=6 keys=10 hints=152 live=5 archive=14",
+    "params": [
+     {
+      "from": "0x0f7c81159ea8957ac48867e2ea9d8c6f605aa69c",
+      "to": "0x6bac975310219846bd516546a26cebed90d71d49",
+      "data": "0x9aaab648c98b303b21c96c4378ed4539b8538b6e1735afa1d40726c7b22227497900712d0000000000000000000000000000000000000000000000000000000000ed6cf00d3d9bc6ceabe754326065f5a569034e36e3765a206e159dbaffc9cb0e04a033000000000000000000000000000000000000000000000000000000000039c27f",
+      "value": "0x0"
+     },
+     "latest"
+    ]
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_traceCall callTracer",
+    "method": "debug_traceCall",
+    "ms": 466.53541699999914,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=8 miss=0",
+    "response": "bypass",
+    "exec": "rounds=2 keys=3 hints=0 live=1 archive=2"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_estimateGas replay at n-1",
+    "method": "eth_estimateGas",
+    "ms": 326.9442080000008,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceCall replay at n-1",
+    "method": "debug_traceCall",
+    "ms": 67.11758399999962,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=1 miss=0",
+    "response": "bypass",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "trace_call",
+    "method": "trace_call",
+    "ms": 600.2234590000007,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=5 miss=0",
+    "response": "bypass",
+    "exec": "rounds=3 keys=3 hints=0 live=2 archive=1"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceCall replay at n-1",
+    "method": "debug_traceCall",
+    "ms": 55.230540999997174,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=1 miss=0",
+    "response": "bypass",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_estimateGas replay at n-1",
+    "method": "eth_estimateGas",
+    "ms": 923.1101669999989,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": 3,
+    "message": "execution reverted",
+    "credits": 50,
+    "archive": "hit=68 miss=3",
+    "response": "bypass",
+    "exec": "rounds=1 keys=4 hints=2002 live=0 archive=52",
+    "params": [
+     {
+      "from": "0xdb34aaaa0a0495dc47c4898391d4d9cf6957d0f1",
+      "to": "0x91cb447bafc6e0ea0f4fe056f5a9b1f14bb06e5d",
+      "data": "0x96051d56000000000000000000000000d9daa8c3cc97acfab8001a24a99649efff135fed00000000000000000000000000000000000000000000000000000000001897f8665a1ed29442774988241aefa45fd5de201d8d17208b93be55abc6a5eb7dd4cd5eb80784dda9b3338967ad9e9381e96f1ac26b2fe336f47514f2809ac838180e00000000000000000000000000000000000000000000000000000000000001c000000000000000000000000000000000000000000000000000000000000001e012b142664441938e946ac07e4b41ed9575b82996efe6e61cbf52551e15953219251042dae32202c000035436b811b9793a1852551ae7a7a65162a75ba493929a2a1d7edbdaefddb642d82cd4ce2a2c70ebc067c40ada7aae186bcfe377e02c1d2e0443e9c80fe6d1cbece38fb7ebcde94c3760aa6008fce3af2a74d166e7f41a10dd97d8f46a724389f3d62fa70bb2243a09c658e4431599ff7247d1ba3c66e229d872cf53acc49548de072df88cb039dea6baf45037b3280ad134b25169023e29ef30476c27c72bbfe0a2b7828b0c447466b4a9fac7537d3d9e360f9921b20f07965fd19d22841152791adcda55f5cc4cd3b5d500e966b06343c7d718996e1600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "value": "0x0"
+     },
+     "0x1897f8"
+    ]
+   },
+   {
+    "cls": "normal",
+    "label": "eth_call balanceOf",
+    "method": "eth_call",
+    "ms": 54.233291999997164,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_estimateGas transfer",
+    "method": "eth_estimateGas",
+    "ms": 56.67591600000014,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_call real calldata latest",
+    "method": "eth_call",
+    "ms": 8333.856416000002,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=313 miss=6",
+    "response": "miss head",
+    "exec": "rounds=56 keys=216 hints=152 live=58 archive=167"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_call replay at n-1",
+    "method": "eth_call",
+    "ms": 377.6868749999994,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=4 miss=0",
+    "response": "miss immutable",
+    "exec": "rounds=1 keys=1 hints=0 live=0 archive=1"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_estimateGas real calldata",
+    "method": "eth_estimateGas",
+    "ms": 1608.2107079999987,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": 3,
+    "message": "execution reverted",
+    "credits": 50,
+    "archive": "hit=83 miss=0",
+    "response": "bypass",
+    "exec": "rounds=7 keys=10 hints=152 live=4 archive=15",
+    "params": [
+     {
+      "from": "0x685d51dfd4f17a1f59517cba904e58dfae9066ec",
+      "to": "0xef4bb7a442bd68150a3aa61a6a097b86b91700bf",
+      "data": "0x9791e644000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000f0000000000000000000200000000000000000000000000000000000000000000",
+      "value": "0x0"
+     },
+     "latest"
+    ]
+   },
+   {
+    "cls": "normal",
+    "label": "eth_call balanceOf",
+    "method": "eth_call",
+    "ms": 592.3641669999997,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=15 miss=0",
+    "response": "miss head",
+    "exec": "rounds=3 keys=6 hints=152 live=3 archive=12"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceCall replay at n-1",
+    "method": "debug_traceCall",
+    "ms": 67.25637500000084,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=1 miss=0",
+    "response": "bypass",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_estimateGas transfer",
+    "method": "eth_estimateGas",
+    "ms": 227.9303749999999,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=3 miss=0",
+    "response": "miss head",
+    "exec": "rounds=1 keys=2 hints=152 live=2 archive=9"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_call real calldata latest",
+    "method": "eth_call",
+    "ms": 744.6085420000018,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": 3,
+    "message": "execution reverted",
+    "credits": 30,
+    "archive": "hit=26 miss=0",
+    "response": "bypass",
+    "exec": "rounds=3 keys=10 hints=152 live=4 archive=15",
+    "params": [
+     {
+      "from": "0x39ae33894892f325f3dcef62f748c9ef60e8f9db",
+      "to": "0x89f88373077e955ac8e3e37cfdff24e27160e1ab",
+      "data": "0xe7ad199300000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000002e0000000000000000000000000000000000000000000000000000000000123fca70000000000000000000000000000000000000000000000000000000000000540000000000000000000000000fb893d812062f831726911e25f1191c5029ae80b0000000000000000000000000000000000000000000000000000000000000580e85509daceb3c6a52bdf6eeac51144dfbb8d5e93b55748c3bfdf48c7d364c9e9000000000000000000000000152dc5df5910028d7fa78f4eb01bca114c7f9fce000000000000000000000000152dc5df5910028d7fa78f4eb01bca114c7f9fce0000000000000000000000000000000000000000000000000000000000000000e359f5697e43b86e609f65207884d0a118692b581911592bf11dae58e596a9c0000000000000000000000000000000000000000000000000000000000123fca7000000000000000000000000000000000000000000000000001b5b1bf4c54000000000000000000000000000000000000000000000000000000000006ac96e79000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000fa0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001a000000000000000000000000000000000000000000000000000000000000000414ed4e7df2b12f11d6c6543c1d1c9b1a380143cfaaed984f31aeac0b0069c25c1056c3354f912c07f3fa514a7d313d5d7d50c664fe26e7e1793a71c58afbf0b361b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020534b266f9d379386b8774e0b33fa0b2d156eedca623875356410206a7b61ccf20000000000000000000000004ae1953ebc409192df87b75ed5e84c7e1338c7100000000000000000000000004ae1953ebc409192df87b75ed5e84c7e1338c7100000000000000000000000000000000000000000000000000000000000000000e359f5697e43b86e609f65207884d0a118692b581911592bf11dae58e596a9c0000000000000000000000000000000000000000000000000016345785d8a0000000000000000000000000000000000000000000000000000000000000ecf5608000000000000000000000000000000000000000000000000000000006ac966c3000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000fa0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001a000000000000000000000000000000000000000000000000000000000000000412761671fdca7d59d33bd65a7043dcf9f6a372b6613f25dd6361e14a462a86e4202465932a1226e3d12ddafc87e1726961c1aef377a8fd6aea3dba0b278c5989f1c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000001b5b1bf4c540000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000fb893d812062f831726911e25f1191c5029ae80b",
+      "value": "0x0"
+     },
+     "latest"
+    ]
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_estimateGas real calldata",
+    "method": "eth_estimateGas",
+    "ms": 2098.465791999999,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=47 miss=0",
+    "response": "miss head",
+    "exec": "rounds=14 keys=30 hints=152 live=16 archive=23"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_estimateGas transfer",
+    "method": "eth_estimateGas",
+    "ms": 531.0804169999974,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=7 miss=0",
+    "response": "miss head",
+    "exec": "rounds=1 keys=2 hints=152 live=2 archive=9"
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_traceCall callTracer",
+    "method": "debug_traceCall",
+    "ms": 22764.237125000003,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=801 miss=0",
+    "response": "bypass",
+    "exec": "rounds=153 keys=603 hints=0 live=241 archive=362"
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_traceCall callTracer",
+    "method": "debug_traceCall",
+    "ms": 1915.967958000001,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=44 miss=0",
+    "response": "bypass",
+    "exec": "rounds=13 keys=20 hints=0 live=4 archive=16"
+   }
+  ],
+  "user": [],
+  "stress": {}
+ },
+ "stress": [],
+ "economics": {
+  "mixCredits": 20,
+  "plans": {
+   "public": {
+    "price": 0,
+    "included": 10000000,
+    "rps": 10
+   },
+   "free": {
+    "price": 0,
+    "included": 20000000,
+    "rps": 20
+   },
+   "builder": {
+    "price": 19,
+    "included": 600000000,
+    "rps": 250
+   },
+   "growth": {
+    "price": 89,
+    "included": 3000000000,
+    "rps": 1000
+   },
+   "scale": {
+    "price": 599,
+    "included": 20000000000,
+    "rps": 3000
+   }
+  }
+ }
+}
