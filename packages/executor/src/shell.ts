@@ -311,7 +311,16 @@ function withHints(hints: Hints | null, profile: Hints | null, round: Hints): Hi
   if (hints) {
     keys.push(...hints.keys);
     values.push(...hints.values);
-    for (const value of hints.values) {
+    for (const [i, value] of hints.values.entries()) {
+      // Code the source sent with its hints is cached like code read for an account.
+      if (value?.kind === "code") {
+        const key = hints.keys[i];
+        if (key?.kind === "code") {
+          have.add(key.hash);
+          if (codeCache.get(key.hash) === undefined) codeCache.set(key.hash, value.code, value.code.length);
+        }
+        continue;
+      }
       if (value?.kind !== "account" || !value.codeHash || value.codeHash === EMPTY_CODE_HASH || have.has(value.codeHash)) continue;
       const cached = codeCache.get(value.codeHash);
       if (cached === undefined) continue;

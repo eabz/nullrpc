@@ -20,6 +20,8 @@ import type { Hints, StateKey, StateSource, StateValue, Witness } from "./execut
 const MAX_KEYS = 256;
 /** Most hinted keys per request: a busy block's witness runs to thousands. */
 export const MAX_HINTS = 4096;
+/** Most contracts whose code is read with the hints (the executor asks for the rest). */
+const MAX_HINT_CODES = 48;
 
 const EMPTY_CODE_HASH = "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470";
 
@@ -156,6 +158,14 @@ export class ChainStateSource extends RpcTarget implements StateSource {
         if (!entries.has(id)) entries.set(id, e);
       }
     }
+    const exactEntries = exact ? witnessEntries(decodeWitness(exact)) : null;
+    // The code of the contracts the hints name, read in the same wave as the window check: the
+    // executor would otherwise spend a round asking for it (a witness lists code by hash only).
+    const hashes = new Set<string>();
+    for (const e of [...entries.values(), ...(exactEntries?.values() ?? [])]) {
+      if (e.value?.kind === "account" && e.value.codeHash && hashes.size < MAX_HINT_CODES) hashes.add(e.value.codeHash);
+    }
+    const codes = this.chain.stateValues([...hashes].map((h) => ({ domain: "code" as const, key: hex(h, 32) })), at).catch(() => null);
     if (entries.size) {
       // Values from before `at` hold unless the window wrote the key since; then the window's.
       const list = [...entries.values()];
@@ -164,8 +174,8 @@ export class ChainStateSource extends RpcTarget implements StateSource {
         if (v !== null) list[i]!.value = stateValue(list[i]!.domain === "accounts" ? "account" : "storage", v);
       });
     }
-    if (exact) {
-      for (const [id, e] of witnessEntries(decodeWitness(exact))) {
+    if (exactEntries) {
+      for (const [id, e] of exactEntries) {
         if (!entries.has(id) && entries.size >= MAX_HINTS) break;
         entries.set(id, e);
       }
@@ -177,6 +187,14 @@ export class ChainStateSource extends RpcTarget implements StateSource {
       keys.push(e.key);
       values.push(e.value);
     }
+    const code = await codes;
+    [...hashes].forEach((hash, i) => {
+      const bytes = code?.[i];
+      if (bytes?.length) {
+        keys.push({ kind: "code", hash });
+        values.push({ kind: "code", code: data(bytes) });
+      }
+    });
     this.chain.exec.hints += keys.length;
     return { keys, values };
   }
