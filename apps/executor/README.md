@@ -33,7 +33,7 @@ replayed gas, struct logs ≤ 50k entries / 8 MiB; `debug_traceCall`/`trace_call
 
 ```sh
 cargo install wasm-bindgen-cli --version 0.2.129 --locked   # once; wasm-opt (binaryen) optional
-bun run build        # scripts/build.sh: cargo → wasm-bindgen → wasm-opt into crate/pkg (ignored)
+bun run build        # scripts/build.sh: cargo → wasm-bindgen → wasm-opt -O3 into crate/pkg (ignored); built for speed, about 2.3 MB
 bun run test         # build, Rust unit tests, vitest end-to-end against Hoodi/mainnet fixtures
 bun run typecheck
 bun run fixtures     # refetch test/fixtures from hoodi.drpc.org / eth.drpc.org (needs a build)

@@ -13,7 +13,7 @@ wasm-bindgen --target web --no-typescript --out-dir pkg --out-name executor \
 grep -q '^let wasmModule, wasmInstance, wasm;' pkg/executor.js || { echo "unexpected wasm-bindgen glue" >&2; exit 1; }
 printf '\nexport function __nullrpc_reset() { wasm = undefined; wasmInstance = undefined; }\n' >> pkg/executor.js
 if command -v wasm-opt >/dev/null 2>&1; then
-  wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext \
+  wasm-opt -O3 --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext \
     --enable-mutable-globals --strip-debug --strip-producers \
     -o pkg/executor_bg.wasm pkg/executor_bg.wasm
 else
