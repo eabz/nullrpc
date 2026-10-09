@@ -10,12 +10,10 @@
 /** The Cloudflare account of the RPC Worker (GraphQL accountTag). */
 export const CF_ACCOUNT_ID = "60401d41768f5312f816303569019bb5";
 
-import NETWORK_LIST from "../../networks.json";
+import { networks as listed, type Network } from "../../networks";
 
-/** The endpoints the page lists (apps/networks.json, enabled ones). Keep public/index.html's picker in sync. */
-export const NETWORKS: readonly { chain_id: number; name: string; url: string }[] = NETWORK_LIST.networks
-  .filter((n) => n.enabled)
-  .map((n) => ({ chain_id: n.chain_id, name: n.label, url: n.url }));
+// The endpoints the page lists come from apps/networks.ts at runtime (the CONFIG KV namespace,
+// else the bundled networks.json); the page builds its picker from /api/networks.
 
 /** Bucket, span and cache lifetime per range (GraphQL allows at most a week per query). */
 export const RANGES = {
@@ -39,8 +37,13 @@ const block = (v: unknown) =>
 
 export interface NetworkStatus {
   chain_id: number;
+  /** The short name ("Hoodi") and the full one ("Hoodi testnet"). */
+  short_name: string;
   name: string;
   url: string;
+  testnet: boolean;
+  explorer: string | null;
+  currency: { name: string; symbol: string; decimals: number } | null;
   state: string;
   latest: { number: number | null; timestamp: number | null };
   finalized: number | null;
@@ -49,9 +52,10 @@ export interface NetworkStatus {
 }
 
 /** One endpoint's public status; `unavailable` when it cannot be read or is another chain. */
-export async function networkStatus(fetcher: Fetcher, n: (typeof NETWORKS)[number]): Promise<NetworkStatus> {
+export async function networkStatus(fetcher: Fetcher, n: Network): Promise<NetworkStatus> {
   const down: NetworkStatus = {
-    chain_id: n.chain_id, name: n.name, url: n.url, state: "unavailable",
+    chain_id: n.chain_id, short_name: n.name, name: n.label, url: n.url, testnet: n.testnet,
+    explorer: n.explorer ?? null, currency: n.currency ?? null, state: "unavailable",
     latest: { number: null, timestamp: null }, finalized: null, archived_through: null, peers: null,
   };
   try {
@@ -72,8 +76,8 @@ export async function networkStatus(fetcher: Fetcher, n: (typeof NETWORKS)[numbe
   }
 }
 
-export async function networks(fetcher: Fetcher, now = Date.now()) {
-  return { generated_at: now, networks: await Promise.all(NETWORKS.map((n) => networkStatus(fetcher, n))) };
+export async function networks(fetcher: Fetcher, list: Network[], now = Date.now()) {
+  return { generated_at: now, networks: await Promise.all(list.map((n) => networkStatus(fetcher, n))) };
 }
 
 export interface Usage {
@@ -205,7 +209,7 @@ async function cached(
 /** Routes /api/*; null for any other path. */
 export async function api(
   url: URL,
-  env: { CF_ANALYTICS_TOKEN?: string },
+  env: { CF_ANALYTICS_TOKEN?: string; CONFIG?: KVNamespace },
   ctx: ExecutionContext | undefined,
   fetcher: Fetcher = fetch,
 ): Promise<Response | null> {
@@ -216,13 +220,15 @@ export async function api(
       headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
     });
   if (url.pathname === "/api/networks") {
-    return cached(`${url.origin}/api/networks`, ctx, NETWORKS_TTL_S, () => networks(fetcher));
+    const list = await listed(env.CONFIG);
+    return cached(`${url.origin}/api/networks`, ctx, NETWORKS_TTL_S, () => networks(fetcher, list));
   }
   if (url.pathname === "/api/usage") {
     const range = url.searchParams.get("range") ?? "24h";
     if (!isRange(range)) return err(400, "range must be one of 1h, 24h, 7d");
-    const chainId = Number(url.searchParams.get("chain") ?? NETWORKS[0]?.chain_id);
-    if (!NETWORKS.some((n) => n.chain_id === chainId)) return err(400, "unknown chain");
+    const list = await listed(env.CONFIG);
+    const chainId = Number(url.searchParams.get("chain") ?? list[0]?.chain_id);
+    if (!list.some((n) => n.chain_id === chainId)) return err(400, "unknown chain");
     const opts = { account: CF_ACCOUNT_ID, token: env.CF_ANALYTICS_TOKEN ?? "", chainId, range };
     return cached(`${url.origin}/api/usage?chain=${chainId}&range=${range}`, ctx, RANGES[range].ttlS, () => usage(fetcher, opts));
   }

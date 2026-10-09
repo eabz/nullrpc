@@ -6,6 +6,7 @@
     "packages/*"
   ],
   "scripts": {
-    "typecheck": "bun run --filter '*' typecheck"
+    "typecheck": "bun run --filter '*' typecheck",
+    "networks:push": "wrangler kv key put networks --path apps/networks.json --binding CONFIG --config apps/landing/wrangler.jsonc --remote"
   }
 }

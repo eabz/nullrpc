@@ -76,7 +76,7 @@ async function cached(
 
 async function status(url: URL, env: Env): Promise<Response> {
   const id = url.searchParams.get("chain");
-  const chain = chains(env).find((c) => c.id === id);
+  const chain = (await chains(env)).find((c) => c.id === id);
   if (!chain) return json({ error: "unknown chain" }, 400);
   const live = liveBinding(env, chain.id);
   if (!live) return endpointStatus(env, chain);
@@ -146,7 +146,7 @@ async function endpointStatus(env: Env, chain: Chain): Promise<Response> {
 async function historyRoute(url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
   const range = url.searchParams.get("range") ?? "1h";
   if (!isRange(range)) return json({ error: "range must be one of 1h, 24h, 7d" }, 400);
-  const chain = chains(env).find((c) => c.id === url.searchParams.get("chain"));
+  const chain = (await chains(env)).find((c) => c.id === url.searchParams.get("chain"));
   if (!chain) return json({ error: "unknown chain" }, 400);
   const live = liveBinding(env, chain.id);
   // Without a live pipeline there are no per-minute samples yet: an empty history.
@@ -186,7 +186,7 @@ async function historyRoute(url: URL, env: Env, ctx: ExecutionContext): Promise<
 async function analyticsRoute(url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
   const range = url.searchParams.get("range") ?? "1h";
   if (!isRange(range)) return json({ error: "range must be one of 1h, 24h, 7d" }, 400);
-  const all = chains(env);
+  const all = await chains(env);
   const chainParam = url.searchParams.get("chain") ?? "all";
   const chainIds = chainParam === "all" ? all.map((c) => c.id) : all.filter((c) => c.id === chainParam).map((c) => c.id);
   if (chainIds.length === 0) return json({ error: "unknown chain" }, 400);
@@ -211,7 +211,7 @@ async function analyticsRoute(url: URL, env: Env, ctx: ExecutionContext): Promis
 
 /** Public pipeline status of one chain, read from its RPC endpoint's /status.json. */
 async function pipelineRoute(url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
-  const chain = chains(env).find((c) => c.id === url.searchParams.get("chain"));
+  const chain = (await chains(env)).find((c) => c.id === url.searchParams.get("chain"));
   if (!chain) return json({ error: "unknown chain" }, 400);
   const origin = endpoint(env, chain);
   if (!origin) return json({ error: "no endpoint configured for this chain", chain_id: chain.id }, 404);
@@ -244,7 +244,7 @@ export async function handle(request: Request, env: Env, ctx: ExecutionContext):
   let res: Response;
   switch (url.pathname) {
     case "/api/chains":
-      res = json({ chains: chains(env), analytics: !!env.CF_ANALYTICS_TOKEN }, 200, 60);
+      res = json({ chains: await chains(env), analytics: !!env.CF_ANALYTICS_TOKEN }, 200, 60);
       break;
     case "/api/status":
       res = await status(url, env);

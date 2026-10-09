@@ -5,6 +5,8 @@ export interface Env {
   CF_ANALYTICS_TOKEN?: string;
   /** Static assets (public/); served before the Worker for every path except /api/*. */
   ASSETS?: Fetcher;
+  /** Runtime configuration (KV): the `networks` list, see apps/networks.ts. */
+  CONFIG?: KVNamespace;
 }
 
 /** The Cloudflare account of the RPC Worker (GraphQL accountTag). */
@@ -14,12 +16,12 @@ export interface Chain {
   id: string;
   name: string;
   live: boolean;
+  testnet: boolean;
+  /** The public RPC endpoint origin. */
+  endpoint: string;
 }
 
-import NETWORK_LIST from "../../networks.json";
-
-/** The chains the status page shows and their public RPC endpoints (apps/networks.json, enabled ones). */
-const CHAINS = NETWORK_LIST.networks.filter((n) => n.enabled).map((n) => ({ id: String(n.chain_id), name: n.name, endpoint: n.url }));
+import { networks } from "../../networks";
 
 /** The `LIVE_{id}` service binding of a chain, if configured. */
 export function liveBinding(env: Env, id: string): Fetcher | null {
@@ -31,11 +33,12 @@ export function liveBinding(env: Env, id: string): Fetcher | null {
  * The chains shown by the status page. Every listed chain has live status: from its live
  * pipeline (`LIVE_{id}` binding) when bound, else from its RPC endpoint's /status.json.
  */
-export function chains(_env: Env): Chain[] {
-  return CHAINS.map((c) => ({ id: c.id, name: c.name, live: true }));
+export async function chains(env: Env): Promise<Chain[]> {
+  // apps/networks.ts: the CONFIG KV list (re-read at most once a minute), else the bundled file.
+  return (await networks(env.CONFIG)).map((n) => ({ id: String(n.chain_id), name: n.name, live: true, testnet: n.testnet, endpoint: n.url }));
 }
 
 /** The public RPC endpoint origin of a chain. */
 export function endpoint(_env: Env, chain: Chain): string | null {
-  return CHAINS.find((c) => c.id === chain.id)?.endpoint ?? null;
+  return chain.endpoint ?? null;
 }

@@ -9,7 +9,7 @@
 //   - The `Access` entrypoint, bound by the RPC Workers only (never public): key
 //     entitlements and metering flushes.
 
-import NETWORK_LIST from "../../networks.json";
+import { networks } from "../../networks";
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { getAddress } from "viem";
 import { creditInvoice, ensureAccount, entitlement, publicEntitlement, recordUsage, withdrawInvoice, type Invoice } from "./db";
@@ -32,6 +32,8 @@ import { consentText, parseBilling, taxCents, taxFor, withdrawalFor, type Billin
 
 export interface Env {
   DB: D1Database;
+  /** Runtime configuration (KV): the `networks` list, see apps/networks.ts. */
+  CONFIG?: KVNamespace;
   ASSETS: Fetcher;
   /** Secret: HMAC key of the session cookie and the sign-in nonce token. */
   SESSION_SECRET: string;
@@ -104,8 +106,10 @@ async function body(request: Request): Promise<Record<string, unknown> | null> {
   }
 }
 
-/** The RPC endpoints shown to users (apps/networks.json, enabled ones). */
-const ENDPOINTS = NETWORK_LIST.networks.filter((n) => n.enabled).map((n) => ({ chain_id: n.chain_id, name: n.name, url: n.url, testnet: n.testnet }));
+/** The RPC endpoints shown to users: apps/networks.ts (CONFIG KV, re-read at most once a minute; else the bundled file). */
+async function endpoints(env: Env) {
+  return (await networks(env.CONFIG)).map((n) => ({ chain_id: n.chain_id, name: n.name, url: n.url, testnet: n.testnet }));
+}
 
 // ---- compliance
 
@@ -282,7 +286,7 @@ async function api(request: Request, env: Env, url: URL, now: number): Promise<R
       max_keys: MAX_KEYS,
       credits: { default: CREDITS.default, invalid: CREDITS.invalid, methods: CREDITS.methods, ranges: CREDITS.ranges, typical: TYPICAL_CREDITS },
       networks: publicNetworks(NETWORKS),
-      endpoints: ENDPOINTS,
+      endpoints: await endpoints(env),
       treasury: TREASURY_ADDRESS,
       // Sign-in: the Turnstile widget's site key, or null when Turnstile is off.
       turnstile_site_key: turnstileEnabled(env) ? TURNSTILE_SITE_KEY : null,
@@ -335,7 +339,7 @@ async function api(request: Request, env: Env, url: URL, now: number): Promise<R
   const termsAccepted = status?.terms_version === TERMS_VERSION;
 
   if (path === "/api/me" && method === "GET") {
-    return json({ account: await accountView(env, address, now), keys: await keysView(env, address), endpoints: ENDPOINTS, ...(await legalView(env, address)) });
+    return json({ account: await accountView(env, address, now), keys: await keysView(env, address), endpoints: await endpoints(env), ...(await legalView(env, address)) });
   }
 
   // Free-plan gate: re-check an `unverified` wallet's on-chain history (src/gate.ts).

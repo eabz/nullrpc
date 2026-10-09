@@ -811,7 +811,7 @@ let pickerActive = 0;
 function pickerOptions() {
   const opts = [];
   if (state.chains.length > 1) opts.push({ id: "all", name: "All networks", group: "" });
-  for (const c of state.chains) opts.push({ ...c, group: TESTNETS.has(c.id) ? "Testnets" : "Networks" });
+  for (const c of state.chains) opts.push({ ...c, group: (c.testnet ?? TESTNETS.has(c.id)) ? "Testnets" : "Networks" });
   return opts;
 }
 

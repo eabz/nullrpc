@@ -17,6 +17,8 @@ export interface Env {
   ASSETS: Fetcher;
   /** Secret: API token with "Account Analytics: Read" only. Without it /api/usage is unavailable. */
   CF_ANALYTICS_TOKEN?: string;
+  /** Runtime configuration (KV): the `networks` list, see apps/networks.ts. */
+  CONFIG?: KVNamespace;
 }
 
 /** Old legal URLs → their place in the bilingual pages. */

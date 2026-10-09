@@ -18,6 +18,8 @@
   // Worker logs only; no per-request invocation logs, which would record client IP addresses.
   "observability": { "enabled": true, "logs": { "enabled": true, "invocation_logs": false } },
   "routes": [{ "pattern": "app.nullrpc.dev", "custom_domain": true }],
+  // Runtime configuration: the networks list (apps/networks.ts; `bun run networks:push` updates it).
+  "kv_namespaces": [{ "binding": "CONFIG", "id": "41505b2a2056481a82b012c92c9f841f" }],
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",

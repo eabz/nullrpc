@@ -121,8 +121,11 @@
     if (tryStatus) tryStatus.textContent = "";
     onNetworkChange();
   }
+  function selectedOption() {
+    return options.find(function (li) { return li.getAttribute("aria-selected") === "true"; }) || options[0];
+  }
   if (button && list && options.length) {
-    selected = optionData(options[0]);
+    selected = optionData(selectedOption());
     button.addEventListener("click", function () { list.hidden ? openList() : closeList(true); });
     button.addEventListener("keydown", function (e) {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); openList(); }
@@ -135,14 +138,57 @@
       else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(active); closeList(true); }
       else if (e.key === "Escape" || e.key === "Tab") { closeList(e.key === "Escape"); }
     });
-    options.forEach(function (li, i) {
-      li.addEventListener("click", function () { choose(i); closeList(true); });
-      li.addEventListener("mousemove", function () { if (active !== i) setActive(i); });
+    // Delegated, so the list can be rebuilt from /api/networks.
+    list.addEventListener("click", function (e) {
+      var i = options.indexOf(e.target.closest('[role="option"]'));
+      if (i >= 0) { choose(i); closeList(true); }
+    });
+    list.addEventListener("mousemove", function (e) {
+      var i = options.indexOf(e.target.closest('[role="option"]'));
+      if (i >= 0 && active !== i) setActive(i);
     });
     document.addEventListener("click", function (e) {
       if (!list.hidden && !list.contains(e.target) && !button.contains(e.target)) closeList(false);
     });
   }
+
+  // ---- networks from /api/networks (apps/networks.ts, loaded at runtime): the picker is rebuilt
+  // from the live list, so adding or stopping a network needs no deploy. The static options in
+  // the HTML are the fallback without JavaScript or when the list cannot be read.
+  var ETH_MARK = '<svg class="network-mark net-mark" viewBox="0 0 256 417" width="24" height="24" aria-hidden="true" focusable="false"><g fill="currentColor"><path fill-opacity=".8" d="M127.96 0l-2.8 9.5v275.67l2.8 2.79 127.96-75.64z"/><path fill-opacity=".45" d="M127.96 0L0 212.32l127.96 75.64V154.16z"/><path fill-opacity=".8" d="M127.96 312.19l-1.58 1.92v98.2l1.58 4.6L256 236.59z"/><path fill-opacity=".45" d="M127.96 416.9V312.19L0 236.59z"/><path d="M127.96 287.96l127.96-75.64-127.96-58.16z"/><path fill-opacity=".8" d="M0 212.32l127.96 75.64v-133.8z"/></g></svg>';
+  var TESTNET_MARK = '<svg class="network-mark net-mark" viewBox="0 0 32 32" width="24" height="24" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="14.75" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3.1 2.7" stroke-opacity=".8"/><g fill="currentColor" transform="translate(10.5 6.8) scale(.043)"><path fill-opacity=".8" d="M127.96 0l-2.8 9.5v275.67l2.8 2.79 127.96-75.64z"/><path fill-opacity=".45" d="M127.96 0L0 212.32l127.96 75.64V154.16z"/><path fill-opacity=".8" d="M127.96 312.19l-1.58 1.92v98.2l1.58 4.6L256 236.59z"/><path fill-opacity=".45" d="M127.96 416.9V312.19L0 236.59z"/><path d="M127.96 287.96l127.96-75.64-127.96-58.16z"/><path fill-opacity=".8" d="M0 212.32l127.96 75.64v-133.8z"/></g></svg>';
+  function el(tag, attrs, text) {
+    var n = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) { n.setAttribute(k, attrs[k]); });
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function rebuildNetworks(list_) {
+    if (!list || !button || !list_.length) return;
+    var groups = [["main", "Networks", list_.filter(function (n) { return !n.testnet; })], ["test", "Testnets", list_.filter(function (n) { return n.testnet; })]];
+    var keep = list_.some(function (n) { return n.chain_id === selected.chain; }) ? selected.chain : list_[0].chain_id;
+    list.replaceChildren();
+    groups.forEach(function (g) {
+      if (!g[2].length) return;
+      var group = el("li", { role: "group", "aria-labelledby": "net-group-" + g[0] });
+      group.appendChild(el("span", { class: "net-group", id: "net-group-" + g[0] }, g[1]));
+      var ul = el("ul", { role: "presentation" });
+      g[2].forEach(function (n) {
+        var li = el("li", { role: "option", id: "net-opt-" + n.chain_id, "data-chain": String(n.chain_id), "data-url": n.url, "data-name": n.short_name, "data-label": n.name, "aria-selected": String(n.chain_id === keep) });
+        li.insertAdjacentHTML("beforeend", n.chain_id === 1 ? ETH_MARK : n.testnet ? TESTNET_MARK : ETH_MARK);
+        li.appendChild(el("span", { class: "net-opt-name" }, n.short_name));
+        li.appendChild(el("span", { class: "net-sub" }, "ID " + n.chain_id));
+        ul.appendChild(li);
+        if (n.currency) WALLET_CHAINS[n.chain_id] = { chainName: n.short_name + " (nullrpc)", nativeCurrency: n.currency, explorer: n.explorer };
+      });
+      group.appendChild(ul);
+      list.appendChild(group);
+    });
+    options = Array.prototype.slice.call(list.querySelectorAll('[role="option"]'));
+    var i = options.indexOf(selectedOption());
+    if (optionData(options[i]).chain !== selected.chain) choose(i);
+  }
+  getJSON("/api/networks").then(function (d) { if (d && Array.isArray(d.networks)) rebuildNetworks(d.networks); }, function () {});
 
   // ---- add to wallet (EIP-3085 wallet_addEthereumChain, injected EIP-1193 provider)
   var WALLET_CHAINS = {

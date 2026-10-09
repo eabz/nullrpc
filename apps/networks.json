@@ -1,5 +1,5 @@
 {
-  "_comment": "The RPC networks nullrpc serves. Single source for the landing page, the status dashboard and the account app. `enabled` networks are listed publicly; flip mainnet on once nullrpc-rpc-1 is deployed.",
+  "_comment": "The RPC networks nullrpc serves, listed by the landing page, the status dashboard and the account app at runtime (apps/networks.ts). To add, stop or change a network: edit this file, then `bun run networks:push` (writes it to the CONFIG KV namespace; live within a minute, no redeploy). `enabled` networks are listed publicly. The copy bundled at deploy time is the fallback.",
   "networks": [
     {
       "chain_id": 560048,
@@ -9,7 +9,11 @@
       "testnet": true,
       "enabled": true,
       "explorer": "https://hoodi.etherscan.io",
-      "currency": { "name": "Hoodi Ether", "symbol": "ETH", "decimals": 18 }
+      "currency": {
+        "name": "Hoodi Ether",
+        "symbol": "ETH",
+        "decimals": 18
+      }
     },
     {
       "chain_id": 1,
@@ -19,7 +23,11 @@
       "testnet": false,
       "enabled": true,
       "explorer": "https://etherscan.io",
-      "currency": { "name": "Ether", "symbol": "ETH", "decimals": 18 }
+      "currency": {
+        "name": "Ether",
+        "symbol": "ETH",
+        "decimals": 18
+      }
     }
   ]
 }
