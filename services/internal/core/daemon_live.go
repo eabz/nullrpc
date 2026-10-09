@@ -107,14 +107,19 @@ type ingestRow struct {
 }
 
 // writeGroups writes groups of blocks (shards, then block rows, then the head) in one request.
-func (c *liveClient) writeGroups(groups [][]*liveBlock, shards int, safe, finalized *BlockID) error {
+// network is the node's head, which the status page measures the lag to; nil omits it.
+func (c *liveClient) writeGroups(groups [][]*liveBlock, shards int, safe, finalized, network *BlockID) error {
 	rows := make([]ingestRow, len(groups))
 	for i, g := range groups {
 		rows[i] = encodeGroup(g, shards)
 	}
 	last := groups[len(groups)-1]
 	head := last[len(last)-1].id()
-	return c.do("POST", "/ingest/blocks", map[string]any{"rows": rows, "head": head, "safe": safe, "finalized": finalized}, nil)
+	body := map[string]any{"rows": rows, "head": head, "safe": safe, "finalized": finalized}
+	if network != nil {
+		body["network_head"] = network
+	}
+	return c.do("POST", "/ingest/blocks", body, nil)
 }
 
 func (c *liveClient) reorg(ancestor BlockID, removed []BlockID) error {

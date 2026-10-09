@@ -59,6 +59,7 @@ type daemon struct {
 	promoted  atomic.Pointer[BlockID] // P
 	finalized atomic.Pointer[BlockID]
 	safe      atomic.Pointer[BlockID]
+	network   atomic.Pointer[BlockID] // the node's head, the status page's lag target
 	wake      chan struct{}
 }
 
@@ -377,16 +378,15 @@ func (d *daemon) blockTag(tag string) (*BlockID, error) {
 
 // step brings the spool and the live window up to the node's head.
 func (d *daemon) step() error {
-	raw, err := d.rpc.call("eth_blockNumber")
+	latest, err := d.blockTag("latest")
 	if err != nil {
 		return err
 	}
-	var hexHead string
-	json.Unmarshal(raw, &hexHead)
-	nodeHead, err := parseQuantity(hexHead)
-	if err != nil {
-		return err
+	if latest == nil {
+		return errors.New("the node has no latest block")
 	}
+	d.network.Store(latest)
+	nodeHead := latest.Number
 	if fin, err := d.blockTag("finalized"); err == nil && fin != nil {
 		d.finalized.Store(fin)
 	}
@@ -452,7 +452,7 @@ func (d *daemon) flush(all bool) error {
 		batch := groups[start:min(start+64, len(groups))]
 		last := batch[len(batch)-1]
 		head := last[len(last)-1]
-		if err := d.live.writeGroups(batch, d.shards, capAt(safe, head.Number), capAt(fin, head.Number)); err != nil {
+		if err := d.live.writeGroups(batch, d.shards, capAt(safe, head.Number), capAt(fin, head.Number), d.network.Load()); err != nil {
 			return err
 		}
 		for _, g := range batch {

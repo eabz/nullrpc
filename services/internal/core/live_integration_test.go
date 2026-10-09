@@ -40,7 +40,7 @@ func TestLiveIntegration(t *testing.T) {
 		blocks = append(blocks, b)
 	}
 	// Groups of 4: 100-103, 104-107.
-	if err := c.writeGroups([][]*liveBlock{blocks[:4], blocks[4:]}, st.Shards, nil, nil); err != nil {
+	if err := c.writeGroups([][]*liveBlock{blocks[:4], blocks[4:]}, st.Shards, nil, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	if st, _ = c.state(); st.Head == nil || *st.Head != blocks[7].id() {
@@ -61,7 +61,7 @@ func TestLiveIntegration(t *testing.T) {
 		t.Fatalf("after prune %+v", st)
 	}
 	// Writing 106 again on top of the trimmed group.
-	if err := c.writeGroups([][]*liveBlock{blocks[4:7]}, st.Shards, nil, nil); err != nil {
+	if err := c.writeGroups([][]*liveBlock{blocks[4:7]}, st.Shards, nil, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	if st, _ = c.state(); *st.Head != blocks[6].id() {
