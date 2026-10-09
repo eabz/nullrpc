@@ -339,6 +339,7 @@ button.card:hover { background: var(--surface-2); }
 .mk-exec { --mk: var(--accent); }
 .mk-fin { --mk: var(--good); }
 .mk-opt { --mk: var(--warning); }
+.mk-net { --mk: var(--series-2); }
 
 /* ------------------------------------------------------------------ KPI tiles */
 

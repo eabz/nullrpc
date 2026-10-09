@@ -410,13 +410,16 @@ function chainTrack(st) {
     { key: "tip", cls: "mk-tip", label: "Archive", n: headNum(st.r2_tip) },
     { key: "exec", cls: "mk-exec", label: "Head", n: headNum(st.executed_head) },
     { key: "fin", cls: "mk-fin", label: "Finalized", n: headNum(st.finalized) },
-    { key: "opt", cls: "mk-opt", label: "Optimistic", n: headNum(st.optimistic) ?? headNum(st.target) },
+    { key: "opt", cls: "mk-opt", label: "Optimistic", n: headNum(st.optimistic) },
+    // The network head, when the pipeline is behind it: part of the scale, so the lag segment
+    // ends inside the bar.
+    { key: "net", cls: "mk-net", label: "Network", n: headNum(st.target) != null && headNum(st.target) > (headNum(st.executed_head) ?? -1) ? headNum(st.target) : null },
   ].filter((m) => m.n != null);
   if (marks.length < 2) return null;
   const lo = Math.min(...marks.map((m) => m.n));
   const hi = Math.max(...marks.map((m) => m.n));
   const span = Math.max(1, hi - lo);
-  const pos = (n) => (n - lo) / span;
+  const pos = (n) => Math.min(1, Math.max(0, (n - lo) / span));
   const exec = headNum(st.executed_head) ?? lo;
   const target = headNum(st.target) ?? hi;
 
