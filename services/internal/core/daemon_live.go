@@ -30,6 +30,9 @@ type liveClient struct {
 	url   string
 	token string
 	http  *http.Client
+	// promotion is the daemon's promotion rule (batch, max_age_s, max_batches, group), sent with
+	// every write so ChainDO can tell the status page when the next promotion is due.
+	promotion map[string]any
 }
 
 func newLiveClient(url, token string) *liveClient {
@@ -95,7 +98,14 @@ func (c *liveClient) state() (liveState, error) {
 
 func (c *liveClient) init(promoted BlockID, generation uint64) (liveState, error) {
 	var st liveState
-	return st, c.do("POST", "/ingest/init", map[string]any{"promoted": promoted, "generation": generation}, &st)
+	return st, c.do("POST", "/ingest/init", c.withPromotion(map[string]any{"promoted": promoted, "generation": generation}), &st)
+}
+
+func (c *liveClient) withPromotion(body map[string]any) map[string]any {
+	if c.promotion != nil {
+		body["promotion"] = c.promotion
+	}
+	return body
 }
 
 // ingestRow is one group: its ChainDO row and one row per touched shard.
@@ -115,7 +125,7 @@ func (c *liveClient) writeGroups(groups [][]*liveBlock, shards int, safe, finali
 	}
 	last := groups[len(groups)-1]
 	head := last[len(last)-1].id()
-	body := map[string]any{"rows": rows, "head": head, "safe": safe, "finalized": finalized}
+	body := c.withPromotion(map[string]any{"rows": rows, "head": head, "safe": safe, "finalized": finalized})
 	if network != nil {
 		body["network_head"] = network
 	}
@@ -127,7 +137,7 @@ func (c *liveClient) reorg(ancestor BlockID, removed []BlockID) error {
 }
 
 func (c *liveClient) prune(promoted BlockID, generation uint64) error {
-	return c.do("POST", "/ingest/prune", map[string]any{"promoted": promoted, "generation": generation}, nil)
+	return c.do("POST", "/ingest/prune", c.withPromotion(map[string]any{"promoted": promoted, "generation": generation}), nil)
 }
 
 func appendSection(dst []byte, first uint64, b *liveBlock, payload []byte) []byte {
