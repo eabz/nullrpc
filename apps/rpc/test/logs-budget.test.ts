@@ -81,16 +81,25 @@ describe("log index reads are planned and shared", () => {
 });
 
 describe("candidate blocks are read in coalesced runs", () => {
-  test("two neighbouring blocks cost one offsets page and one range read of blocks.pack", async () => {
+  test("two neighbouring blocks cost one offsets page and one range read of receipts.pack, never blocks.pack", async () => {
     const { chain, source } = await open(SPLIT);
     const got = await getLogs(chain, { fromBlock: hex(20_000_000), toBlock: hex(20_000_001) });
     expect(got).toEqual(scan((l) => inRange(l, 20_000_000, 20_000_001)));
     expect(packReads(source, "offsets.bin")).toHaveLength(1);
-    const runs = packReads(source, "blocks.pack");
+    expect(packReads(source, "blocks.pack")).toHaveLength(0);
+    const runs = packReads(source, "receipts.pack");
     expect(runs).toHaveLength(1);
     // The run starts at a window boundary and covers both frames.
     expect(runs[0]!.offset % (256 * 1024)).toBe(0);
     expect(runs[0]!.length).toBeGreaterThan(0);
+  });
+
+  test("a layout-1 generation is read as before: one range read of blocks.pack", async () => {
+    const { chain, source } = await open(buildArchive(FIXTURES, { layout: 1, extra: (b) => ({ log_index: logIndex(b, FIXTURES, 2 ** 25) }) }));
+    const got = await getLogs(chain, { fromBlock: hex(20_000_000), toBlock: hex(20_000_001) });
+    expect(got).toEqual(scan((l) => inRange(l, 20_000_000, 20_000_001)));
+    expect(packReads(source, "blocks.pack")).toHaveLength(1);
+    expect(packReads(source, "receipts.pack")).toHaveLength(0);
   });
 
   test("results keep block order across runs and a topic filter", async () => {
@@ -132,7 +141,7 @@ describe("the read budget refuses early with the range that fits", () => {
     const { chain, source } = await open(SPLIT);
     // No filter: two candidates, one offsets page, one run. Budget 1 pays the page, not the run.
     await expect(getLogs(chain, { fromBlock: hex(20_000_000), toBlock: hex(20_000_001) }, 1)).rejects.toMatchObject({ code: -32005, message: expect.stringMatching(/needs more than 1 reads/) });
-    expect(packReads(source, "blocks.pack")).toHaveLength(0);
+    expect(packReads(source, "receipts.pack")).toHaveLength(0);
     expect(await getLogs(chain, { fromBlock: hex(20_000_000), toBlock: hex(20_000_001) }, 2)).toEqual(scan((l) => inRange(l, 20_000_000, 20_000_001)));
   });
 

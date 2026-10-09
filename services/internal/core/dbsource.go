@@ -441,7 +441,11 @@ func (s *dbBlockSource) fetchRange(ctx context.Context, first, last uint64) ([]*
 			if err != nil {
 				return err
 			}
-			out = append(out, &fetchedBlock{blockInfo: info, record: compressFrame(plain)})
+			fb, err := splitFrames(plain, info)
+			if err != nil {
+				return err
+			}
+			out = append(out, fb)
 		}
 		return nil
 	}()
@@ -458,7 +462,9 @@ func (s *dbBlockSource) fetchRange(ctx context.Context, first, last uint64) ([]*
 			if err != nil {
 				return nil, err
 			}
-			out[src.number-first] = &fetchedBlock{blockInfo: info, record: compressFrame(plain)}
+			if out[src.number-first], err = splitFrames(plain, info); err != nil {
+				return nil, err
+			}
 		}
 	}
 	for _, n := range needRPC {

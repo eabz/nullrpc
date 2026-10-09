@@ -61,10 +61,13 @@ flight, bounded by `MAX_BLOCKS`.
 Reads are planned before they are issued: the index cost follows from the manifest (a small index
 object is read whole, two reads whatever the filter; a large one costs two reads per field value
 and partition, identical reads shared), candidate blocks are fetched in coalesced range reads of
-`blocks.pack` (aligned 256 KiB windows, up to 2 MiB per read, so the same region reads under the
-same edge-cache key whatever the query), six reads in flight at a time with the next wave read
-while one is decoded, and a block's frame is decoded only as far as its logs need (the header,
-the receipts, and the hash of a transaction with a matching log). A query over any limit is
+`receipts.pack` (a layout-2 segment stores receipts apart from the transactions; `blocks.pack`
+in older generations; aligned 256 KiB windows, up to 2 MiB per read, so the same region reads
+under the same edge-cache key whatever the query), six reads in flight at a time with the next
+wave read while one is decoded, and a frame is decoded only as far as its logs need (a receipts
+frame carries the block's number, timestamp and transaction hashes, so nothing of the
+transactions is read; of a whole record, the header, the receipts, and the hash of a
+transaction with a matching log). A query over any limit is
 refused with `-32005` and, in the message and `error.data` (`{fromBlock, toBlock}`), the range
 starting at its `fromBlock` that would fit; without a fitting range (too many addresses or topics
 for the index) the message says to narrow the range or add filters.

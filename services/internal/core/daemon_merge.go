@@ -455,7 +455,9 @@ func mergeLogIndexObjects(src objectSource, objs []LogIndexObject, local localAr
 
 // ---- chunk consolidation ----
 
-// readSegmentBlocks reads every block frame of a segment, each checked against offsets.bin.
+// readSegmentBlocks reads every block of a segment, each frame checked against offsets.bin,
+// as layout-2 frames: a layout-1 segment's records are split (segment_split.go), so a merge
+// rewrites a chunk in layout 2 whatever its segments were.
 func readSegmentBlocks(src objectSource, s SegmentRef) ([]segmentBlock, string, error) {
 	metaRaw, err := src.get(s.Meta.Key)
 	if err != nil {
@@ -468,33 +470,87 @@ func readSegmentBlocks(src objectSource, s SegmentRef) ([]segmentBlock, string, 
 	if err := json.Unmarshal(metaRaw, &meta); err != nil {
 		return nil, "", err
 	}
-	offRef, packRef := meta.Files["offsets.bin"], meta.Files["blocks.pack"]
-	offsets, err := src.get(offRef.Key)
+	recLen, err := segmentRecordLen(&meta)
+	if err != nil {
+		return nil, "", fmt.Errorf("segment %d-%d: %w", s.First, s.Last, err)
+	}
+	checked := func(name string) ([]byte, error) {
+		ref, ok := meta.Files[name]
+		if !ok {
+			return nil, fmt.Errorf("segment %d-%d lacks %s", s.First, s.Last, name)
+		}
+		data, err := src.get(ref.Key)
+		if err != nil {
+			return nil, err
+		}
+		if uint64(len(data)) != ref.Bytes || sha256Hex(data) != ref.Sha256 {
+			return nil, fmt.Errorf("%s does not match its reference", ref.Key)
+		}
+		return data, nil
+	}
+	offsets, err := checked("offsets.bin")
 	if err != nil {
 		return nil, "", err
 	}
-	pack, err := src.get(packRef.Key)
+	pack, err := checked("blocks.pack")
 	if err != nil {
 		return nil, "", err
 	}
-	if sha256Hex(offsets) != offRef.Sha256 || sha256Hex(pack) != packRef.Sha256 {
-		return nil, "", fmt.Errorf("segment %d-%d files do not match their references", s.First, s.Last)
+	var rpack []byte
+	if recLen == offsetRecordLenV2 {
+		if rpack, err = checked("receipts.pack"); err != nil {
+			return nil, "", err
+		}
 	}
 	n := s.Last - s.First + 1
-	if uint64(len(offsets)) != n*offsetRecordLen {
+	if uint64(len(offsets)) != n*recLen {
 		return nil, "", fmt.Errorf("segment %d-%d offsets.bin has the wrong size", s.First, s.Last)
 	}
+	slice := func(data []byte, rec []byte, at int, what string, number uint64) (frame, error) {
+		off, length, unc, sum := frameAt(rec, at)
+		if off < packHeader || off+length > uint64(len(data)) || length == 0 {
+			return frame{}, fmt.Errorf("block %d %s frame outside its pack", number, what)
+		}
+		fr := data[off : off+length]
+		if sha256Hex(fr) != sum {
+			return frame{}, fmt.Errorf("block %d %s frame digest mismatch", number, what)
+		}
+		return frame{data: fr, uncompressed: unc, sha256: sum}, nil
+	}
+	var dec *zstd.Decoder
+	var k *keccak
 	out := make([]segmentBlock, n)
 	for i := range n {
-		rec := offsets[i*offsetRecordLen : (i+1)*offsetRecordLen]
-		off := binary.LittleEndian.Uint64(rec[32:])
-		length := uint64(binary.LittleEndian.Uint32(rec[40:]))
-		data := pack[off : off+length]
-		if sha256Hex(data) != hex.EncodeToString(rec[48:80]) {
-			return nil, "", fmt.Errorf("block %d frame digest mismatch", s.First+i)
+		rec := offsets[i*recLen : (i+1)*recLen]
+		number := s.First + i
+		b := segmentBlock{number: number, hash: "0x" + hex.EncodeToString(rec[:32])}
+		if b.record, err = slice(pack, rec, 32, "block", number); err != nil {
+			return nil, "", err
 		}
-		out[i] = segmentBlock{number: s.First + i, hash: "0x" + hex.EncodeToString(rec[:32]),
-			record: frame{data: data, uncompressed: uint64(binary.LittleEndian.Uint32(rec[44:])), sha256: hex.EncodeToString(rec[48:80])}}
+		if recLen == offsetRecordLenV2 {
+			if b.receipts, err = slice(rpack, rec, 80, "receipts", number); err != nil {
+				return nil, "", err
+			}
+		} else {
+			// A layout-1 record: decompress, split, and compress both halves.
+			if dec == nil {
+				if dec, err = zstd.NewReader(nil); err != nil {
+					return nil, "", err
+				}
+				defer dec.Close()
+				k = newKeccak()
+			}
+			plain, err := dec.DecodeAll(b.record.data, make([]byte, 0, b.record.uncompressed))
+			if err != nil || uint64(len(plain)) != b.record.uncompressed {
+				return nil, "", fmt.Errorf("block %d record does not decode", number)
+			}
+			block, receipts, err := splitRecord(plain, nil, k)
+			if err != nil {
+				return nil, "", fmt.Errorf("block %d: %w", number, err)
+			}
+			b.record, b.receipts = compressFrame(block), compressFrame(receipts)
+		}
+		out[i] = b
 	}
 	return out, meta.FirstParentHash, nil
 }
