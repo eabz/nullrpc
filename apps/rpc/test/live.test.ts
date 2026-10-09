@@ -3,8 +3,8 @@ import { describe, expect, test } from "vitest";
 import { Archive } from "../src/archive/archive";
 import { MemorySource } from "../src/archive/source";
 import { Chain } from "../src/chain";
-import type { BlockId, LiveApi, LiveState } from "../src/live";
-import { Live } from "../src/live";
+import type { BlockId, LiveApi, LiveState, PointerCache } from "../src/live";
+import { Live, POINTERS_KEY, POINTERS_MAX_AGE_MS } from "../src/live";
 import { METHODS } from "../src/methods";
 import { renderPage, statusBody } from "../src/page/page";
 import { ChainStateSource } from "../src/state-source";
@@ -119,6 +119,92 @@ describe("live window", () => {
     const chain = await Chain.open(archive, new Live(api), now + 1);
     expect(chain.archived).toBe(20_000_001);
     expect(((await call(chain, "eth_getBlockByNumber", hex(20_000_001), false)) as { hash: string }).hash).toBe(ARCHIVED.at(-1)!.block.hash);
+  });
+});
+
+describe("live pointers in R2", () => {
+  const encode = (doc: unknown) => new TextEncoder().encode(JSON.stringify(doc));
+  /** live/HEAD.json as the daemon writes it, `age` ms before `now`. */
+  const pointers = (state: LiveState, now: number, age = 500) =>
+    encode({ version: 1, head: state.head, safe: state.safe, finalized: state.finalized, promoted: state.promoted, generation: state.generation, written_at: new Date(now - age).toISOString() });
+
+  /** A stand-in for caches.default: one data center's cache. */
+  class FakeCache implements PointerCache {
+    readonly store = new Map<string, Response>();
+    puts = 0;
+    async match(key: string) {
+      return this.store.get(key)?.clone();
+    }
+    async put(key: string, response: Response) {
+      this.puts++;
+      this.store.set(key, response);
+    }
+  }
+
+  async function openWith(api: LiveApi, object: Uint8Array | null, cache: PointerCache | null, now: number) {
+    const objects = new Map(OBJECTS);
+    if (object) objects.set(`${PREFIX}/${POINTERS_KEY}`, object);
+    const source = new MemorySource(objects);
+    const archive = new Archive(source, PREFIX);
+    const chain = await Chain.open(archive, new Live(api, { source, prefix: PREFIX, cache }), now);
+    return { chain, source };
+  }
+
+  test("the pointers come from live/HEAD.json, shared through the edge cache, not from the live Worker", async () => {
+    const { api, calls } = fakeLive();
+    const now = Date.now() + Math.random() * 1e12;
+    const state = await api.state();
+    calls.length = 0;
+    const cache = new FakeCache();
+    const { chain, source } = await openWith(api, pointers(state, now), cache, now);
+    expect(calls).not.toContain("state");
+    expect(await call(chain, "eth_blockNumber")).toBe(WINDOW.at(-1)!.block.number);
+    expect(chain.pointers()).toMatchObject({ latest: state.head!.number, safe: state.safe!.number, finalized: state.finalized!.number, archived: 20_000_001 });
+    expect(source.reads.some((r) => r.key === `${PREFIX}/${POINTERS_KEY}`)).toBe(true);
+    // Live reads still carry the pinned head.
+    expect(await call(chain, "eth_getBlockByNumber", "latest", false)).toMatchObject({ hash: state.head!.hash });
+    expect(calls.filter((c) => c.startsWith("block:"))).toHaveLength(1);
+    expect(cache.puts).toBe(1);
+    expect(cache.store.get(`https://live-pointers.nullrpc.invalid/${PREFIX}/${POINTERS_KEY}`)).toBeDefined();
+
+    // Another isolate in the same data center: the cache answers, neither R2 nor the DO is asked.
+    const other = fakeLive();
+    const second = await openWith(other.api, null, cache, now + 1);
+    expect(other.calls).not.toContain("state");
+    expect(second.source.reads.some((r) => r.key === `${PREFIX}/${POINTERS_KEY}`)).toBe(false);
+    expect(second.chain.pointers().latest).toBe(state.head!.number);
+    expect(cache.puts).toBe(1);
+  });
+
+  test("the service binding answers when the object is missing, malformed or old", async () => {
+    const now = Date.now() + Math.random() * 1e12;
+    for (const object of [null, encode({ version: 2 }), new TextEncoder().encode("{"), pointers((await fakeLive().api.state()), now, POINTERS_MAX_AGE_MS + 1_000)]) {
+      const { api, calls } = fakeLive();
+      const { chain } = await openWith(api, object, new FakeCache(), now);
+      expect(calls.filter((c) => c === "state")).toHaveLength(1);
+      expect(chain.pointers().latest).toBe(Number(WINDOW.at(-1)!.block.number));
+    }
+    // Just inside the limit the object still counts.
+    const { api, calls } = fakeLive();
+    const state = await api.state();
+    calls.length = 0;
+    await openWith(api, pointers(state, now, POINTERS_MAX_AGE_MS - 1_000), null, now);
+    expect(calls).not.toContain("state");
+  });
+
+  test("a stale pin re-reads the pointers from the live Worker, not from R2", async () => {
+    const { api, calls } = fakeLive({ staleOnce: true });
+    const now = Date.now() + Math.random() * 1e12;
+    const state = await api.state();
+    calls.length = 0;
+    // R2 still names a head the (scripted) reorg removed.
+    const { chain, source } = await openWith(api, pointers(state, now), new FakeCache(), now);
+    expect(calls).not.toContain("state");
+    const reads = source.reads.length;
+    expect(((await call(chain, "eth_getBlockByNumber", "latest", false)) as { hash: string }).hash).toBe(WINDOW.at(-1)!.block.hash);
+    // One stale answer, one authoritative state() through the binding, one retry with its head.
+    expect(calls).toEqual(["block:latest", "state", "block:latest"].map((c) => c.replace("latest", String(state.head!.number))));
+    expect(source.reads.slice(reads).some((r) => r.key === `${PREFIX}/${POINTERS_KEY}`)).toBe(false);
   });
 });
 

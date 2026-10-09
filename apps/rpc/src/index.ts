@@ -83,8 +83,12 @@ function pageConfig(env: Env): PageConfig {
 }
 
 function openChain(env: Env): Promise<Chain> {
-  const archive = new Archive(new R2Source(env.ARCHIVE), env.ARCHIVE_PREFIX);
-  return Chain.open(archive, env.LIVE ? new Live(env.LIVE) : null);
+  const source = new R2Source(env.ARCHIVE);
+  const archive = new Archive(source, env.ARCHIVE_PREFIX);
+  // The live pointers come from live/HEAD.json next to the archive (src/live.ts), through the
+  // data center's cache; the service binding is the fallback and the authority after a reorg.
+  const live = env.LIVE ? new Live(env.LIVE, { source, prefix: env.ARCHIVE_PREFIX, cache: typeof caches === "undefined" ? null : caches.default }) : null;
+  return Chain.open(archive, live);
 }
 
 // One ledger per isolate (per APP binding object).

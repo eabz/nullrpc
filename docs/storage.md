@@ -24,6 +24,7 @@ parameters, set per blockchain in "Parameters" at the end.
 ```text
 {chain-id}-{genesis-hash}/
   HEAD.json
+  live/HEAD.json                                    # the live window's pointers (see "Live pointers")
   manifests/{generation:020}-{sha256}.json
   config/{sha256}.json                              # genesis allocation and fork schedule
   segments/{first:020}-{last:020}-{last-hash}/{content-id}/
@@ -52,9 +53,9 @@ names and digests, so a directory's name changes whenever its content does.
 
 ### Rules
 
-- **`HEAD.json` is the only object that changes.** Every other object is written with
-  `If-None-Match: *` and never rewritten. Writing the same key again must produce the same
-  bytes.
+- **`HEAD.json` is the only object that changes**, apart from `live/HEAD.json` (below), which is
+  not part of the archive. Every other object is written with `If-None-Match: *` and never
+  rewritten. Writing the same key again must produce the same bytes.
 - **Nothing is found by listing.** A reader starts at `HEAD.json`, reads the manifest it names,
   and reaches every other object through references in the manifest.
 - **Every reference is checked.** An `ObjectRef` is `{"key", "bytes", "sha256"}`. `key` is the
@@ -104,6 +105,39 @@ The manifest of generation N:
 manifest, then `HEAD.json`. The first generation writes `HEAD.json` with `If-None-Match: *`.
 Every later one uses `If-Match` with the ETag of the `HEAD.json` it read. A conflict stops the
 writer; it never overwrites.
+
+### Live pointers
+
+`live/HEAD.json` is the live window's pointers, as `ChainDO.state()` would answer them, so the
+RPC Worker can open a request without a Durable Object call. It is the only object besides
+`HEAD.json` that changes, and the only one no manifest references.
+
+```json
+{
+  "version": 1,
+  "head": {"number": 1500000, "hash": "0x…"},
+  "safe": {"number": 1499968, "hash": "0x…"},
+  "finalized": {"number": 1499936, "hash": "0x…"},
+  "promoted": {"number": 1499904, "hash": "0x…"},
+  "generation": 97,
+  "written_at": "2026-10-09T12:00:00.5Z"
+}
+```
+
+The daemon writes it after every head move in the live Worker (every group of blocks, every
+reorg, every prune after a promotion, and at restart), unconditionally: the latest write wins,
+and the daemon serializes its own writes. `head` is the live Worker's head at the moment of the
+write, which is at least the head any block it has already written; `safe` and `finalized` are
+null when the node's are above the head; `promoted` is `P` and `generation` the archive
+generation the window was last pruned to. A failed write is logged and does not stop ingestion.
+
+A reader uses the object only when `version` is 1, `head` and `promoted` are well formed and
+`written_at` is less than a minute old (`POINTERS_MAX_AGE_MS` in apps/rpc/src/live.ts);
+otherwise it asks the live Worker, so a daemon that does not write the object, or stopped, loses
+nothing but the saved call. The reader caches the object for 2 s (per isolate and, through the
+edge cache, per data center), so a request may see the head up to about 2 s late. Every live
+read still carries the head it pinned, and a stale answer is always followed by a `state()` call
+to the live Worker, never by another copy of this object (see "Reads above `P`").
 
 ### Chain config
 
@@ -419,7 +453,7 @@ every write then updates them for the rows it touches, so reads after an ingest 
 | `setHead(head, safe, finalized, network_head)` | daemon | moves the head; the head's section must exist, or the head is `P` |
 | `fence(removed)`, `truncateAbove(n)` | daemon | reorgs |
 | `pruneAtOrBelow(promoted, generation)` | daemon | after a promotion; sets `P` |
-| `state()` | Worker | head, safe, finalized, `P`, generation, shard count |
+| `state()` | Worker | head, safe, finalized, `P`, generation, shard count (normally read from R2's `live/HEAD.json` instead; see "Live pointers") |
 | `block(number or hash, pin)` | Worker | a block's record, if at or below the pin |
 | `witness(number, pin)` | Worker | a block's witness |
 | `txBlock(hash, pin)` | Worker | the block of a transaction hash above `P` |
@@ -429,8 +463,10 @@ every write then updates them for the rows it touches, so reads after an ingest 
 every state key (`0x` optional, any case, the domain's key length; domains 1, 2 and 3 only)
 before it calls an object.
 
-The Worker caches `state()` per data center for half a block time, and block records and
-witnesses by block hash with no expiry, so most reads never reach the object.
+The Worker reads the pointers from `live/HEAD.json` in R2 (cached for 2 s per isolate and per
+data center) and calls `state()` only when that object is unusable or after a stale answer; it
+caches `state()` per isolate for half a block time, and block records and witnesses by block
+hash with no expiry, so most reads never reach the object.
 
 ### `StateShard`
 
@@ -492,13 +528,14 @@ seconds, except `at`, `last_progress`, `last_ingest` and error times (millisecon
 
 A state read at block `n`:
 
-1. The Worker pins the head `(M, H)` from its cached `state()`.
+1. The Worker pins the head `(M, H)` from `live/HEAD.json` (or its cached `state()`).
 2. If `n ≤ P`, it reads R2 state history at `n`.
 3. Otherwise it calls `getPinned(key, n, (M, H))` on the key's shard. A row in `P+1 … n`
    answers. No row means the key has not changed since `P`, and the Worker reads R2 history at
    `P`. The executor's reads (many keys per round) go through `getPinnedMany`: one call to the
    live Worker, which groups the keys by shard and asks every shard once.
-4. `stale` means a reorg removed the pinned head. The Worker reads `state()` again and retries.
+4. `stale` means a reorg removed the pinned head. The Worker reads `state()` from the live
+   Worker again (not `live/HEAD.json`, which may still name the removed head) and retries.
 
 **Promotion race.** A promotion publishes `HEAD.json` first; `/ingest/prune` then prunes the
 shards and sets `P` in `ChainDO` last. Once a shard is pruned, a state read at `n` in

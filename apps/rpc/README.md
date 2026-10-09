@@ -19,6 +19,19 @@ Every request pins one archive generation (`HEAD.json`, cached 10 s per isolate)
 head; reorgs (stale pins) and promotions (blocks leaving the live window) are retried
 transparently (`src/chain.ts`).
 
+The live head, safe, finalized and promoted pointers come from `live/HEAD.json` in the archive
+bucket, which the daemon rewrites after every head move (`src/live.ts`; the contract is in
+[docs/storage.md](../../docs/storage.md), "Live pointers"). The Worker keeps that object for 2 s
+per isolate and for 2 s in the data center's edge cache, so a request may see the head up to
+about 2 s late (plus the time the daemon takes to write it): `eth_blockNumber` can trail the live
+Worker by one block for that long, and a block the daemon has just written is served once the
+pointers catch up. The `LiveReads.state()` service binding (one Durable Object call) is used only
+when the object is missing, malformed or older than a minute, so a daemon that does not write it
+keeps working. Reorg safety is unchanged: the head a request pins is one the live Worker had
+already stored when the daemon wrote the object, every live read still carries that pin and
+answers `stale` if a reorg removed it, and the retry re-reads the pointers through the service
+binding, never from the cached object, so a request never mixes two branches.
+
 ## Develop
 
 ```sh

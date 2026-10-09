@@ -46,6 +46,7 @@ type daemon struct {
 	cfg     daemonConfig
 	rpc     *rpcClient
 	live    *liveClient
+	r2      *r2Archive // nil in tests: publishPointers is then a no-op
 	spool   *spool
 	blobs   recordRules
 	shards  int
@@ -55,12 +56,14 @@ type daemon struct {
 	head    BlockID      // last spooled block
 	pending []*liveBlock // spooled, not yet in the live window (an incomplete group)
 
-	liveHead  atomic.Pointer[BlockID] // last block in the live window
-	promoted  atomic.Pointer[BlockID] // P
-	finalized atomic.Pointer[BlockID]
-	safe      atomic.Pointer[BlockID]
-	network   atomic.Pointer[BlockID] // the node's head, the status page's lag target
-	wake      chan struct{}
+	liveHead   atomic.Pointer[BlockID] // last block in the live window
+	promoted   atomic.Pointer[BlockID] // P
+	finalized  atomic.Pointer[BlockID]
+	safe       atomic.Pointer[BlockID]
+	network    atomic.Pointer[BlockID] // the node's head, the status page's lag target
+	generation atomic.Uint64           // the archive generation the live window was last pruned to
+	pointersMu sync.Mutex              // serializes live/HEAD.json writes (daemon_pointers.go)
+	wake       chan struct{}
 }
 
 // DaemonMain is the daemon command; args excludes the program name.
@@ -140,6 +143,7 @@ func runDaemon(cfg daemonConfig, token string) error {
 		return fmt.Errorf("%w; put the NULLRPC_R2_* variables in %s", err, filepath.Join(cfg.spool, "daemon.env"))
 	}
 	r2 := newR2Archive(client, bucket, ns)
+	d.r2 = r2
 	gc, err := loadGC(filepath.Join(cfg.spool, "gc.json"))
 	if err != nil {
 		return err
@@ -198,6 +202,7 @@ func (d *daemon) restart(r2 *r2Archive) error {
 		return fmt.Errorf("the live window says block %d is promoted, R2 ends at %d", st.Promoted.Number, p.Number)
 	}
 	d.promoted.Store(&p)
+	d.generation.Store(m.Generation)
 
 	// Spooled blocks above P, linked from P; anything else is acked or orphaned.
 	var chain []*liveBlock
@@ -284,6 +289,7 @@ func (d *daemon) restart(r2 *r2Archive) error {
 	if err := d.flush(true); err != nil {
 		return err
 	}
+	d.publishPointers()
 	fmt.Fprintf(os.Stderr, "{\"restart\":true,\"promoted\":%d,\"live_head\":%d,\"spooled_head\":%d}\n", p.Number, d.liveHead.Load().Number, d.head.Number)
 	return nil
 }
@@ -492,6 +498,7 @@ func (d *daemon) flush(all bool) error {
 		}
 		id := head.id()
 		d.liveHead.Store(&id)
+		d.publishPointers()
 	}
 	d.pending = d.pending[done:]
 	return nil
@@ -566,6 +573,7 @@ func (d *daemon) reorg(n uint64) error {
 	if lh := d.liveHead.Load(); lh.Number > ancestor.Number {
 		d.liveHead.Store(&ancestor)
 	}
+	d.publishPointers()
 	fmt.Fprintf(os.Stderr, "{\"reorg\":true,\"at\":%d,\"ancestor\":%d,\"removed\":%d}\n", n, ancestor.Number, len(removed))
 	return nil
 }
@@ -671,6 +679,8 @@ func (d *daemon) afterPromotion(to BlockID, generation uint64) error {
 		return err
 	}
 	d.promoted.Store(&to)
+	d.generation.Store(generation)
+	d.publishPointers()
 	ids, err := d.spool.list(spoolLive)
 	if err != nil {
 		return err
