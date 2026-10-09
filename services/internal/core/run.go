@@ -329,6 +329,15 @@ func openWork(work, datadir, rpcURL, genesisPath string, concurrency int) (*work
 			w.datadir, id, genesis, w.rpc.url, chainID, namespace[len(namespace)-64:])
 	}
 	w.namespace = namespace
+	// A work directory belongs to one chain: its archive tree is named after it.
+	if entries, err := os.ReadDir(w.at("archive")); err == nil {
+		for _, e := range entries {
+			if e.IsDir() && e.Name() != ".tmp" && e.Name() != namespace {
+				return nil, fmt.Errorf("the work directory %s holds the archive of %s, but the node at %s is %s; pass --work for this chain or --datadir and --rpc for that one",
+					w.root, e.Name(), w.rpc.url, namespace)
+			}
+		}
+	}
 	if genesisPath != "" {
 		w.genesis, err = os.ReadFile(genesisPath)
 	} else {
