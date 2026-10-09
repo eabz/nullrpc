@@ -1,0 +1,341 @@
+{
+  "target": {
+    "chainId": 560048,
+    "name": "Hoodi",
+    "url": "https://hoodi.nullrpc.dev",
+    "key": null,
+    "ref": "https://rpc.hoodi.ethpandaops.io"
+  },
+  "heads": {
+    "ours": 3781385,
+    "ref": 3781385,
+    "archived_through": 3781284
+  },
+  "blocks": [
+    0,
+    1,
+    1078786,
+    1228912,
+    1350844,
+    1887623,
+    2034162,
+    2385360,
+    2776411,
+    3309712,
+    3781284,
+    3781296,
+    3781305,
+    3781363,
+    3781384
+  ],
+  "stats": {
+    "eth_chainId": {
+      "compared": 1,
+      "equal": 1,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 0,
+      "skipped": 0
+    },
+    "net_version": {
+      "compared": 1,
+      "equal": 1,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 0,
+      "skipped": 0
+    },
+    "eth_getBlockByNumber": {
+      "compared": 31,
+      "equal": 31,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 0,
+      "skipped": 0
+    },
+    "eth_getBlockTransactionCountByNumber": {
+      "compared": 15,
+      "equal": 15,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 0,
+      "skipped": 0
+    },
+    "eth_getBlockReceipts": {
+      "compared": 15,
+      "equal": 15,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 0,
+      "skipped": 0
+    },
+    "eth_getUncleCountByBlockNumber": {
+      "compared": 15,
+      "equal": 15,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 0,
+      "skipped": 0
+    },
+    "debug_getRawHeader": {
+      "compared": 0,
+      "equal": 0,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 15,
+      "skipped": 0
+    },
+    "debug_getRawBlock": {
+      "compared": 15,
+      "equal": 15,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 0,
+      "skipped": 0
+    },
+    "debug_getRawReceipts": {
+      "compared": 13,
+      "equal": 13,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 2,
+      "skipped": 0
+    },
+    "eth_getBlockByHash": {
+      "compared": 15,
+      "equal": 15,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 0,
+      "skipped": 0
+    },
+    "eth_getBlockTransactionCountByHash": {
+      "compared": 15,
+      "equal": 15,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 0,
+      "skipped": 0
+    },
+    "eth_getTransactionByBlockNumberAndIndex": {
+      "compared": 13,
+      "equal": 13,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 0,
+      "skipped": 0
+    },
+    "eth_getTransactionByBlockHashAndIndex": {
+      "compared": 13,
+      "equal": 13,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 0,
+      "skipped": 0
+    },
+    "eth_getLogs": {
+      "compared": 30,
+      "equal": 30,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 0,
+      "skipped": 0
+    },
+    "eth_getTransactionByHash": {
+      "compared": 27,
+      "equal": 27,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 0,
+      "skipped": 0
+    },
+    "eth_getTransactionReceipt": {
+      "compared": 27,
+      "equal": 27,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 0,
+      "skipped": 0
+    },
+    "eth_getRawTransactionByHash": {
+      "compared": 26,
+      "equal": 26,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 0,
+      "skipped": 0
+    },
+    "debug_getRawTransaction": {
+      "compared": 0,
+      "equal": 0,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 26,
+      "skipped": 0
+    },
+    "eth_getBalance": {
+      "compared": 101,
+      "equal": 101,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 0,
+      "skipped": 0
+    },
+    "eth_getTransactionCount": {
+      "compared": 101,
+      "equal": 101,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 0,
+      "skipped": 0
+    },
+    "eth_getCode": {
+      "compared": 101,
+      "equal": 101,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 0,
+      "skipped": 0
+    },
+    "eth_getStorageAt": {
+      "compared": 48,
+      "equal": 48,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 0,
+      "skipped": 0
+    },
+    "eth_feeHistory": {
+      "compared": 4,
+      "equal": 3,
+      "differ": 1,
+      "oursErr": 0,
+      "refErr": 0,
+      "skipped": 0
+    },
+    "eth_gasPrice": {
+      "compared": 1,
+      "equal": 1,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 0,
+      "skipped": 0
+    },
+    "eth_maxPriorityFeePerGas": {
+      "compared": 1,
+      "equal": 1,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 0,
+      "skipped": 0
+    },
+    "eth_blobBaseFee": {
+      "compared": 1,
+      "equal": 1,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 0,
+      "skipped": 0
+    },
+    "eth_call": {
+      "compared": 4,
+      "equal": 4,
+      "differ": 0,
+      "oursErr": 2,
+      "refErr": 2,
+      "skipped": 0
+    },
+    "eth_estimateGas": {
+      "compared": 6,
+      "equal": 6,
+      "differ": 0,
+      "oursErr": 0,
+      "refErr": 1,
+      "skipped": 0
+    },
+    "eth_createAccessList": {
+      "compared": 5,
+      "equal": 5,
+      "differ": 0,
+      "oursErr": 1,
+      "refErr": 0,
+      "skipped": 0
+    },
+    "debug_traceCall": {
+      "compared": 5,
+      "equal": 5,
+      "differ": 0,
+      "oursErr": 1,
+      "refErr": 0,
+      "skipped": 0
+    }
+  },
+  "problems": [
+    "debug_getRawHeader(1228912): reference error 0 timeout",
+    "debug_getRawHeader(1078786): reference error 0 timeout",
+    "debug_getRawHeader(1): reference error 0 timeout",
+    "debug_getRawHeader(0): reference error 0 timeout",
+    "debug_getRawReceipts(1): reference error 0 timeout",
+    "debug_getRawReceipts(0): reference error 0 timeout",
+    "debug_getRawHeader(1350844): reference error 0 timeout",
+    "debug_getRawHeader(1887623): reference error 0 timeout",
+    "debug_getRawHeader(2034162): reference error 0 timeout",
+    "debug_getRawHeader(2385360): reference error 0 timeout",
+    "debug_getRawHeader(2776411): reference error 0 timeout",
+    "debug_getRawHeader(3309712): reference error 0 timeout",
+    "debug_getRawHeader(3781284): reference error 0 timeout",
+    "debug_getRawHeader(3781296): reference error 0 timeout",
+    "debug_getRawHeader(3781305): reference error 0 timeout",
+    "debug_getRawHeader(3781363): reference error 0 timeout",
+    "debug_getRawHeader(3781384): reference error 0 timeout",
+    "debug_getRawTransaction(block 1078786): reference error 0 timeout",
+    "debug_getRawTransaction(block 1228912): reference error 0 timeout",
+    "debug_getRawTransaction(block 1228912): reference error 0 timeout",
+    "debug_getRawTransaction(block 1078786): reference error 0 timeout",
+    "debug_getRawTransaction(block 1350844): reference error 0 timeout",
+    "debug_getRawTransaction(block 1350844): reference error 0 timeout",
+    "debug_getRawTransaction(block 1887623): reference error 0 timeout",
+    "debug_getRawTransaction(block 1887623): reference error 0 timeout",
+    "debug_getRawTransaction(block 2034162): reference error 0 timeout",
+    "debug_getRawTransaction(block 2034162): reference error 0 timeout",
+    "debug_getRawTransaction(block 2385360): reference error 0 timeout",
+    "debug_getRawTransaction(block 2385360): reference error 0 timeout",
+    "debug_getRawTransaction(block 2776411): reference error 0 timeout",
+    "debug_getRawTransaction(block 2776411): reference error 0 timeout",
+    "debug_getRawTransaction(block 3309712): reference error 0 timeout",
+    "debug_getRawTransaction(block 3309712): reference error 0 timeout",
+    "debug_getRawTransaction(block 3781296): reference error 0 timeout",
+    "debug_getRawTransaction(block 3781296): reference error 0 timeout",
+    "debug_getRawTransaction(block 3781284): reference error 0 timeout",
+    "debug_getRawTransaction(block 3781284): reference error 0 timeout",
+    "debug_getRawTransaction(block 3781305): reference error 0 timeout",
+    "debug_getRawTransaction(block 3781305): reference error 0 timeout",
+    "debug_getRawTransaction(block 3781363): reference error 0 timeout",
+    "debug_getRawTransaction(block 3781363): reference error 0 timeout",
+    "debug_getRawTransaction(block 3781384): reference error 0 timeout",
+    "debug_getRawTransaction(block 3781384): reference error 0 timeout",
+    "eth_call(0x031a7760 @1078785): reference error 3 execution reverted",
+    "eth_estimateGas(0x031a7760 @1078785): reference error 3 execution reverted",
+    "eth_call(0xc40137a3 @1887622): nullrpc error -32005 execution exceeded its time budget (timeout) (http 200)",
+    "eth_call(0x05d69de4 @1887622): nullrpc error -32005 execution exceeded its time budget (timeout) (http 200)",
+    "eth_createAccessList(0x05d69de4 @1887622): nullrpc error -32005 execution exceeded its time budget (timeout) (http 200)",
+    "debug_traceCall(0x05d69de4 @1887622): nullrpc error -32005 execution exceeded its time budget (timeout) (http 200)",
+    "eth_call(insufficient funds): reference error -32003 err: insufficient funds for gas * price + value: address 0x9EF97d2C8C44135D82D4322ec19B9b0b5638B403 have 14153921905254583947 want 1461501637330902918203684832716283019655932542975 (supplied gas 600000000)"
+  ],
+  "diffs": [
+    {
+      "where": "eth_feeHistory(4 @3781384, no rewards)",
+      "d": [
+        {
+          "path": "reward",
+          "b": [
+            [],
+            [],
+            [],
+            []
+          ]
+        }
+      ]
+    }
+  ]
+}

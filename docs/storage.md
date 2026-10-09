@@ -466,10 +466,13 @@ Every request carries `Authorization: Bearer INGEST_TOKEN`. Bodies are JSON; row
 | Request | Does |
 |---|---|
 | `GET /ingest/state` | the `ChainDO` pointers and the shard count |
-| `POST /ingest/init {promoted, generation}` | first start after the backfill |
-| `POST /ingest/blocks {rows: [{first, last, chain, shards: {i: data}}], head, safe, finalized, network_head?}` | shard rows, then `ChainDO` rows, then the head; `network_head` is the node's head |
+| `POST /ingest/init {promoted, generation, promotion?}` | first start after the backfill |
+| `POST /ingest/blocks {rows: [{first, last, chain, shards: {i: data}}], head, safe, finalized, network_head?, promotion?}` | shard rows, then `ChainDO` rows, then the head; `network_head` is the node's head |
 | `POST /ingest/reorg {ancestor, removed}` | fence everywhere, lower the head, truncate everywhere |
-| `POST /ingest/prune {promoted, generation}` | prune every shard and `ChainDO` at or below `promoted` |
+| `POST /ingest/prune {promoted, generation, promotion?}` | prune every shard and `ChainDO` at or below `promoted` |
+
+`promotion` is the daemon's promotion rule, `{batch, max_age_s, max_batches, group}`
+("Promotion" below); `ChainDO` keeps the last one it was sent, for the status route.
 
 ### Status route
 
@@ -477,14 +480,18 @@ Every request carries `Authorization: Bearer INGEST_TOKEN`. Bodies are JSON; row
 
 | Request | Returns |
 |---|---|
-| `GET /internal/status` | `{chain: {executed_head, target, lag, safe, finalized, optimistic, archived_through, r2_tip, pending_blocks, last_progress, last_ingest, promotion, counters, halted, last_error, …}}` |
+| `GET /internal/status` | `{chain: {executed_head, target, lag, safe, finalized, optimistic, archived_through, r2_tip, pending_blocks, last_progress, last_ingest, promotion: {params, next, last}, counters, halted, last_error, …}}` |
 | `GET /internal/history?range=1h\|24h\|7d` | `{bucket_s, from, to, retention_s, points: [{t, executed, target, lag, rate}]}` |
 
 `target` is the last `network_head` the daemon sent, or the head until it sends one; `lag` is
-`target − head`. `ChainDO` samples the head and target once a minute (an alarm) and keeps 7
+`target − head`. `promotion.next` applies the daemon's rule (`promotion.params`) to the window's
+pointers: `finalized_above` is `finalized − P`, `due_block` the block whose finalization completes
+a batch above `P` (on a group boundary), `deadline` when block `P+1` reaches `max_age` (null
+while `P+1` is not in the window), and `due` whether a promotion is due now. It is null until the
+daemon has sent its rule. `ChainDO` samples the head and target once a minute (an alarm) and keeps 7
 days. History buckets are 1 minute (1h), 5 minutes (24h) and 1 hour (7d); each point is the
 bucket's last sample, and `rate` is blocks per second since the sample before it. Times are
-seconds, except `at`, `last_progress`, `last_ingest` and error times (milliseconds).
+seconds, except `at`, `last_progress`, `last_ingest`, `deadline` and error times (milliseconds).
 
 ### Reads above `P`
 
