@@ -60,7 +60,7 @@
       "provider": { "@id": "https://nullrpc.dev/#org" },
       "areaServed": "Worldwide",
       "url": "https://nullrpc.dev/",
-      "description": "Ethereum JSON-RPC endpoints with full archive history from genesis and a verified live head, starting with the Hoodi testnet. Usage is counted in credits; the free plan includes 20M credits a month.",
+      "description": "Ethereum mainnet and Hoodi testnet JSON-RPC endpoints with full archive history from genesis and a verified live head. Usage is counted in credits; the free plan includes 20M credits a month.",
       "offers": [
         { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "20M credits a month (about 1M requests), 20 requests per second" },
         { "@type": "Offer", "name": "Builder", "price": "19", "priceCurrency": "USD", "description": "600M credits a month (about 30M requests), 250 requests per second" },
@@ -175,14 +175,13 @@
 <div class="net-select">
 <button type="button" class="net-button" id="net-button" aria-haspopup="listbox" aria-expanded="false" aria-controls="net-list" aria-labelledby="net-label net-name"><svg class="network-mark net-mark" viewBox="0 0 32 32" width="24" height="24" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="14.75" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3.1 2.7" stroke-opacity=".8"/><g fill="currentColor" transform="translate(10.5 6.8) scale(.043)"><path fill-opacity=".8" d="M127.96 0l-2.8 9.5v275.67l2.8 2.79 127.96-75.64z"/><path fill-opacity=".45" d="M127.96 0L0 212.32l127.96 75.64V154.16z"/><path fill-opacity=".8" d="M127.96 312.19l-1.58 1.92v98.2l1.58 4.6L256 236.59z"/><path fill-opacity=".45" d="M127.96 416.9V312.19L0 236.59z"/><path d="M127.96 287.96l127.96-75.64-127.96-58.16z"/><path fill-opacity=".8" d="M0 212.32l127.96 75.64v-133.8z"/></g></svg><span class="net-name" id="net-name">Hoodi</span><svg class="net-chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
 <ul class="net-list" id="net-list" role="listbox" tabindex="-1" aria-labelledby="net-label" hidden>
+<li role="group" aria-labelledby="net-group-main"><span class="net-group" id="net-group-main">Networks</span><ul role="presentation">
+<li role="option" id="net-opt-1" data-chain="1" data-url="https://eth.nullrpc.dev" data-name="Ethereum" data-label="Ethereum mainnet" aria-selected="false"><svg class="network-mark net-mark" viewBox="0 0 256 417" width="24" height="24" aria-hidden="true" focusable="false"><g fill="currentColor"><path fill-opacity=".8" d="M127.96 0l-2.8 9.5v275.67l2.8 2.79 127.96-75.64z"/><path fill-opacity=".45" d="M127.96 0L0 212.32l127.96 75.64V154.16z"/><path fill-opacity=".8" d="M127.96 312.19l-1.58 1.92v98.2l1.58 4.6L256 236.59z"/><path fill-opacity=".45" d="M127.96 416.9V312.19L0 236.59z"/><path d="M127.96 287.96l127.96-75.64-127.96-58.16z"/><path fill-opacity=".8" d="M0 212.32l127.96 75.64v-133.8z"/></g></svg><span class="net-opt-name">Ethereum</span><span class="net-sub">ID 1</span></li>
+</ul></li>
 <li role="group" aria-labelledby="net-group-test"><span class="net-group" id="net-group-test">Testnets</span><ul role="presentation">
 <li role="option" id="net-opt-560048" data-chain="560048" data-url="https://hoodi.nullrpc.dev" data-name="Hoodi" data-label="Hoodi testnet" aria-selected="true"><svg class="network-mark net-mark" viewBox="0 0 32 32" width="24" height="24" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="14.75" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3.1 2.7" stroke-opacity=".8"/><g fill="currentColor" transform="translate(10.5 6.8) scale(.043)"><path fill-opacity=".8" d="M127.96 0l-2.8 9.5v275.67l2.8 2.79 127.96-75.64z"/><path fill-opacity=".45" d="M127.96 0L0 212.32l127.96 75.64V154.16z"/><path fill-opacity=".8" d="M127.96 312.19l-1.58 1.92v98.2l1.58 4.6L256 236.59z"/><path fill-opacity=".45" d="M127.96 416.9V312.19L0 236.59z"/><path d="M127.96 287.96l127.96-75.64-127.96-58.16z"/><path fill-opacity=".8" d="M0 212.32l127.96 75.64v-133.8z"/></g></svg><span class="net-opt-name">Hoodi</span><span class="net-sub">ID 560048</span></li>
 </ul></li>
-<!-- Ethereum mainnet: add back when nullrpc-rpc-1 is deployed (enable it in apps/networks.json too):
-<li role="group" aria-labelledby="net-group-main"><span class="net-group" id="net-group-main">Networks</span><ul role="presentation">
-<li role="option" id="net-opt-1" data-chain="1" data-url="https://eth.nullrpc.dev" data-name="Ethereum" data-label="Ethereum mainnet" aria-selected="false">[Ethereum mark]<span class="net-opt-name">Ethereum</span><span class="net-sub">ID 1</span></li>
-</ul></li>
--->
+
 </ul>
 </div>
 <code class="picker-url" id="net-url">https://hoodi.nullrpc.dev</code>

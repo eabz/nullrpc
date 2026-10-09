@@ -17,7 +17,7 @@
       "label": "Ethereum mainnet",
       "url": "https://eth.nullrpc.dev",
       "testnet": false,
-      "enabled": false,
+      "enabled": true,
       "explorer": "https://etherscan.io",
       "currency": { "name": "Ether", "symbol": "ETH", "decimals": 18 }
     }
