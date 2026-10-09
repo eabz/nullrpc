@@ -1,5 +1,7 @@
-// eth_getLogs: the log index narrows archived blocks to candidates; live-window blocks are read
-// directly. Every candidate block is filtered exactly, so results equal a full scan.
+// eth_getLogs: the log index narrows archived blocks to candidates; the header logs blooms the
+// daemon publishes with the live window (src/live.ts, logBlooms) narrow live-window blocks the
+// same way, and a window without blooms (an older daemon) is read whole. Every candidate block
+// is filtered exactly, so results equal a full scan.
 //
 // Every query runs under a read budget (READ_BUDGET archive reads per request, well inside the
 // Worker's per-request Cache API limit): the index reads are costed from the manifest before any
@@ -7,13 +9,17 @@
 // planBlockRuns) WAVE at a time and decoded only as far as their logs need (of a layout-2
 // segment only the receipts frames are read and decoded at all), and a query that
 // would exceed the budget, the block or the log limit is refused with -32005 and the range that
-// would fit, before the expensive reads start. Live-window blocks are one live call each (no
-// Cache API), bounded by MAX_BLOCKS with the candidates.
+// would fit, before the expensive reads start. Live-window candidates are one live read each (no
+// Cache API), bounded by MAX_BLOCKS with the archived candidates, and their raw records go
+// through the same frame extraction as archived ones (packages/frames): nothing of a record is
+// decoded or allocated beyond the accepted logs, and reading stops at the block that exceeds
+// MAX_LOGS.
 
 import { logCandidates, logIndexCost, logIndexRangeFor, type Group } from "../archive/logindex";
 import type { Chain } from "../chain";
-import { parseData } from "../eth/hex";
-import { blockLogs, frameLogs, logMatches, receiptsLogs, type BlockRecord } from "../eth/record";
+import { bloomAdmits } from "../eth/bloom";
+import { parseData, quantity } from "../eth/hex";
+import { frameLogs, receiptsLogs } from "../eth/record";
 import { blockRef, invalidParams, RpcError, type Handler } from "../rpc";
 
 /** The widest block range a query may span (credits.json, eth_getLogs.max_blocks). */
@@ -111,18 +117,24 @@ export async function getLogs(chain: Chain, raw: unknown, budget = READ_BUDGET):
   ];
   const archiveEnd = Math.min(f.to, archived);
   const liveFrom = Math.max(f.from, archived + 1);
-  const live: number[] = [];
-  for (let n = liveFrom; n <= f.to; n++) live.push(n);
   let spent = 0;
 
-  // 1. The index: costed from the manifest; the oldest objects are the expensive ones.
+  // 1. The index: costed from the manifest; the oldest objects are the expensive ones. The
+  //    live window's blooms narrow its blocks alongside (one object read per isolate and head).
   let candidates: number[] = [];
-  if (f.from <= archiveEnd) {
-    const cost = logIndexCost(chain.pin, groups, f.from, archiveEnd);
-    if (cost > budget) throw refuse(`query needs more than ${budget} reads`, logIndexRangeFor(chain.pin, groups, f.from, archiveEnd, budget));
-    const found = await logCandidates(chain.archiveHandle, chain.pin, groups, f.from, archiveEnd);
-    spent += found.reads;
-    if (found.blocks) candidates = found.blocks;
+  const admits = bloomAdmits(groups);
+  const [indexed, live] = await Promise.all([
+    (async () => {
+      if (f.from > archiveEnd) return null;
+      const cost = logIndexCost(chain.pin, groups, f.from, archiveEnd);
+      if (cost > budget) throw refuse(`query needs more than ${budget} reads`, logIndexRangeFor(chain.pin, groups, f.from, archiveEnd, budget));
+      return logCandidates(chain.archiveHandle, chain.pin, groups, f.from, archiveEnd);
+    })(),
+    liveFrom <= f.to ? chain.liveLogBlocks(liveFrom, f.to, admits) : [],
+  ]);
+  if (indexed) {
+    spent += indexed.reads;
+    if (indexed.blocks) candidates = indexed.blocks;
     else for (let n = f.from; n <= archiveEnd; n++) candidates.push(n);
   }
   const all = [...candidates, ...live];
@@ -144,7 +156,7 @@ export async function getLogs(chain: Chain, raw: unknown, budget = READ_BUDGET):
 
   // 4. Read, WAVE at a time, in block order; stop at the log limit.
   const out: Record<string, unknown>[] = [];
-  const state: { overflow: number | null } = { overflow: null };
+  const state: { overflow: number | null; read: number } = { overflow: null, read: candidates.length };
   const take = (n: number, logs: Record<string, unknown>[]): boolean => {
     out.push(...logs);
     if (out.length <= MAX_LOGS) return true;
@@ -152,8 +164,21 @@ export async function getLogs(chain: Chain, raw: unknown, budget = READ_BUDGET):
     return false;
   };
   await chain.readArchived(runs, WAVE, (b) => take(b.n, b.kind === "receipts" ? receiptsLogs(b.frame, b.hash, b.n, f) : frameLogs(b.frame, b.hash, f)));
-  if (state.overflow === null) {
-    await chain.readBlocks(live, LIVE_WAVE, (rec: BlockRecord) => take(rec.block.header.number, blockLogs(rec).filter((l) => logMatches(l.address, l.topics, f)).map((l) => l.json)));
+  if (state.overflow === null && live.length) {
+    // After a re-pin the remaining blocks are narrowed under the new head, still within MAX_BLOCKS.
+    const narrow = async (from: number, to: number) => {
+      const found = await chain.liveLogBlocks(from, to, admits);
+      const room = MAX_BLOCKS - state.read;
+      if (found.length > room) throw refuse(`query matches more than ${MAX_BLOCKS} blocks`, { from: f.from, to: found[room]! - 1 });
+      return found;
+    };
+    await chain.readLiveFrames(live, LIVE_WAVE, narrow, (b) => {
+      state.read++;
+      const logs = frameLogs(b.frame, b.hash, f);
+      // The hash fixed the record (the extraction checked it); the number must be the one listed for it.
+      if (logs.length && logs[0]!.blockNumber !== quantity(b.n)) throw new RpcError(-32000, `live block ${b.n} does not match its record`);
+      return take(b.n, logs);
+    });
   }
   if (state.overflow !== null) throw refuse(`query returns more than ${MAX_LOGS} logs`, { from: f.from, to: state.overflow - 1 });
   return out;

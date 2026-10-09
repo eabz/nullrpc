@@ -49,15 +49,20 @@ at the head reaches the state shards once per data center per block ([docs/stora
 
 ## eth_getLogs
 
-The log index (`src/archive/logindex.ts`) narrows an archived range to candidate blocks; every
-candidate is read and filtered exactly, and live-window blocks are read directly. A query runs
+The log index (`src/archive/logindex.ts`) narrows an archived range to candidate blocks, and the
+header logs blooms the daemon publishes with the live window (`log_blooms` in `live/HEAD.json`,
+docs/storage.md "Live records") narrow the live-window range the same way, one object read per
+isolate and head; every candidate is read and filtered exactly. A query runs
 under fixed limits (`src/methods/logs.ts`): a span of at most 10,000 blocks (`MAX_RANGE`),
-at most 1,000 blocks read after narrowing (`MAX_BLOCKS`, candidates and live-window blocks
+at most 1,000 blocks read after narrowing (`MAX_BLOCKS`, archived and live-window candidates
 together), at most 10,000 logs (`MAX_LOGS`) and a budget of 256 archive reads (`READ_BUDGET`:
 index records and frames, offsets pages and block runs, each one range read). The budget keeps a
 request well inside the Worker's per-request Cache API limit, so a wide query is refused rather
-than cut off with an HTTP 503. Live-window blocks are one live call each (no Cache API), 16 in
-flight, bounded by `MAX_BLOCKS`.
+than cut off with an HTTP 503. Live-window candidates are one record read each (R2 through the
+edge cache when the pin came from `live/HEAD.json`, else the live Worker; no Cache API), 16 in
+flight, bounded by `MAX_BLOCKS`; their raw records go through the same frame extraction as
+archived blocks, so nothing of a record is decoded beyond its accepted logs. Without blooms (an
+older daemon, or a pin taken from the live Worker after a reorg) every live block is a candidate.
 
 Reads are planned before they are issued: the index cost follows from the manifest (a small index
 object is read whole, two reads whatever the filter; a large one costs two reads per field value

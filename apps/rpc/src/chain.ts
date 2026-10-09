@@ -14,7 +14,7 @@ import { Lru } from "./archive/lru";
 import { StateHistory, type Domain } from "./archive/state";
 import { archiveWitness } from "./archive/witness";
 import { ArchiveError } from "./archive/types";
-import { data, equal } from "./eth/hex";
+import { data, equal, parseData } from "./eth/hex";
 import { decodeRecord, type BlockRecord } from "./eth/record";
 import { StaleError, type BlockId, type Live, type LiveState } from "./live";
 
@@ -206,6 +206,74 @@ export class Chain {
       const found = await Promise.all(numbers.slice(i, i + wave).map((n) => this.block(n)));
       for (const rec of found) if (rec && each(rec) === false) return;
     }
+  }
+
+  // ---- live-window log reads (eth_getLogs)
+
+  /**
+   * The live blocks of [from, to] (clipped at the pinned head) that may hold a log the filter
+   * accepts: those whose header logs bloom `admits`, and every block the pin's blooms do not
+   * cover (an older daemon, a pin from state(), a block below the listed range). Reads the
+   * blooms object once per isolate and head; no live call.
+   */
+  async liveLogBlocks(from: number, to: number, admits: (bloom: Uint8Array) => boolean): Promise<number[]> {
+    const head = this.head;
+    if (!this.live || !head) return [];
+    to = Math.min(to, head.number);
+    const out: number[] = [];
+    if (from > to) return out;
+    const table = await this.live.logBlooms(head);
+    for (let n = from; n <= to; n++) {
+      const bloom = table?.bloom(n);
+      if (!bloom || admits(bloom)) out.push(n);
+    }
+    return out;
+  }
+
+  /**
+   * Reads the raw records of live blocks `numbers` (sorted) `wave` at a time and hands each
+   * one's frame and hash to `each` in block order, undecoded; `each` returning false stops.
+   * A block the window no longer holds because it was promoted since the request pinned the
+   * archive is read from the archive, as block() does. A stale pin re-pins once (as withHead
+   * does) and the blocks not yet read are narrowed again under the new head by `narrow`,
+   * since the old head's blooms no longer apply.
+   */
+  async readLiveFrames(numbers: number[], wave: number, narrow: (from: number, to: number) => Promise<number[]>, each: (b: { n: number; hash: Uint8Array; frame: Uint8Array }) => boolean | void): Promise<void> {
+    let list = numbers;
+    let repinned = false;
+    for (let i = 0; i < list.length; ) {
+      const slice = list.slice(i, i + wave);
+      let found: ({ n: number; hash: Uint8Array; frame: Uint8Array } | null)[];
+      try {
+        found = await Promise.all(slice.map((n) => this.liveFrame(n)));
+      } catch (e) {
+        if (!(e instanceof StaleError) || repinned || !this.live) throw e;
+        repinned = true;
+        this.state = await this.live.state(true);
+        this.blocks.clear();
+        await this.catchUpArchive();
+        const rest = await narrow(slice[0]!, list[list.length - 1]!);
+        list = [...list.slice(0, i), ...rest];
+        continue;
+      }
+      i += wave;
+      for (const b of found) if (b && each(b) === false) return;
+    }
+  }
+
+  /** Block `n`'s raw record and hash from the live window at the pinned head, else from the archive when promoted meanwhile; null when neither has it. */
+  private async liveFrame(n: number): Promise<{ n: number; hash: Uint8Array; frame: Uint8Array } | null> {
+    if (n > this.archived && this.live && this.head) {
+      const found = await this.live.block(n, this.head);
+      if (found) {
+        if (found.number !== n) throw new ArchiveError(`live block ${found.number} answered for ${n}`);
+        return { n, hash: parseData(found.hash, 32)!, frame: found.record };
+      }
+      if (n > (this.state?.promoted?.number ?? 0)) return null;
+    }
+    // Promoted since this request pinned the archive (or at or below P after a re-pin).
+    const rec = await this.block(n);
+    return rec && { n, hash: rec.block.header.hash, frame: rec.frame };
   }
 
   private liveRecord(found: { number: number; hash: string; record: Uint8Array }): BlockRecord {

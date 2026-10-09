@@ -12,12 +12,14 @@
 //
 // Block records above P are in R2 too (docs/storage.md, "Live records"): the daemon writes
 // `live/records/{number}-{hash}.bin` before it writes the block to the live Worker, and the
-// pointers document lists the window's hashes by number and names the transaction index of the
-// same blocks. A block read with a pin taken from that document reads the record through the
-// archive's edge cache (immutable per hash, verified by the caller against the hash the
-// document gave); a transaction lookup reads the index. The service binding answers whatever
-// the document and the objects cannot: a pin that came from state() (after a stale answer), a
-// block outside the listed range, a missing record, or an index that fails its digest.
+// pointers document lists the window's hashes by number and names the transaction index and
+// the header logs blooms of the same blocks. A block read with a pin taken from that document
+// reads the record through the archive's edge cache (immutable per hash, verified by the caller
+// against the hash the document gave); a transaction lookup reads the index; eth_getLogs tests
+// the blooms and reads only the admitted records. The service binding answers whatever the
+// document and the objects cannot: a pin that came from state() (after a stale answer), a
+// block outside the listed range, a missing record, or an index that fails its digest; without
+// usable blooms every block of the window is read.
 
 import { sha256 } from "./archive/archive";
 import { Lru, SizedLru } from "./archive/lru";
@@ -104,6 +106,8 @@ export interface LiveIndex {
   complete: boolean;
   /** The transaction index object of the same blocks, or null when the daemon wrote none. */
   txIndex: ObjectRef | null;
+  /** The logs blooms object of the same blocks, or null when the daemon wrote none (an older one). */
+  blooms: ObjectRef | null;
 }
 
 /** live/HEAD.json as the daemon writes it (services/internal/core/daemon_pointers.go). */
@@ -117,6 +121,7 @@ interface PointersDoc {
   written_at: string;
   blocks?: { first: number; hashes: string[] } | null;
   tx_index?: ObjectRef | null;
+  log_blooms?: ObjectRef | null;
 }
 
 function blockId(v: unknown): BlockId | null {
@@ -168,15 +173,16 @@ function parseIndex(doc: PointersDoc, head: BlockId, promoted: BlockId): LiveInd
     hashes.push(hash);
   }
   if (hashes.length > 0 && hashes[hashes.length - 1] !== head.hash) return null;
-  return { first: b.first, hashes, byHash, complete: b.first === promoted.number + 1, txIndex: objectRef(doc.tx_index) };
+  return { first: b.first, hashes, byHash, complete: b.first === promoted.number + 1, txIndex: objectRef(doc.tx_index), blooms: objectRef(doc.log_blooms) };
 }
 
 // Records are immutable per block hash, so they are kept with no expiry.
 const records = new Lru<string, Uint8Array>(512);
 // The window's index per head hash, from the documents this isolate parsed.
 const indexes = new Lru<string, LiveIndex>(16);
-// Transaction tables by object key (immutable; one per head move).
+// Transaction tables and bloom tables by object key (immutable; one of each per head move).
 const tables = new Lru<string, Promise<TxTable | null>>(4);
+const bloomTables = new Lru<string, Promise<BloomTable | null>>(4);
 
 /** Header of a transaction index object (docs/storage.md, "Live records"). */
 const TX_INDEX_MAGIC = "NRPCLIDX";
@@ -184,6 +190,40 @@ const TX_INDEX_HEADER = 32;
 const TX_INDEX_ENTRY = 12;
 /** Transaction index objects larger than this are refused. */
 const TX_INDEX_MAX_BYTES = 64 * 1024 * 1024;
+/** Header of a logs blooms object (docs/storage.md, "Live records"). */
+const BLOOMS_MAGIC = "NRPCLBLM";
+const BLOOMS_HEADER = 32;
+const BLOOM_BYTES = 256;
+/** Blooms objects larger than this are refused (1,024 blocks are 256 KiB). */
+const BLOOMS_MAX_BYTES = 4 * 1024 * 1024;
+
+/** A parsed blooms object: the header logs bloom of every block of `first` to `last`, in order. */
+export class BloomTable {
+  constructor(
+    readonly first: number,
+    readonly last: number,
+    private readonly body: Uint8Array,
+  ) {}
+
+  /** The blooms object `raw`, or null when it is not one. */
+  static parse(raw: Uint8Array): BloomTable | null {
+    if (raw.length < BLOOMS_HEADER || new TextDecoder().decode(raw.subarray(0, 8)) !== BLOOMS_MAGIC) return null;
+    const v = new DataView(raw.buffer, raw.byteOffset, raw.byteLength);
+    if (v.getUint16(8, true) !== 1) return null;
+    const first = Number(v.getBigUint64(12, true));
+    const last = Number(v.getBigUint64(20, true));
+    const count = v.getUint32(28, true);
+    if (!Number.isSafeInteger(first) || !Number.isSafeInteger(last) || last < first || count !== last - first + 1 || raw.length !== BLOOMS_HEADER + count * BLOOM_BYTES) return null;
+    return new BloomTable(first, last, raw.subarray(BLOOMS_HEADER));
+  }
+
+  /** Block `n`'s bloom (256 bytes), or null when the table does not cover it. */
+  bloom(n: number): Uint8Array | null {
+    if (n < this.first || n > this.last) return null;
+    const at = (n - this.first) * BLOOM_BYTES;
+    return this.body.subarray(at, at + BLOOM_BYTES);
+  }
+}
 
 /** A parsed transaction index: entries of 8 hash bytes and a uint32 block offset, sorted by hash. */
 export class TxTable {
@@ -393,22 +433,43 @@ export class Live {
 
   /** The pin's transaction table, parsed once per isolate and checked against its reference; null when unusable. */
   private table(ref: ObjectRef): Promise<TxTable | null> {
-    let p = tables.get(ref.key);
+    return this.object(ref, tables, TX_INDEX_MAX_BYTES, TxTable.parse, "live_index_error");
+  }
+
+  /**
+   * An immutable per-head object (the transaction index, the blooms) read once per isolate
+   * through `cache`, checked against its reference's size and digest and parsed; null when
+   * unusable (not kept, so the next pin that names the object tries again).
+   */
+  private object<T>(ref: ObjectRef, cache: Lru<string, Promise<T | null>>, maxBytes: number, parse: (raw: Uint8Array) => T | null, event: string): Promise<T | null> {
+    let p = cache.get(ref.key);
     if (!p) {
       const { archive, source } = this.pointers!;
       p = (async () => {
-        if (ref.bytes > TX_INDEX_MAX_BYTES) return null;
+        if (ref.bytes > maxBytes) return null;
         const raw = await (archive ?? source).get(ref.key);
         if (!raw || raw.length !== ref.bytes || toHex(await sha256(raw)) !== ref.sha256) return null;
-        return TxTable.parse(raw);
+        return parse(raw);
       })().catch((e) => {
-        console.error(JSON.stringify({ event: "live_index_error", key: ref.key, error: e instanceof Error ? e.message : String(e) }));
+        console.error(JSON.stringify({ event, key: ref.key, error: e instanceof Error ? e.message : String(e) }));
         return null;
       });
-      tables.set(ref.key, p);
-      p.then((t) => t === null && tables.get(ref.key) === p && tables.delete(ref.key));
+      cache.set(ref.key, p);
+      p.then((t) => t === null && cache.get(ref.key) === p && cache.delete(ref.key));
     }
     return p;
+  }
+
+  /**
+   * The header logs blooms of the window's listed blocks under `pin`, or null when the pin's
+   * document names none (an older daemon), the pin came from state(), or the object is
+   * unusable or does not cover the listed blocks: the caller then reads every block.
+   */
+  async logBlooms(pin: BlockId): Promise<BloomTable | null> {
+    const index = this.pointers ? indexes.get(pin.hash) : undefined;
+    if (!index?.blooms) return null;
+    const table = await this.object(index.blooms, bloomTables, BLOOMS_MAX_BYTES, BloomTable.parse, "live_blooms_error");
+    return table && table.first === index.first && table.last === index.first + index.hashes.length - 1 ? table : null;
   }
 
   /**

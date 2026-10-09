@@ -11,8 +11,11 @@ import (
 	"github.com/klauspost/compress/zstd"
 )
 
+// testBloom is the header logs bloom testRecord writes (field 6): the top and bottom bits set.
+var testBloom = append(append([]byte{0x80}, bytes.Repeat([]byte{0}, 254)...), 0x01)
+
 // testRecord builds a small but well-formed block record: a 15-field header with the given
-// number and timestamp, a legacy and a typed transaction, and receipts with logs.
+// number and timestamp (and testBloom), a legacy and a typed transaction, and receipts with logs.
 func testRecord(number, timestamp uint64) (record []byte, txs [][]byte) {
 	var header []byte
 	for i := range 15 {
@@ -23,6 +26,8 @@ func testRecord(number, timestamp uint64) (record []byte, txs [][]byte) {
 			header = rlpAppendUint(header, timestamp)
 		case 7, 9, 10:
 			header = rlpAppendUint(header, uint64(i))
+		case 6:
+			header = rlpAppendString(header, testBloom)
 		default:
 			header = rlpAppendString(header, bytes.Repeat([]byte{byte(i)}, 32))
 		}

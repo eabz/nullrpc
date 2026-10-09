@@ -151,15 +151,17 @@ is an older one, and the reader asks the live Worker for blocks as before):
 ```json
 {
   "blocks": {"first": 1499905, "hashes": ["…", "…"]},
-  "tx_index": {"key": "…/live/index/00000000000001499905-00000000000001500000-….bin", "bytes": 8232, "sha256": "…"}
+  "tx_index": {"key": "…/live/index/00000000000001499905-00000000000001500000-….bin", "bytes": 8232, "sha256": "…"},
+  "log_blooms": {"key": "…/live/blooms/00000000000001499905-00000000000001500000-….bin", "bytes": 24608, "sha256": "…"}
 }
 ```
 
 `blocks.hashes[i]` is the hash of block `first + i`, the last one the head's, for the newest
 blocks above `P` (at most 1,024: `liveIndexBlocks` in services/internal/core/daemon_records.go;
 a window that has outgrown it lists only its newest part). `tx_index` names the transaction
-index of the same blocks (see "Live records"). The reader ignores the list unless it ends at
-the head and starts above `P`.
+index of the same blocks and `log_blooms` their header logs blooms (see "Live records"; a daemon
+that writes no `log_blooms` is an older one, and `eth_getLogs` reads every block of the window).
+The reader ignores the list unless it ends at the head and starts above `P`.
 
 ### Live records
 
@@ -188,23 +190,44 @@ object per chain and queues under load.
   | 32– | `m` entries: the transaction hash's first 8 bytes, then `number - first` (uint32) |
 
   Two transactions sharing a prefix (both entries are kept) are told apart by the live Worker.
+- `live/blooms/{first:020}-{last:020}-{last-hash}.bin` is the header logs bloom of every block
+  `first … last`, written before the `live/HEAD.json` that names it (`log_blooms`). A 32-byte
+  header, then one 256-byte bloom per block, in block order:
 
-Both are immutable: a key names a block hash (the head's, for the index), and the chain of
-hashes fixes the bytes. A reorg does not rewrite anything: the next `live/HEAD.json` lists the
+  | Bytes | Field |
+  |---|---|
+  | 0–7 | `NRPCLBLM` |
+  | 8–9 | format version, `1` |
+  | 10–11 | zero |
+  | 12–19 | `first` |
+  | 20–27 | `last` |
+  | 28–31 | block count, `last − first + 1` |
+  | 32– | the blooms, 256 bytes each (every bit set for a block whose record yielded none) |
+
+  `eth_getLogs` tests the filter's addresses and topics against each bloom (three keccak256
+  bits per value, as the header computes it) and reads only the admitted records. The bloom
+  never excludes a block that holds a matching log; it admits a few that do not (on Hoodi, with
+  a median of 73 of 2,048 bits set, about 1 block in 100 for one address or topic).
+
+All are immutable: a key names a block hash (the head's, for the index and the blooms), and the
+chain of hashes fixes the bytes. A reorg does not rewrite anything: the next `live/HEAD.json` lists the
 new branch, and the removed blocks' records are deleted an hour later. A promotion likewise
 lists only blocks above the new `P`, and the records at or below it are deleted an hour after
 it (`liveRecordGrace`), long after any reader pinned a document that listed them (a document is
-used for at most a minute, a manifest for 10 s). An index object is deleted 10 minutes after
-the document that named it is replaced (`liveIndexGrace`). The deletions go through the
-daemon's gc.json like compaction's. One live index object per head move is written on top of
-the record and the pointers, about 3 Class A operations per block.
+used for at most a minute, a manifest for 10 s). An index or blooms object is deleted 10 minutes
+after the document that named it is replaced (`liveIndexGrace`). The deletions go through the
+daemon's gc.json like compaction's. One live index object and one blooms object per head move
+are written on top of the record and the pointers, about 4 Class A operations per block.
 
 **Reads.** A block read carries the head the request pinned. When that head came from
 `live/HEAD.json`, the Worker takes the block's hash from the document's list (by number, or
 the number from the hash), reads the record through the archive's day-long edge cache, and
 checks the decoded header's hash against the listed one, as it checks the live Worker's answer.
 A transaction lookup reads the index object (checked against `tx_index`'s size and digest,
-parsed once per isolate) and then the block. The list is *complete* when it starts at `P+1`: a
+parsed once per isolate) and then the block. `eth_getLogs` over the window reads the blooms
+object the same way (once per isolate and head) and then only the records whose bloom admits
+the filter, each through the same frame extraction as an archived block; without usable blooms
+it reads every listed record. The list is *complete* when it starts at `P+1`: a
 hash or transaction it lacks is then not in the window, and the Worker goes to the archive
 without asking the live Worker. The live Worker is asked for whatever the objects cannot
 answer: a pin that came from `state()` (after a stale answer; see "Reads above `P`"), a block

@@ -155,5 +155,60 @@ func TestLivePointersListBlocks(t *testing.T) {
 	if data, _ := json.Marshal((&daemon{}).pointers(time.Now())); bytes.Contains(data, []byte("blocks")) {
 		t.Fatalf("blocks in %s", data)
 	}
+	if _, ok := got["log_blooms"]; ok {
+		t.Fatal("log_blooms must be left out when no blooms object was written")
+	}
 	d.publishPointers() // no bucket: a no-op, not a panic
+}
+
+func TestRecordLogsBloom(t *testing.T) {
+	record, _ := testRecord(77, 1_700_000_000)
+	bloom, err := recordLogsBloom(record)
+	if err != nil || !bytes.Equal(bloom, testBloom) {
+		t.Fatalf("bloom %x, %v", bloom, err)
+	}
+	for _, bad := range [][]byte{nil, {0x80}, rlpList(rlpAppendString(nil, []byte{1, 2})), record[:len(record)/2]} {
+		if _, err := recordLogsBloom(bad); err == nil {
+			t.Fatalf("%x accepted", bad)
+		}
+	}
+}
+
+func TestLiveWindowBlooms(t *testing.T) {
+	if got, want := liveBloomsKey("1-ab", 101, BlockID{Number: 103, Hash: "0xAB" + fmt.Sprintf("%062x", 2)}), "1-ab/live/blooms/00000000000000000101-00000000000000000103-ab"+fmt.Sprintf("%062x", 2)+".bin"; got != want {
+		t.Fatalf("blooms key %s, want %s", got, want)
+	}
+	// Blocks with records carry their header's bloom; one without (or with a record that does
+	// not parse) is written with every bit set, so a reader never skips it.
+	blocks := windowBlocks(101, 103, 1)
+	blocks[0].Record, _ = testRecord(101, 1)
+	blocks[2].Record = []byte{0xc0}
+	var w liveWindow
+	w.add(blocks)
+	snap, _ := w.snapshot(BlockID{Number: 103, Hash: testBlock(103).Hash}, 100)
+	if len(snap.blooms) != 3 || !bytes.Equal(snap.blooms[0], testBloom) || snap.blooms[1] != nil || snap.blooms[2] != nil {
+		t.Fatalf("blooms %x", snap.blooms)
+	}
+	data := encodeLiveBlooms(snap.First, 103, snap.blooms)
+	if len(data) != liveBloomsHeader+3*liveBloomBytes {
+		t.Fatalf("%d bytes", len(data))
+	}
+	if string(data[:8]) != liveBloomsMagic || binary.LittleEndian.Uint16(data[8:]) != 1 || binary.LittleEndian.Uint16(data[10:]) != 0 {
+		t.Fatalf("header %x", data[:12])
+	}
+	if binary.LittleEndian.Uint64(data[12:]) != 101 || binary.LittleEndian.Uint64(data[20:]) != 103 || binary.LittleEndian.Uint32(data[28:]) != 3 {
+		t.Fatalf("header %x", data[:32])
+	}
+	all := bytes.Repeat([]byte{0xff}, liveBloomBytes)
+	if body := data[liveBloomsHeader:]; !bytes.Equal(body[:256], testBloom) || !bytes.Equal(body[256:512], all) || !bytes.Equal(body[512:], all) {
+		t.Fatalf("body %x", body)
+	}
+	if !bytes.Equal(data, encodeLiveBlooms(snap.First, 103, snap.blooms)) {
+		t.Fatal("encoding is not deterministic")
+	}
+	// A snapshot shortened by a promotion keeps hashes and blooms aligned.
+	snap, _ = w.snapshot(BlockID{Number: 103, Hash: testBlock(103).Hash}, 101)
+	if snap.First != 102 || len(snap.Hashes) != 2 || len(snap.blooms) != 2 || snap.blooms[0] != nil {
+		t.Fatalf("after promotion %+v %x", snap, snap.blooms)
+	}
 }
