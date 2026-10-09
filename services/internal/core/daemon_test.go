@@ -275,7 +275,7 @@ func TestSpool(t *testing.T) {
 }
 
 func TestWitnessJobs(t *testing.T) {
-	jobs := witnessJobs([][2]uint64{{0, 8191}, {8192, 9000}})
+	jobs := witnessJobs([][2]uint64{{0, 8191}, {8192, 9000}}, witnessRun)
 	if len(jobs) != 9 || jobs[7].seg != 0 || jobs[7].first != 7168 || jobs[7].last != 8191 ||
 		jobs[8].seg != 1 || jobs[8].first != 8192 || jobs[8].last != 9000 {
 		t.Fatalf("jobs %+v", jobs)

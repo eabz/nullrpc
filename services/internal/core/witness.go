@@ -286,12 +286,12 @@ type witnessJob struct {
 	first, last uint64
 }
 
-// witnessJobs splits each segment into runs of witnessRun blocks.
-func witnessJobs(segments [][2]uint64) []witnessJob {
+// witnessJobs splits each segment into runs of run blocks.
+func witnessJobs(segments [][2]uint64, run uint64) []witnessJob {
 	var jobs []witnessJob
 	for seg, r := range segments {
-		for n := r[0]; n <= r[1]; n += witnessRun {
-			jobs = append(jobs, witnessJob{seg: seg, first: n, last: min(n+witnessRun-1, r[1])})
+		for n := r[0]; n <= r[1]; n += run {
+			jobs = append(jobs, witnessJob{seg: seg, first: n, last: min(n+run-1, r[1])})
 		}
 	}
 	return jobs
@@ -510,7 +510,7 @@ func witnessStage(w *workDir) error {
 		executed.Add(1)
 		return nil
 	}
-	err = runWitnessJobs(exec, witnessJobs(segments), w.opts.execWorkers, onWitness, func(seg int) error {
+	err = runWitnessJobs(exec, witnessJobs(segments, witnessRun), w.opts.execWorkers, onWitness, func(seg int) error {
 		ready <- seg
 		return nil
 	})
@@ -549,7 +549,10 @@ func runWitnessTest(args []string) {
 	for n := *from; n <= *to; n += 8192 {
 		segments = append(segments, [2]uint64{n, min(n+8191, *to)})
 	}
-	err = runWitnessJobs(exec, witnessJobs(segments), *workers, func(_ witnessJob, _ uint64, wit *blockWitness) error {
+	// Short runs on a small range, so every worker has several; the stage uses witnessRun.
+	run := max(witnessBatch, min(witnessRun, (*to-*from+1)/uint64(max(1, *workers)*4)))
+	fmt.Fprintf(os.Stderr, "{\"run_blocks\":%d,\"workers\":%d}\n", run, *workers)
+	err = runWitnessJobs(exec, witnessJobs(segments, run), *workers, func(_ witnessJob, _ uint64, wit *blockWitness) error {
 		blocks.Add(1)
 		accounts.Add(uint64(len(wit.accounts)))
 		for _, s := range wit.storage {
