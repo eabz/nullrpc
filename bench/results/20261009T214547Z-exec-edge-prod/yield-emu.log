@@ -1,0 +1,2 @@
+old shell (main a02f9a7): warm request 822 ms over 40 rounds of 20 ms; longest hold of the event loop 822 ms
+new shell: warm request 868 ms over 40 rounds of 20 ms; longest hold of the event loop 22 ms

@@ -1,0 +1,5 @@
+block 0x39c31a; heavy warm-up 1692ms rounds=2 keys=9 hints=0 live=5 archive=4 
+cheap alone: n=64 p50 79 p95 197 p99 527 max 527 ms
+cheap under trace: n=227 p50 73 p95 140 p99 193 max 429 ms
+heavy: n=92 p50 312 p95 410 p99 825 max 825 ms
+done
