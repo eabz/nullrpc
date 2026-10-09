@@ -23,9 +23,11 @@ function prefix(len: number, short: number): number[] {
 const cat = (...parts: (number[] | Uint8Array)[]) => Uint8Array.from(parts.flatMap((p) => [...p]));
 const hex = (b: Uint8Array) => "0x" + Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 
-/** A record whose header is 16 fields, the 9th the block number (below 256); `salt` makes distinct hashes. */
+/** The coinbase every test record names (header field 2, 20 bytes). */
+const COINBASE = "0x" + "c0".repeat(20);
+/** A record whose header is 16 fields, the 9th the block number (below 256), the 3rd the coinbase; `salt` makes distinct hashes. */
 function record(number: number, salt = 0): { record: string; hash: string } {
-  const header = list(Array.from({ length: 16 }, (_, i) => bytes(i === 8 ? [number] : i === 6 ? new Uint8Array(256) : new Uint8Array(32).fill(i + salt))));
+  const header = list(Array.from({ length: 16 }, (_, i) => bytes(i === 8 ? [number] : i === 6 ? new Uint8Array(256) : i === 2 ? new Uint8Array(20).fill(0xc0) : new Uint8Array(32).fill(i + salt))));
   const raw = list([header, list([]), list([])]);
   const rec = list([bytes(raw), bytes([]), list([]), bytes([])]);
   return { record: hex(rec), hash: hex(keccak_256(header)) };
@@ -184,16 +186,23 @@ describe("state cache", () => {
 describe("rounds and the event loop", () => {
   const request = (): ExecRequest => ({ method: "eth_call", params: [], chain: chain(903), block: "0x00" });
   const state = () => new CountingState(TABLE);
-  it("a round that ran 10 ms or more is followed by a turn of the event loop", async () => {
+  it("a round the isolate's caches answered is followed by a turn of the event loop; one that read is not", async () => {
     const timers = vi.spyOn(globalThis, "setTimeout");
     try {
-      let t = 0;
-      // Besides the budget timer, one zero-delay timer: the turn after the slow round.
+      // Besides the budget timer, zero-delay timers are the turns between rounds.
       const turns = () => timers.mock.calls.filter((c) => c[1] === 0).length;
-      await execute(request(), state(), session({ missing: KEYS.slice(0, 1), at: 1 }).session, () => (t += 20));
-      expect(turns()).toBe(1);
+      const r = record(60);
+      const at = (block: string): ExecRequest => ({ ...request(), block });
+      // Two rounds that read (B, then the storage slot): no turn, the awaited reads yield on their own.
+      await execute(at(r.record), state(), rounds([{ missing: [KEYS[1]!], at: 60 }, { missing: [KEYS[2]!], at: 60 }]).session);
+      expect(turns()).toBe(0);
       timers.mockClear();
-      await execute(request(), state(), session({ missing: KEYS.slice(0, 1), at: 1 }).session, () => t);
+      // The same keys again at the same block come from the cache: each such round is followed by a turn.
+      await execute(at(r.record), state(), rounds([{ missing: [KEYS[1]!], at: 60 }, { missing: [KEYS[2]!], at: 60 }]).session);
+      expect(turns()).toBe(2);
+      timers.mockClear();
+      // A block the shell cannot hash has no cache scope: every round reads, no turns, as before.
+      await execute(request(), state(), rounds([{ missing: KEYS.slice(0, 1), at: 1 }, { missing: KEYS.slice(0, 1), at: 1 }]).session);
       expect(turns()).toBe(0);
     } finally {
       timers.mockRestore();
@@ -286,9 +295,9 @@ describe("hints", () => {
 });
 
 describe("blockOf", () => {
-  it("reads the number with the hash", async () => {
+  it("reads the number and the coinbase with the hash", async () => {
     const { blockOf } = await import("../src/shell");
-    expect(blockOf(record(123).record)).toEqual({ hash: record(123).hash, number: 123 });
+    expect(blockOf(record(123).record)).toEqual({ hash: record(123).hash, number: 123, coinbase: COINBASE });
   });
 });
 
@@ -326,12 +335,13 @@ describe("profiles", () => {
     const second = new CountingState(TABLE);
     const s = rounds([{ missing: [{ kind: "blockHash", number: 5 }], at: 41 }]);
     await execute(call(41), second, s.session);
-    // The profile (block hashes are not kept) was read with the round's own keys.
-    expect(flat(second.asked).sort()).toEqual([`a:${B}`, "b:5", "s:0x1"].sort());
-    expect(keysOf(s.inputs[1]!)).toEqual([`a:${B}`, "s:0x1", "b:5"]);
+    // The profile (the dependent rounds' keys; block hashes are not kept, nor the first round's
+    // own keys) was read with the round's own keys.
+    expect(flat(second.asked).sort()).toEqual(["b:5", "s:0x1"].sort());
+    expect(keysOf(s.inputs[1]!)).toEqual(["s:0x1", "b:5"]);
   });
 
-  it("another function or contract has its own profile, and a short call teaches none", async () => {
+  it("another function or contract has its own profile, and a call that asked only for block hashes teaches none", async () => {
     const other = new CountingState(TABLE);
     const s = rounds([{ missing: [{ kind: "blockHash", number: 5 }], at: 42 }]);
     await execute({ ...call(42), params: [{ to: B, data: "0x12345678" }, "latest"] }, other, s.session);
@@ -420,5 +430,94 @@ describe("module cache", () => {
     await execute({ method: "debug_traceTransaction", params: [], chain: chain(907), block: r.record, txIndex: 0 }, new CountingState(TABLE), factory);
     expect(requests[1]!.block).toBeUndefined();
     expect(requests[1]!.seed).toBeUndefined();
+  });
+});
+
+// ---- hints and profiles after 2026-10-09: shared in flight, skipped by cheap profiled calls, late for large ones
+
+describe("hints wave and profiles", () => {
+  /** A source whose hints and reads each take `ticks` turns of the event loop. */
+  class SlowState extends HintingState {
+    constructor(table: Record<string, StateValue>, hints: { keys: StateKey[]; values: StateValue[] } | null, private readonly hintTicks: number, private readonly readTicks: number) {
+      super(table, hints);
+    }
+    override async read(keys: StateKey[]): Promise<StateValue[]> {
+      for (let i = 0; i < this.readTicks; i++) await new Promise((r) => setTimeout(r, 0));
+      return super.read(keys);
+    }
+    override async hints(at: number) {
+      for (let i = 0; i < this.hintTicks; i++) await new Promise((r) => setTimeout(r, 0));
+      return super.hints(at);
+    }
+  }
+  const keysOf = (input: string) => (JSON.parse(input) as { keys: StateKey[] }).keys.map((k) => (k.kind === "account" ? `a:${k.address}` : k.kind === "storage" ? `s:${k.slot}` : k.kind === "code" ? "code" : `b:${k.number}`));
+
+  it("simultaneous requests at one block share one hint read", async () => {
+    const r = record(80);
+    const state = new SlowState(TABLE, HINTS, 1, 0);
+    const a = session({ missing: [{ kind: "blockHash", number: 5 }], at: 80 });
+    const b = session({ missing: [{ kind: "account", address: B }], at: 80 });
+    const request = (): ExecRequest => ({ method: "eth_call", params: [], chain: chain(910), block: r.record });
+    await Promise.all([execute(request(), state, a.session), execute(request(), state, b.session)]);
+    expect(state.hinted).toBe(1);
+    expect(keysOf(a.inputs[1]!).slice(0, 3)).toEqual([`a:${C}`, "s:0x2", `a:${A}`]);
+    expect(keysOf(b.inputs[1]!).slice(0, 3)).toEqual([`a:${C}`, "s:0x2", `a:${A}`]);
+  });
+
+  it("a one-round call teaches an empty profile; the next call to it is cheap: no hints read, no snapshot", async () => {
+    const call = (block: number): ExecRequest => ({ method: "eth_call", params: [{ to: C, data: "0xabcdef01" }, "latest"], chain: chain(911), block: record(block).record });
+    // A factory that answers `has` (the module cache), so snapshot marks are sent.
+    const marking = (s: ReturnType<typeof session>) => Object.assign(s.session, { has: () => false }) as SessionFactory;
+    const first = new HintingState(TABLE, HINTS);
+    const s1 = session({ missing: [{ kind: "account", address: B }], at: 90 });
+    await execute(call(90), first, marking(s1));
+    // The first call to this function had no profile: it waited for the hints and marked the snapshot.
+    expect(first.hinted).toBe(1);
+    expect(JSON.parse(s1.inputs[1]!)).toMatchObject({ snapshot: record(90).hash });
+    const second = new HintingState(TABLE, HINTS);
+    const s2 = session({ missing: [{ kind: "storage", address: A, slot: "0x1" }], at: 91 });
+    await execute(call(91), second, marking(s2));
+    // Cheap (the first call needed nothing beyond its first round): the hints were not read.
+    expect(second.hinted).toBe(0);
+    expect(flat(second.asked)).toEqual(["s:0x1"]);
+    expect(keysOf(s2.inputs[1]!)).toEqual(["s:0x1"]);
+    expect((JSON.parse(s2.inputs[1]!) as { snapshot?: string }).snapshot).toBeUndefined();
+  });
+
+  it("a profile carries neither the call's own accounts (sender, callee, calldata addresses) nor the block's coinbase", async () => {
+    const F = "0x" + "f0".repeat(20);
+    const table: Record<string, StateValue> = { ...TABLE, [`a:${F}`]: null, [`a:${COINBASE}`]: null, [`a:${C}`]: null };
+    const call = (block: number): ExecRequest => ({ method: "eth_call", params: [{ from: F, to: B, data: "0x70a08231" + C.slice(2).padStart(64, "0") }, "latest"], chain: chain(913), block: record(block).record });
+    const first = new CountingState(table);
+    // Round one: the module's own keys; round two: the sender, the calldata's address, the coinbase and a slot.
+    await execute(call(97), first, rounds([{ missing: [{ kind: "account", address: B }], at: 97 }, { missing: [{ kind: "account", address: F }, { kind: "account", address: C }, { kind: "account", address: COINBASE }, { kind: "storage", address: A, slot: "0x1" }], at: 97 }]).session);
+    const second = new CountingState(table);
+    const s = rounds([{ missing: [{ kind: "blockHash", number: 5 }], at: 98 }]);
+    await execute(call(98), second, s.session);
+    // Only the slot was worth keeping: the accounts come with every call's first round or change per block.
+    expect(keysOf(s.inputs[1]!)).toEqual(["s:0x1", "b:5"]);
+  });
+
+  it("a call with a large profile does not wait for the hints: they join the round they arrive for, with the snapshot mark, without keys already answered", async () => {
+    const slots = Array.from({ length: 40 }, (_, i) => ({ kind: "storage", address: B, slot: "0x" + (i + 0x100).toString(16) }) as StateKey);
+    const table: Record<string, StateValue> = { ...TABLE };
+    for (const k of slots) if (k.kind === "storage") table[`s:${B}:${BigInt(k.slot)}`] = { kind: "storage", value: "0x1" };
+    const call = (block: number): ExecRequest => ({ method: "eth_call", params: [{ to: B, data: "0x0badf00d" }, "latest"], chain: chain(912), block: record(block).record });
+    await execute(call(95), new SlowState(table, HINTS, 0, 0), rounds([{ missing: [{ kind: "account", address: A }], at: 95 }, { missing: slots, at: 95 }]).session);
+    // Hints take two turns, a read one: they are not there for the first round, there for the second.
+    const state = new SlowState(table, HINTS, 2, 1);
+    const s = rounds([{ missing: [{ kind: "account", address: A }], at: 96 }, { missing: [{ kind: "blockHash", number: 5 }], at: 96 }]);
+    await execute(call(96), state, Object.assign(s.session, { has: () => false }) as SessionFactory);
+    expect(state.hinted).toBe(1);
+    const first = JSON.parse(s.inputs[1]!) as { keys: StateKey[]; snapshot?: string };
+    // Round one: the profile's 40 slots, the round's A with its code; no hints, no snapshot yet.
+    expect(keysOf(s.inputs[1]!).filter((k) => k.startsWith("s:"))).toHaveLength(40);
+    expect(keysOf(s.inputs[1]!)).toContain(`a:${A}`);
+    expect(keysOf(s.inputs[1]!)).not.toContain(`a:${C}`);
+    expect(first.snapshot).toBeUndefined();
+    const second = JSON.parse(s.inputs[2]!) as { keys: StateKey[]; snapshot?: string };
+    // Round two: the hints without A (answered exactly in round one), then the round's key; the snapshot mark.
+    expect(keysOf(s.inputs[2]!)).toEqual([`a:${C}`, "s:0x2", "b:5"]);
+    expect(second.snapshot).toBe(record(96).hash);
   });
 });

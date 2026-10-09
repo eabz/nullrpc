@@ -120,3 +120,69 @@ cases that regressed most never use the shared path. No change to `apps/rpc/src/
 benchmark's medians for execution cases measure isolate affinity as much as the code; comparing
 runs needs the warm share (header absent or `hints=0`) alongside the median, or a cold-only
 median.
+
+## 4. Two review items added afterwards (commits `ec1bc8f`, `b90f6dc`)
+
+An outside review of the same question named two defects on the execution path. Both are real;
+neither explains the median change above (the yield never worked in any of the three runs, and
+the cheap calls' wait for the broad wave is the same before and after the sharing), but both
+cost latency, and the fix is in `packages/executor/src/shell.ts`.
+
+**The yield between rounds never happened.** The loop yielded a turn of the event loop after a
+round that `Date.now()` said took 10 ms or more; a Worker's clock does not advance during
+synchronous code, so no round ever looked slow and a request with warm caches and many rounds
+held the isolate for its whole duration. The turn is now taken after any round the isolate's
+caches answered (no read awaited); a round that read yields on its own read. Emulated under Bun
+with the clock frozen as a Worker's is (`yield-emu.ts`, `yield-emu.log`: 40 cached rounds of
+20 ms of synchronous work, a 1 ms ticker measuring how long the event loop is held):
+
+| shell | warm request | longest hold of the event loop |
+|---|---:|---:|
+| main `a02f9a7` | 822 ms | 822 ms (the whole request) |
+| this change | 868 ms | 22 ms (one round) |
+
+A single round is still uninterruptible (the module's executed-gas budget bounds it). On
+production before the change (`blocking-prod-before.log`, version 7eba09c4): `eth_chainId`
+every 50 ms while `debug_traceBlockByNumber` ran back to back, p50 73 ms, p99 193 ms under the
+trace against p99 527 ms alone, so one laptop's trace loop does not show the hold on a data
+center of many isolates; the local Worker could not host the same harness because a cheap
+request arriving while a heavy one is in flight is canceled by the runtime as hung, on main's
+code as well (the cross-request promise hazard flagged separately).
+
+**Cheap calls waited for a thousand hinted keys.** Every call at a block the isolate had not
+seen read the witnesses around it and waited for that wave before its first round, whether it
+needed 2 keys or 200: in the production samples above `hints` is 540 to 1,100 for calls with
+`keys` of 2 to 7. Now a call whose callee the isolate has a profile for (learnt from any call
+that read, not only three-round ones) reads its profile's keys with its first round and does
+not wait: a profile of 32 keys or fewer skips the wave altogether; a larger one has the wave
+read but merged into the first round it has arrived for, less the keys answered exactly, with
+the snapshot mark on that round, so complex contracts keep their prefetch. Simultaneous
+requests at one block share one wave (the follower polls the isolate's cache with its own
+timer: in a Worker a request that awaits another request's promise is canceled as hung once
+that request finishes). The live window's large batches try the isolate's values before the
+edge cache. Per-block cold cost of the same `balanceOf` on the local Worker over the real
+bindings, one call per new head then a warm repeat (`probe-local-before.log`,
+`probe-local-after.log`):
+
+| code | per block: cold ms (exec header) | cold p50 | warm repeat |
+|---|---|---:|---:|
+| main `a02f9a7` | 2328 (`hints=979`), 1423 (`hints=249`), 1348 (`hints=226`), 1243 (`hints=141`), 1599 (`hints=977`), 1544 (`hints=1010`); `rounds=1` | 1423 ms | 5 ms |
+| this change | 1664 (`hints=977`, the isolate's first call to the function: no profile yet), then 952, 758, 686, 728 with `hints=0 keys=5 rounds=2` | 758 ms | 6 ms |
+
+Every new block before the change paid the wave (141 to 1,010 hinted keys for a call asking 4 to
+6); after it only the first call to the function does, and the call then reads its own 5 keys in
+two rounds. On this laptop-hosted Worker each round is a WAN round trip, so the saving is one
+wave of about 650 ms; in production a round is 150 to 200 ms and the wave 300 to 400 ms, so a
+cold `balanceOf` should go from the 475 to 614 ms measured above to about the price of its two
+rounds. The production "after" needs the deploy. The production "before" runs here were on
+version 7eba09c4; production moved to 22214403 (main at 3f9860f, no execution-path change)
+during this work, before the after numbers can be taken.
+
+An earlier version of this change learnt profiles from every round and accumulated the block's
+coinbase (one account per block, `keys` growing 6, 7, 8, 9 across blocks in `probe-local-after`
+of that version): a profile now keeps only what the dependent rounds asked for beyond the call's
+own accounts and the coinbase.
+
+Tests: `packages/executor/test/shell.test.ts` (the turn after a cached round, the shared wave,
+the cheap profiled call, the late wave for a large profile) and `apps/rpc/test/live.test.ts`
+(the isolate's values before the edge).

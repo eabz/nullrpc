@@ -44,16 +44,16 @@ export const MAX_ROUNDS = 300;
 /** Wall-clock budget of one request: a hard stop, every wait of the loop races it. */
 export const TIMEOUT_MS = 25_000;
 const TIMED_OUT = Symbol("timed out");
-/** A round that ran this long is followed by a turn of the event loop before the next one. */
-const YIELD_AFTER_MS = 10;
 /** Methods that run a call on a block's post-state, where the source's hints apply. */
 const CALL_METHODS = new Set(["eth_call", "eth_estimateGas", "eth_createAccessList", "debug_traceCall", "trace_call"]);
 
 /**
  * A turn of the event loop. A round is synchronous: nothing else in the isolate runs during it.
  * Between rounds the state reads are awaited (I/O, so other requests proceed), except when the
- * caches answer every key; a long round is then followed by an explicit turn, so one slow
- * request with warm caches still lets the isolate's other requests make progress.
+ * caches answer every key; such a round is followed by an explicit turn, so one request with
+ * warm caches and many rounds still lets the isolate's other requests make progress. (The
+ * turn is decided by whether the round read anything, not by the clock: a Worker's clock does
+ * not move during synchronous code, so a round never looks slow from inside.)
  */
 const yieldNow = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
@@ -100,9 +100,17 @@ const stateCache = new Lru<StateValue>(16 * 1024 * 1024);
 const profileCache = new Lru<StateKey[]>(8 * 1024 * 1024);
 /** Keys a profile keeps (the executor reads at most 1024 per call). */
 const MAX_PROFILE_KEYS = 1024;
-/** A call with this many read rounds (after the hints round) teaches its profile; a call that ran
- *  on what it was handed does not, and keeps the profile that made it so. */
-const PROFILE_AFTER_ROUNDS = 3;
+/** A call with this many read rounds teaches its profile; a call that ran on what it was handed
+ *  (a seeded one) does not, and keeps the profile that made it so. */
+const PROFILE_AFTER_ROUNDS = 1;
+/**
+ * A call whose profile holds this many keys or fewer is cheap: its profile is its targeted
+ * hints, read with its first round, and the source's broad hints (the witnesses around the
+ * block, about a thousand keys at a busy head) are neither read nor waited for. A larger
+ * profile still has them read, but its first round does not wait for them: they join the
+ * round in which they arrive, if the call needs one.
+ */
+const CHEAP_PROFILE_KEYS = 32;
 
 /** The RLP item at `at` of `b`: where its payload starts and ends, and whether it is a list. */
 function rlpItem(b: Uint8Array, at: number): { list: boolean; start: number; end: number } {
@@ -137,7 +145,7 @@ const toHex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2,
  * [header, …], the hash keccak256 of the header's RLP, and the number the header's ninth
  * field. Null for a record the executor will reject anyway (the request then runs uncached).
  */
-export function blockOf(record: string | Uint8Array): { hash: string; number: number } | null {
+export function blockOf(record: string | Uint8Array): { hash: string; number: number; coinbase?: string } | null {
   try {
     const b = typeof record === "string" ? unhex(record) : record;
     const top = rlpItem(b, 0);
@@ -148,16 +156,18 @@ export function blockOf(record: string | Uint8Array): { hash: string; number: nu
     if (!block.list || !header.list) return null;
     let at = header.start;
     let number = 0;
+    let coinbase: string | undefined;
     for (let field = 0; field < 9; field++) {
       if (at >= header.end) return null;
       const item = rlpItem(b, at);
+      if (field === 2 && !item.list && item.end - item.start === 20) coinbase = "0x" + toHex(b.subarray(item.start, item.end));
       if (field === 8) {
         if (item.list || item.end - item.start > 6) return null;
         for (let i = item.start; i < item.end; i++) number = number * 256 + b[i]!;
       }
       at = item.end;
     }
-    return { hash: "0x" + toHex(keccak_256(b.subarray(block.start, header.end))), number };
+    return { hash: "0x" + toHex(keccak_256(b.subarray(block.start, header.end))), number, coinbase };
   } catch {
     return null;
   }
@@ -226,7 +236,7 @@ async function readAll(state: StateSource, keys: StateKey[], at: number): Promis
 /** Answers `missing`: code from the isolate cache, accounts and storage from it too when
  *  `scope` (chain, block hash and block) is known, everything else from `state` in one read;
  *  code of accounts read here comes with them (from the cache, else one more read). */
-async function answer(state: StateSource, missing: StateKey[], at: number, scope: string | null): Promise<Hints> {
+async function answer(state: StateSource, missing: StateKey[], at: number, scope: string | null): Promise<Answered> {
   const keys: StateKey[] = [];
   const values: StateValue[] = [];
   const toRead: StateKey[] = [];
@@ -285,7 +295,12 @@ async function answer(state: StateSource, missing: StateKey[], at: number, scope
       values.push(value);
     });
   }
-  return { keys, values };
+  return { keys, values, read: toRead.length > 0 || codes.length > 0 };
+}
+
+/** A round's answers, and whether any came from the source (I/O) rather than the isolate's caches. */
+interface Answered extends Hints {
+  read: boolean;
 }
 
 function witnessSize(w: Witness | null): number {
@@ -302,25 +317,67 @@ function hintsSize(h: Hints | null): number {
   return n;
 }
 
-/** The source's hints for the block of a call, shared per isolate by the block's hash. */
+/** Hint reads in flight, by scope: simultaneous requests at one block share the one read. */
+const pendingHints = new Set<string>();
+/** How often a request sharing another's hint read looks for its result (its own timer). */
+const HINTS_POLL_MS = 5;
+
+/**
+ * The source's hints for the block of a call, shared per isolate by the block's hash. One
+ * request reads them; another at the same block meanwhile waits for the cached value with its
+ * own timer rather than on the reader's promise: a Worker cancels a request whose only pending
+ * work is a promise another request created once that request has finished.
+ */
 function hintsFor(state: StateSource, scope: string | null, at: number): Promise<Hints | null> | null {
   if (!state.hints || scope === null) return null;
   const cached = hintCache.get(scope);
   if (cached !== undefined) return Promise.resolve(cached);
+  if (pendingHints.has(scope)) {
+    return (async () => {
+      while (pendingHints.has(scope)) await new Promise((r) => setTimeout(r, HINTS_POLL_MS));
+      return hintCache.get(scope) ?? null;
+    })();
+  }
   let p: Promise<Hints | null>;
   try {
     p = Promise.resolve(state.hints(at));
   } catch {
     return null;
   }
-  return p.then(
-    (h) => {
-      if (h && (!Array.isArray(h.keys) || !Array.isArray(h.values) || h.keys.length !== h.values.length)) h = null;
-      hintCache.set(scope, h, hintsSize(h));
-      return h;
-    },
-    () => null,
+  pendingHints.add(scope);
+  return p
+    .then(
+      (h) => {
+        if (h && (!Array.isArray(h.keys) || !Array.isArray(h.values) || h.keys.length !== h.values.length)) h = null;
+        hintCache.set(scope, h, hintsSize(h));
+        return h;
+      },
+      () => null,
+    )
+    .finally(() => pendingHints.delete(scope));
+}
+
+/** `hints` without the keys in `ids` (what earlier rounds answered exactly: those stand). */
+function withoutIds(hints: Hints | null, ids: Set<string>): Hints | null {
+  if (!hints || ids.size === 0) return hints;
+  const keys: StateKey[] = [];
+  const values: StateValue[] = [];
+  hints.keys.forEach((key, i) => {
+    if (ids.has(keyId(key))) return;
+    keys.push(key);
+    values.push(hints.values[i]!);
+  });
+  return { keys, values };
+}
+
+/** A promise's value once it has settled, read without waiting (a rejection reads as null). */
+function settled<T>(p: Promise<T>): { get: () => { value: T | null } | null } {
+  let state: { value: T | null } | null = null;
+  p.then(
+    (value) => (state = { value }),
+    () => (state = { value: null }),
   );
+  return { get: () => state };
 }
 
 /**
@@ -387,20 +444,44 @@ function profileOf(request: ExecRequest, chainId: string): string | null {
   return `${chainId}:${call.to.toLowerCase()}:${data.length >= 10 ? data.slice(0, 10).toLowerCase() : "0x"}`;
 }
 
-/** Records what a call asked for: the newest keys first, then what the profile already held. */
-function learn(profile: string, asked: StateKey[]): void {
-  if (asked.length === 0) return;
+/** The accounts a call names itself (sender, callee, the addresses in its calldata) and the
+ *  block's coinbase: asked by every call and different from call to call or block to block, so
+ *  not what a profile should carry. */
+function ownKeysOf(request: ExecRequest, coinbase: string | undefined): Set<string> {
+  const own = new Set<string>();
+  const account = (address: unknown) => {
+    if (typeof address === "string" && /^0x[0-9a-fA-F]{40}$/.test(address)) own.add(`a:${address.toLowerCase()}`);
+  };
+  const call = request.params?.[0] as { from?: unknown; to?: unknown; data?: unknown; input?: unknown } | undefined;
+  if (call && typeof call === "object") {
+    account(call.from);
+    account(call.to);
+    const data = typeof call.data === "string" ? call.data : typeof call.input === "string" ? call.input : "";
+    // 32-byte words that are a left-padded address, as the module reads them.
+    for (let i = 10; i + 64 <= data.length; i += 64) {
+      const word = data.slice(i, i + 64);
+      if (/^0{24}[0-9a-fA-F]{40}$/.test(word)) own.add(`a:0x${word.slice(24).toLowerCase()}`);
+    }
+  }
+  account(coinbase);
+  return own;
+}
+
+/** Records what a call's dependent rounds asked for beyond the call's own accounts: the newest
+ *  keys first, then what the profile already held. A call that needed none still leaves a
+ *  profile (an empty one): the isolate then knows its calls are cheap. */
+function learn(profile: string, asked: StateKey[], own: Set<string>): void {
   const seen = new Set<string>();
   const keys: StateKey[] = [];
   for (const key of [...asked, ...(profileCache.get(profile) ?? [])]) {
     if (key.kind === "blockHash") continue;
     const id = keyId(key);
-    if (seen.has(id)) continue;
+    if (seen.has(id) || own.has(id)) continue;
     seen.add(id);
     keys.push(key);
     if (keys.length >= MAX_PROFILE_KEYS) break;
   }
-  profileCache.set(profile, keys, keys.length * 160);
+  profileCache.set(profile, keys, 64 + keys.length * 160);
 }
 
 /**
@@ -424,21 +505,30 @@ export async function execute(
   });
   const within = <T>(p: Promise<T>): Promise<T | typeof TIMED_OUT> => Promise.race([p, expired]);
   const chainId = String((request.chain as { chainId?: unknown })?.chainId ?? "");
+  const decoded = request.block != null ? blockOf(request.block) : null;
   const block =
     typeof request.blockHash === "string" && Number.isSafeInteger(request.blockNumber) && request.blockNumber! >= 0
-      ? { hash: request.blockHash.toLowerCase(), number: request.blockNumber! }
-      : request.block != null
-        ? blockOf(request.block)
-        : null;
+      ? { hash: request.blockHash.toLowerCase(), number: request.blockNumber!, coinbase: decoded?.coinbase }
+      : decoded;
   const blockHash = block?.hash ?? null;
   const isCall = CALL_METHODS.has(request.method);
   // A block the module has a state snapshot of needs no hints or profile: it starts from it.
   const seeded = !!(blockHash && isCall && session.has?.("known", blockHash));
-  // The hints and the profile are read while the executor's first round is: all one wave.
-  const hinting = block && isCall && !seeded ? hintsFor(state, `${chainId}:${blockHash}:${block.number}`, block.number) : null;
   const profile = block ? profileOf(request, chainId) : null;
   const known = profile && !seeded ? profileCache.get(profile) : undefined;
-  const prefetching = known?.length ? answer(state, known, block!.number, `${chainId}:${blockHash}:${block!.number}`).catch(() => null) : null;
+  // A call whose profile the isolate knows has its targeted hints (read with its first round);
+  // a cheap one (a profile of few keys, or none beyond what the module asks for itself) does
+  // without the source's broad wave altogether.
+  const cheap = !!known && known.length <= CHEAP_PROFILE_KEYS;
+  // The source's hints are read while the executor's first round is: one wave. A call without
+  // a profile waits for them (its first round would otherwise miss most of what it needs); a
+  // profiled call does not wait, and takes them in whichever round they have arrived for.
+  const hinting = block && isCall && !seeded && !cheap ? hintsFor(state, `${chainId}:${blockHash}:${block.number}`, block.number) : null;
+  const arrived = hinting ? settled(hinting) : null;
+  const waitForHints = !!hinting && !known;
+  let hintsTaken = !hinting;
+  /** Keys earlier rounds answered exactly: hints arriving later do not restate them. */
+  const answeredIds = new Set<string>();
   const asked: StateKey[] = [];
   let reads = 0;
   // The record goes as hex, and only when the module does not hold the block already.
@@ -452,13 +542,12 @@ export async function execute(
   const wasm = session(JSON.stringify(wire));
   try {
     let input = "";
-    let slow = false;
+    let turn = false;
     let first = true;
     for (let round = 0; round < MAX_ROUNDS; round++) {
-      if (slow && (await within(yieldNow())) === TIMED_OUT) return timedOut();
-      const ran = now();
+      if (turn && (await within(yieldNow())) === TIMED_OUT) return timedOut();
+      turn = false;
       const out = JSON.parse(wasm.run(input)) as Round;
-      slow = now() - ran >= YIELD_AFTER_MS;
       if ("done" in out) return out.response;
       if (now() - started > budgetMs) return timedOut();
       if ("witness" in out) {
@@ -473,17 +562,41 @@ export async function execute(
         input = JSON.stringify({ witness });
       } else {
         const scope = blockHash && `${chainId}:${blockHash}:${out.at}`;
-        if (profile) asked.push(...out.missing);
+        // The first round's keys are the module's own (sender, callee, coinbase, the calldata's
+        // addresses), asked by every call: a profile is what the dependent rounds then needed.
+        if (profile && !first) asked.push(...out.missing);
         reads++;
+        const atBlock = !!block && out.at === block.number;
         const answered = answer(state, out.missing, out.at, scope);
-        const atBlock = first && block && out.at === block.number;
-        const wave = await within(Promise.all([answered, atBlock && hinting ? hinting : null, atBlock && prefetching ? prefetching : null]));
+        // The profile's keys the first round did not ask for, read with it.
+        let prefetching: Promise<Answered | null> | null = null;
+        if (first && atBlock && known?.length) {
+          const missing = new Set(out.missing.map(keyId));
+          const want = known.filter((k) => !missing.has(keyId(k)));
+          if (want.length) prefetching = answer(state, want, out.at, scope).catch(() => null);
+        }
+        const wave = await within(Promise.all([answered, prefetching, first && atBlock && waitForHints ? hinting : null]));
         if (wave === TIMED_OUT) return timedOut();
-        const [round, hints, prefetched] = wave;
-        // A call's first wave is the state at the end of its block: the module keeps it for
-        // the next request there (unless it started from such a snapshot already).
-        const snapshot = first && atBlock && isCall && !seeded && session.has ? { snapshot: blockHash } : {};
-        input = JSON.stringify(first ? { ...withHints(hints, prefetched, round), ...snapshot } : round);
+        const [round, prefetched, waited] = wave;
+        // The source's hints join the first round they have arrived for (at once when waited for).
+        let hints: Hints | null | undefined;
+        if (!hintsTaken && atBlock) {
+          const got = first && waitForHints ? { value: waited } : arrived!.get();
+          if (got) {
+            hints = withoutIds(got.value, answeredIds);
+            hintsTaken = true;
+          }
+        }
+        for (const key of round.keys) answeredIds.add(keyId(key));
+        for (const key of prefetched?.keys ?? []) answeredIds.add(keyId(key));
+        // What a call has been handed once the hints are in (or when the source has none) is the
+        // state at the end of its block: the module keeps it for the next request there (unless
+        // it started from such a snapshot already). A cheap call's own few keys are not that.
+        const snapshot = atBlock && isCall && !seeded && session.has && (hints !== undefined || (first && !hinting && !cheap)) ? { snapshot: blockHash } : {};
+        const merged = withHints(hints ?? null, first ? prefetched : null, round);
+        input = JSON.stringify({ keys: merged.keys, values: merged.values, ...snapshot });
+        // A round the caches answered awaited no I/O: give the isolate's other requests a turn.
+        turn = !round.read && !prefetched?.read;
         first = false;
       }
     }
@@ -499,6 +612,6 @@ export async function execute(
   } finally {
     if (expire !== undefined) clearTimeout(expire);
     wasm.free?.();
-    if (profile && reads >= PROFILE_AFTER_ROUNDS) learn(profile, asked);
+    if (profile && reads >= PROFILE_AFTER_ROUNDS) learn(profile, asked, ownKeysOf(request, block?.coinbase));
   }
 }
