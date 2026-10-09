@@ -452,6 +452,7 @@ write then updates it for the rows it touches.
 | `fence(removed)`, `truncateAbove(n)` | daemon | reorgs |
 | `pruneAtOrBelow(n)` | daemon | after a promotion |
 | `getPinned(domain, key, n, pin)` | Worker | newest value at or below `min(n, pin)`; `stale` if the pin was removed |
+| `getPinnedMany([{domain, key}…], n, pin)` | Worker | `getPinned` for many keys in one call, answered in order; `stale` as a whole |
 | `scanPinned(address, n, pin)` | Worker | an account's slots changed in the window, with their newest values |
 
 Durable Objects are billed for wall-clock time while busy and for every row written or deleted,
@@ -495,7 +496,8 @@ A state read at block `n`:
 2. If `n ≤ P`, it reads R2 state history at `n`.
 3. Otherwise it calls `getPinned(key, n, (M, H))` on the key's shard. A row in `P+1 … n`
    answers. No row means the key has not changed since `P`, and the Worker reads R2 history at
-   `P`.
+   `P`. The executor's reads (many keys per round) go through `getPinnedMany`: one call to the
+   live Worker, which groups the keys by shard and asks every shard once.
 4. `stale` means a reorg removed the pinned head. The Worker reads `state()` again and retries.
 
 **Promotion race.** A promotion publishes `HEAD.json` first; `/ingest/prune` then prunes the

@@ -15,6 +15,9 @@ import { data, equal } from "./eth/hex";
 import { decodeRecord, type BlockRecord } from "./eth/record";
 import { StaleError, type BlockId, type Live, type LiveState } from "./live";
 
+/** The live Worker's domain codes (apps/live/src/codec.ts). */
+const DOMAIN_CODE = { accounts: 1, storage: 2, code: 3 } as const;
+
 export interface Pointers {
   latest: number;
   safe: number;
@@ -148,13 +151,31 @@ export class Chain {
   /** The value of a state key at the end of block `n` (empty when absent or zero). */
   async stateValue(domain: Domain, key: Uint8Array, n: number): Promise<Uint8Array> {
     if (n > this.archived) {
-      const code = domain === "accounts" ? 1 : domain === "storage" ? 2 : 3;
-      const v = await this.withHead((head) => this.live!.stateValue(code, key, Math.min(n, head.number), head));
+      const v = await this.withHead((head) => this.live!.stateValue(DOMAIN_CODE[domain], key, Math.min(n, head.number), head));
       if (v !== null) return v;
       // Unchanged since P: the archive at P answers.
       return new StateHistory(this.archive, this.pin).get(domain, key, this.archived);
     }
     return new StateHistory(this.archive, this.pin).get(domain, key, n);
+  }
+
+  /**
+   * stateValue for many keys at once, in order: above P one call to the live window answers
+   * every key it has, and the archive (at P, in parallel) the rest. Code is by hash and
+   * immutable, so a code key is answered wherever its bytes are (the window for new code, else
+   * the archive at P), as code() does.
+   */
+  async stateValues(keys: { domain: Domain; key: Uint8Array }[], n: number): Promise<Uint8Array[]> {
+    if (keys.length === 0) return [];
+    const live = n > this.archived ? await this.withHead((head) => this.live!.stateValues(keys.map((k) => ({ domain: DOMAIN_CODE[k.domain], key: k.key })), Math.min(n, head.number), head)) : null;
+    const history = new StateHistory(this.archive, this.pin);
+    return Promise.all(
+      keys.map((k, i) => {
+        const v = live?.[i] ?? null;
+        if (v !== null && (k.domain !== "code" || v.length)) return v;
+        return history.get(k.domain, k.key, k.domain === "code" ? this.archived : Math.min(n, this.archived));
+      }),
+    );
   }
 
   /** Bytecode by hash (immutable: the archive's code domain, or the live window for new code). */

@@ -28,6 +28,8 @@ export interface LiveApi {
   witness(number: number, pin: BlockId): Promise<Stale | { stale: false; witness: string } | null>;
   txBlock(txHash: string, pin: BlockId): Promise<Stale | { stale: false; number: number } | null>;
   getPinned(domain: number, keyHex: string, n: number, pin: BlockId): Promise<Stale | { stale: false; block: number | null; value: string | null }>;
+  /** getPinned for many keys in one call (at most 1024), answered in order; stale as a whole. */
+  getPinnedMany(keys: { domain: number; key: string }[], n: number, pin: BlockId): Promise<Stale | { stale: false; values: { block: number | null; value: string | null }[] }>;
   scanPinned(addressHex: string, n: number, pin: BlockId): Promise<Stale | { stale: false; slots: Record<string, string> }>;
 }
 
@@ -42,6 +44,11 @@ const STATE_TTL_MS = 6_000;
 const states = new WeakMap<LiveApi, { at: number; state: Promise<LiveState> }>();
 // Records are immutable per block hash, so they are kept with no expiry.
 const records = new Lru<string, Uint8Array>(512);
+
+/** Most keys per getPinnedMany call (apps/live/src/index.ts). */
+export const LIVE_BATCH = 1024;
+
+const toHex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 
 function fromHex(hex: string): Uint8Array {
   const s = hex.startsWith("0x") ? hex.slice(2) : hex;
@@ -81,11 +88,29 @@ export class Live {
    * null when the key has not changed since P (read the archive at P). Throws StaleError.
    */
   async stateValue(domain: 1 | 2 | 3, key: Uint8Array, n: number, pin: BlockId): Promise<Uint8Array | null> {
-    const keyHex = Array.from(key, (b) => b.toString(16).padStart(2, "0")).join("");
-    const r = await this.api.getPinned(domain, keyHex, n, pin);
+    const r = await this.api.getPinned(domain, toHex(key), n, pin);
     if (r.stale) throw new StaleError();
     if (r.block === null || r.value === null) return null;
     return fromHex(r.value);
+  }
+
+  /**
+   * stateValue for many keys in as few calls as possible (one per LIVE_BATCH keys), answered
+   * in order. Throws StaleError when any batch is stale.
+   */
+  async stateValues(keys: { domain: 1 | 2 | 3; key: Uint8Array }[], n: number, pin: BlockId): Promise<(Uint8Array | null)[]> {
+    const batches: Promise<(Uint8Array | null)[]>[] = [];
+    for (let i = 0; i < keys.length; i += LIVE_BATCH) {
+      const slice = keys.slice(i, i + LIVE_BATCH);
+      batches.push(
+        this.api.getPinnedMany(slice.map((k) => ({ domain: k.domain, key: toHex(k.key) })), n, pin).then((r) => {
+          if (r.stale) throw new StaleError();
+          if (r.values.length !== slice.length) throw new Error("the live window answered the wrong number of values");
+          return r.values.map((v) => (v.block === null || v.value === null ? null : fromHex(v.value)));
+        }),
+      );
+    }
+    return (await Promise.all(batches)).flat();
   }
 
   /** A block's witness bytes in the window, or null. Throws StaleError. */

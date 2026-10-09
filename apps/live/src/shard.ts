@@ -20,7 +20,13 @@ export interface GroupRow {
   data: Uint8Array;
 }
 
-export type PinnedResult = { stale: true } | { stale: false; block: number | null; value: string | null };
+export interface PinnedValue {
+  /** The block of the value, or null when the shard has no entry for the key. */
+  block: number | null;
+  value: string | null;
+}
+export type PinnedResult = { stale: true } | ({ stale: false } & PinnedValue);
+export type PinnedManyResult = { stale: true } | { stale: false; values: PinnedValue[] };
 
 /** In-memory maps of the shard's blocks, mirroring the rows table. */
 interface Index {
@@ -144,7 +150,22 @@ export class StateShard extends DurableObject<Env> {
   async getPinned(domain: number, keyHex: string, n: number, pin: BlockId): Promise<PinnedResult> {
     const idx = this.load();
     if (this.stale(idx, pin)) return { stale: true };
+    return { stale: false, ...this.lookup(idx, domain, keyHex, Math.min(n, pin.number)) };
+  }
+
+  /**
+   * getPinned for many keys in one call: the whole batch is stale when the pin is (every key
+   * is read against the same index, so one answer covers all of them), else one value per
+   * key, in order.
+   */
+  async getPinnedMany(keys: { domain: number; key: string }[], n: number, pin: BlockId): Promise<PinnedManyResult> {
+    const idx = this.load();
+    if (this.stale(idx, pin)) return { stale: true };
     const cap = Math.min(n, pin.number);
+    return { stale: false, values: keys.map((k) => this.lookup(idx, k.domain, k.key, cap)) };
+  }
+
+  private lookup(idx: Index, domain: number, keyHex: string, cap: number): PinnedValue {
     const newest = (vs: Version[] | undefined) => {
       let best: Version | null = null;
       for (const v of vs ?? []) if (v.block <= cap && (!best || v.block >= best.block)) best = v;
@@ -153,10 +174,10 @@ export class StateShard extends DurableObject<Env> {
     const found = newest(idx.keys.get(`${domain}:${keyHex}`));
     if (domain === DOMAIN.storage) {
       const wipe = newest(idx.keys.get(`${DOMAIN.wipe}:${keyHex.slice(0, 40)}`));
-      if (wipe && (!found || wipe.block > found.block)) return { stale: false, block: wipe.block, value: "" };
+      if (wipe && (!found || wipe.block > found.block)) return { block: wipe.block, value: "" };
     }
-    if (!found) return { stale: false, block: null, value: null };
-    return { stale: false, block: found.block, value: found.value ? hex(found.value) : "" };
+    if (!found) return { block: null, value: null };
+    return { block: found.block, value: found.value ? hex(found.value) : "" };
   }
 
   /** Storage slots of an account changed in the window at or below min(n, pin.number), with their newest values. */

@@ -19,7 +19,7 @@ import { WorkerEntrypoint } from "cloudflare:workers";
 import { fromBase64, normalizeBlockId, normalizeKey, shardOf, unhex, DOMAIN, type BlockId } from "./codec";
 import { HISTORY_RANGES, type ChainDO, type HistoryRange } from "./chain";
 import type { Env } from "./env";
-import type { StateShard } from "./shard";
+import type { PinnedManyResult, PinnedValue, StateShard } from "./shard";
 
 export { ChainDO } from "./chain";
 export { StateShard } from "./shard";
@@ -49,6 +49,9 @@ function authorized(request: Request, env: Env): boolean {
 }
 
 const blockId = normalizeBlockId;
+
+/** Most keys per getPinnedMany call (the RPC Worker's StateSource reads at most 256 per round). */
+const MAX_BATCH = 1024;
 
 interface IngestRow {
   first: number;
@@ -156,6 +159,34 @@ export class LiveReads extends WorkerEntrypoint<Env> {
     const key = normalizeKey(domain, keyHex);
     const s = shardOf(domain, unhex(key), shardCount(this.env));
     return shard(this.env, s).getPinned(domain, key, n, normalizeBlockId(pin, "pin"));
+  }
+  /**
+   * getPinned for many keys in one service call: `{domain, key}` per key, grouped by shard
+   * here and answered in order. Stale when any shard says the pin is (a reorg fences the shards
+   * one by one, so the first to know makes the whole batch stale and the caller re-pins).
+   */
+  async getPinnedMany(keys: { domain: number; key: string }[], n: number, pin: BlockId): Promise<PinnedManyResult> {
+    if (!Array.isArray(keys) || keys.length > MAX_BATCH) throw new TypeError(`at most ${MAX_BATCH} keys per batch`);
+    const shards = shardCount(this.env);
+    const at = normalizeBlockId(pin, "pin");
+    const groups = new Map<number, { domain: number; key: string; index: number }[]>();
+    keys.forEach((k, index) => {
+      const domain = Number(k?.domain);
+      const key = normalizeKey(domain, k?.key);
+      const s = shardOf(domain, unhex(key), shards);
+      let group = groups.get(s);
+      if (!group) groups.set(s, (group = []));
+      group.push({ domain, key, index });
+    });
+    const values: PinnedValue[] = new Array(keys.length);
+    const answers = await Promise.all([...groups].map(async ([s, group]) => {
+      const r = await shard(this.env, s).getPinnedMany(group.map(({ domain, key }) => ({ domain, key })), n, at);
+      if (r.stale) return true;
+      group.forEach((g, i) => (values[g.index] = r.values[i]!));
+      return false;
+    }));
+    if (answers.some((stale) => stale)) return { stale: true };
+    return { stale: false, values };
   }
   async scanPinned(addressHex: string, n: number, pin: BlockId) {
     const address = normalizeKey(DOMAIN.accounts, addressHex);

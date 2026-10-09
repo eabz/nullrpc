@@ -120,7 +120,9 @@ describe("protocol", () => {
   it("a state source failure is an execution error", async () => {
     const failing: StateSource = { read: async () => { throw new Error("down"); }, witness: async () => null, block: async () => null };
     const c = f.cases.find((c) => c.request.method === "eth_call")!;
-    const got = await execute({ ...c.request, chain, block: f.record }, failing, session);
+    // On a chain id the cache has not seen, so the call reads state (the cases above filled
+    // the cache for this block on the fixture's chain).
+    const got = await execute({ ...c.request, chain: { ...chain, chainId: 0xdead }, block: f.record }, failing, session);
     expect(got).toEqual({ error: { code: -32000, message: "execution unavailable: state could not be read" } });
   });
 });

@@ -2,7 +2,7 @@
 // request's pinned chain view, so every executor read sees the same archive generation and head.
 
 import { RpcTarget } from "cloudflare:workers";
-import { decodeAccount } from "./archive/state";
+import { decodeAccount, type Domain } from "./archive/state";
 import { decodeWitness } from "./archive/witness";
 import type { Chain } from "./chain";
 import { concat, data, parseData } from "./eth/hex";
@@ -30,33 +30,64 @@ export class ChainStateSource extends RpcTarget implements StateSource {
     super();
   }
 
+  /**
+   * One round's keys: every account, storage and code key goes to the chain in one batch (one
+   * call to the live window above P, the archive in parallel for the rest); block hashes come
+   * from the block records.
+   */
   async read(keys: StateKey[], at: number): Promise<StateValue[]> {
     if (!Array.isArray(keys) || keys.length > MAX_KEYS) throw new Error(`at most ${MAX_KEYS} keys per read`);
     if (!Number.isSafeInteger(at) || at < 0 || at > this.chain.pointers().latest) throw new Error("block out of range");
-    return Promise.all(keys.map((k) => this.one(k, at)));
-  }
-
-  private async one(k: StateKey, at: number): Promise<StateValue> {
-    switch (k.kind) {
-      case "account": {
-        const a = decodeAccount(await this.chain.stateValue("accounts", hex(k.address, 20), at));
-        if (!a) return null;
-        const codeHash = a.codeHash ? data(a.codeHash) : null;
-        return { kind: "account", nonce: a.nonce, balance: "0x" + a.balance.toString(16), codeHash: codeHash === EMPTY_CODE_HASH ? null : codeHash };
+    const state: { domain: Domain; key: Uint8Array }[] = [];
+    const index: number[] = [];
+    const out: StateValue[] = new Array(keys.length).fill(null);
+    const blocks: Promise<void>[] = [];
+    keys.forEach((k, i) => {
+      switch (k.kind) {
+        case "account":
+          state.push({ domain: "accounts", key: hex(k.address, 20) });
+          index.push(i);
+          break;
+        case "storage":
+          state.push({ domain: "storage", key: concat(hex(k.address, 20), hex("0x" + String(k.slot).replace(/^0x/, "").padStart(64, "0"), 32)) });
+          index.push(i);
+          break;
+        case "code":
+          state.push({ domain: "code", key: hex(k.hash, 32) });
+          index.push(i);
+          break;
+        case "blockHash":
+          blocks.push(
+            (k.number <= at ? this.chain.block(k.number) : Promise.resolve(null)).then((rec) => {
+              out[i] = rec ? { kind: "blockHash", hash: data(rec.block.header.hash) } : null;
+            }),
+          );
+          break;
+        default:
+          throw new Error("unknown state key");
       }
-      case "storage": {
-        const slot = hex("0x" + String(k.slot).replace(/^0x/, "").padStart(64, "0"), 32);
-        return { kind: "storage", value: big(await this.chain.stateValue("storage", concat(hex(k.address, 20), slot), at)) };
+    });
+    const [values] = await Promise.all([this.chain.stateValues(state, at), ...blocks]);
+    values.forEach((v, j) => {
+      const i = index[j]!;
+      const k = keys[i]!;
+      switch (k.kind) {
+        case "account": {
+          const a = decodeAccount(v);
+          if (!a) break;
+          const codeHash = a.codeHash ? data(a.codeHash) : null;
+          out[i] = { kind: "account", nonce: a.nonce, balance: "0x" + a.balance.toString(16), codeHash: codeHash === EMPTY_CODE_HASH ? null : codeHash };
+          break;
+        }
+        case "storage":
+          out[i] = { kind: "storage", value: big(v) };
+          break;
+        case "code":
+          out[i] = { kind: "code", code: data(v) };
+          break;
       }
-      case "code":
-        return { kind: "code", code: data(await this.chain.code(hex(k.hash, 32))) };
-      case "blockHash": {
-        const rec = k.number <= at ? await this.chain.block(k.number) : null;
-        return rec ? { kind: "blockHash", hash: data(rec.block.header.hash) } : null;
-      }
-      default:
-        throw new Error("unknown state key");
-    }
+    });
+    return out;
   }
 
   async witness(n: number): Promise<Witness | null> {

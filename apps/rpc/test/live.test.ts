@@ -1,3 +1,4 @@
+import { keccak_256 } from "@noble/hashes/sha3.js";
 import { describe, expect, test } from "vitest";
 import { Archive } from "../src/archive/archive";
 import { MemorySource } from "../src/archive/source";
@@ -6,7 +7,8 @@ import type { BlockId, LiveApi, LiveState } from "../src/live";
 import { Live } from "../src/live";
 import { METHODS } from "../src/methods";
 import { renderPage, statusBody } from "../src/page/page";
-import { buildArchive, PREFIX } from "./archive";
+import { ChainStateSource } from "../src/state-source";
+import { buildArchive, encodeAccount, PREFIX } from "./archive";
 import { encodeRecord, fixtures, type Fixture } from "./encode";
 
 const ALL = fixtures();
@@ -49,6 +51,9 @@ function fakeLive(opts: { promoted?: BlockId; staleOnce?: boolean } = {}) {
     },
     async getPinned() {
       return { stale: false, block: null, value: null };
+    },
+    async getPinnedMany(keys) {
+      return { stale: false, values: keys.map(() => ({ block: null, value: null })) };
     },
     async scanPinned() {
       return { stale: false, slots: {} };
@@ -114,6 +119,156 @@ describe("live window", () => {
     const chain = await Chain.open(archive, new Live(api), now + 1);
     expect(chain.archived).toBe(20_000_001);
     expect(((await call(chain, "eth_getBlockByNumber", hex(20_000_001), false)) as { hash: string }).hash).toBe(ARCHIVED.at(-1)!.block.hash);
+  });
+});
+
+describe("state source over the live window", () => {
+  const P = 20_000_001;
+  const A = Uint8Array.from({ length: 20 }, (_, i) => 0xa0 + i);
+  const B = Uint8Array.from({ length: 20 }, (_, i) => 0xb0 + i);
+  const SLOT1 = Uint8Array.from({ length: 32 }, (_, i) => (i === 31 ? 1 : 0));
+  const SLOT2 = Uint8Array.from({ length: 32 }, (_, i) => (i === 31 ? 2 : 0));
+  const CODE_OLD = Uint8Array.from([0x60, 0x00]);
+  const CODE_NEW = Uint8Array.from([0x60, 0x01]);
+  const HASH_OLD = keccak_256(CODE_OLD);
+  const HASH_NEW = keccak_256(CODE_NEW);
+  const h = (b: Uint8Array) => "0x" + Buffer.from(b).toString("hex");
+  // The archive at P: A and B exist, A has slot 1, B's code is CODE_OLD.
+  const ARCHIVE = buildArchive(ARCHIVED, {
+    state: {
+      entries: [
+        { domain: "accounts", key: A, block: 1_000, value: encodeAccount(1, 10n) },
+        { domain: "accounts", key: B, block: 2_000, value: encodeAccount(2, 20n, HASH_OLD) },
+        { domain: "storage", key: Uint8Array.from([...A, ...SLOT1]), block: 3_000, value: Uint8Array.from([7]) },
+        { domain: "code", key: HASH_OLD, block: 2_000, value: CODE_OLD },
+      ],
+      layers: [[0, P]],
+    },
+  });
+
+  /** A live window where A changed (nonce 5, now with CODE_NEW), A's slot 2 was written and B is untouched. */
+  function liveState(opts: { staleOnce?: boolean } = {}) {
+    let stale = opts.staleOnce ?? false;
+    const head = id(WINDOW.at(-1)!);
+    const calls: { keys: { domain: number; key: string }[]; n: number; pin: BlockId }[] = [];
+    let states = 0;
+    const window: Record<string, { block: number; value: string }> = {
+      [`1:${h(A).slice(2)}`]: { block: head.number - 1, value: Buffer.from(encodeAccount(5, 50n, HASH_NEW)).toString("hex") },
+      [`2:${h(A).slice(2)}${h(SLOT2).slice(2)}`]: { block: head.number, value: "09" },
+      [`3:${h(HASH_NEW).slice(2)}`]: { block: head.number - 1, value: Buffer.from(CODE_NEW).toString("hex") },
+    };
+    const state: LiveState = { head, safe: head, finalized: id(WINDOW[0]!), promoted: id(ARCHIVED.at(-1)!), generation: 1, shards: 16 };
+    const api: LiveApi = {
+      async state() {
+        states++;
+        return state;
+      },
+      async block(key, pin) {
+        const f = WINDOW.find((w) => (typeof key === "number" ? Number(w.block.number) === key : w.block.hash === key.toLowerCase()));
+        if (!f || Number(f.block.number) > pin.number) return null;
+        return { stale: false, number: Number(f.block.number), hash: f.block.hash, record: recHex(f) };
+      },
+      async witness() {
+        return null;
+      },
+      async txBlock() {
+        return null;
+      },
+      async getPinned() {
+        throw new Error("the state source must batch its reads");
+      },
+      async getPinnedMany(keys, n, pin) {
+        calls.push({ keys, n, pin });
+        if (stale) {
+          stale = false;
+          return { stale: true };
+        }
+        return {
+          stale: false,
+          values: keys.map((k) => {
+            const found = window[`${k.domain}:${k.key}`];
+            return found && found.block <= Math.min(n, pin.number) ? found : { block: null, value: null };
+          }),
+        };
+      },
+      async scanPinned() {
+        return { stale: false, slots: {} };
+      },
+    };
+    return { api, calls, head, states: () => states };
+  }
+
+  const KEYS = [
+    { kind: "account", address: h(A) },
+    { kind: "blockHash", number: P },
+    { kind: "storage", address: h(A), slot: "0x2" },
+    { kind: "account", address: h(B) },
+    { kind: "storage", address: h(A), slot: "0x1" },
+    { kind: "code", hash: h(HASH_NEW) },
+    { kind: "code", hash: h(HASH_OLD) },
+    { kind: "account", address: h(Uint8Array.from({ length: 20 }, () => 0xee)) },
+  ] as const;
+  const AT_HEAD = [
+    { kind: "account", nonce: 5, balance: "0x32", codeHash: h(HASH_NEW) },
+    { kind: "blockHash", hash: ARCHIVED.at(-1)!.block.hash },
+    { kind: "storage", value: "0x9" },
+    { kind: "account", nonce: 2, balance: "0x14", codeHash: h(HASH_OLD) },
+    { kind: "storage", value: "0x7" },
+    { kind: "code", code: h(CODE_NEW) },
+    { kind: "code", code: h(CODE_OLD) },
+    null,
+  ];
+
+  async function source(api: LiveApi) {
+    // This archive shares its prefix with the file's other one: pin it fresh so the isolate's
+    // HEAD cache does not hand back the other manifest.
+    const archive = new Archive(new MemorySource(ARCHIVE), PREFIX);
+    const now = Date.now() + Math.random() * 1e12;
+    await archive.pin(now, true);
+    const chain = await Chain.open(archive, new Live(api), now);
+    return new ChainStateSource(chain);
+  }
+
+  test("one round is one call to the live window; unchanged keys come from the archive at P", async () => {
+    const { api, calls, head } = liveState();
+    const src = await source(api);
+    expect(await src.read([...KEYS], head.number)).toEqual(AT_HEAD);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({ n: head.number, pin: head });
+    expect(calls[0]!.keys).toEqual([
+      { domain: 1, key: h(A).slice(2) },
+      { domain: 2, key: h(A).slice(2) + h(SLOT2).slice(2) },
+      { domain: 1, key: h(B).slice(2) },
+      { domain: 2, key: h(A).slice(2) + h(SLOT1).slice(2) },
+      { domain: 3, key: h(HASH_NEW).slice(2) },
+      { domain: 3, key: h(HASH_OLD).slice(2) },
+      { domain: 1, key: "ee".repeat(20) },
+    ]);
+    // Below the newest change, the window answers less and the archive the rest.
+    const older = await src.read([KEYS[0], KEYS[2]], head.number - 1);
+    expect(older).toEqual([AT_HEAD[0], { kind: "storage", value: "0x0" }]);
+    expect(calls[1]).toMatchObject({ n: head.number - 1 });
+  });
+
+  test("a stale batch re-pins and retries once, still in one call per round", async () => {
+    const { api, calls, head, states } = liveState({ staleOnce: true });
+    const src = await source(api);
+    expect(await src.read([...KEYS], head.number)).toEqual(AT_HEAD);
+    expect(calls).toHaveLength(2);
+    expect(states()).toBe(2);
+  });
+
+  test("reads at or below P never touch the live window", async () => {
+    const { api, calls } = liveState();
+    const src = await source(api);
+    expect(await src.read([KEYS[0], KEYS[3], KEYS[4], KEYS[6]], P)).toEqual([
+      { kind: "account", nonce: 1, balance: "0xa", codeHash: null },
+      AT_HEAD[3],
+      AT_HEAD[4],
+      AT_HEAD[6],
+    ]);
+    expect(calls).toHaveLength(0);
+    await expect(src.read([KEYS[0]], Number(WINDOW.at(-1)!.block.number) + 1)).rejects.toThrow("block out of range");
   });
 });
 

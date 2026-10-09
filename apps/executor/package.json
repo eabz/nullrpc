@@ -10,9 +10,11 @@
     "test": "sh scripts/build.sh && cargo test --manifest-path crate/Cargo.toml && vitest run",
     "fixtures": "node test/fixtures/fetch.mjs"
   },
+  "dependencies": {
+    "@noble/hashes": "^2.0.0"
+  },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261007.1",
-    "@noble/hashes": "^2.0.0",
     "@types/node": "^22.0.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.0",

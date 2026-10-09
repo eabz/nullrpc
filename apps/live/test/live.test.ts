@@ -186,6 +186,100 @@ describe("LiveReads", () => {
   });
 });
 
+describe("LiveReads.getPinnedMany", () => {
+  /** One address per shard, so a batch spans every shard. */
+  function perShard(shards: number): string[] {
+    const out: string[] = [];
+    for (let i = 1; out.length < shards; i++) {
+      const a = i.toString(16).padStart(40, "0");
+      if (!out.includes(a) && !out.some((o) => shardOf(DOMAIN.accounts, unhex(o), shards) === shardOf(DOMAIN.accounts, unhex(a), shards))) out.push(a);
+    }
+    return out.sort((a, b) => shardOf(DOMAIN.accounts, unhex(a), shards) - shardOf(DOMAIN.accounts, unhex(b), shards));
+  }
+  const CODE = "cd".repeat(32);
+
+  async function setup() {
+    const t = testEnv();
+    const reads = new LiveReads({} as never, t.env);
+    const chain = t.env.CHAIN.get(t.env.CHAIN.idFromName("x"));
+    await chain.init(id(99), 1, 4);
+    await chain.putRows([chainRow(100, 103)]);
+    await chain.setHead(id(103), null, null);
+    const addrs = perShard(4);
+    const shardDO = (i: number) => t.env.SHARD.get(t.env.SHARD.idFromName(`560048-${i}`));
+    // Shard i holds account i with value 0i at block 100+i and its slot 1 at the same block.
+    for (let i = 0; i < 4; i++) {
+      const changes: Change[] = [
+        { domain: DOMAIN.accounts, key: addrs[i]!, value: `0${i}` },
+        { domain: DOMAIN.storage, key: addrs[i] + "01".padStart(64, "0"), value: `a${i}` },
+      ];
+      if (shardOf(DOMAIN.code, unhex(CODE), 4) === i) changes.push({ domain: DOMAIN.code, key: CODE, value: "6080" });
+      await shardDO(i).applyMany([shardRow(100, { [100 + i]: changes })]);
+    }
+    return { reads, addrs, shardDO, env: t.env };
+  }
+
+  test("answers every key in order, across shards, with missing keys as null", async () => {
+    const { reads, addrs } = await setup();
+    const keys = [
+      { domain: DOMAIN.accounts, key: "0x" + addrs[3]!.toUpperCase() },
+      { domain: DOMAIN.storage, key: addrs[1] + "01".padStart(64, "0") },
+      { domain: DOMAIN.accounts, key: "ee".repeat(20) }, // never written
+      { domain: DOMAIN.code, key: CODE },
+      { domain: DOMAIN.accounts, key: addrs[0]! },
+      { domain: DOMAIN.storage, key: addrs[2] + "02".padStart(64, "0") }, // another slot
+      { domain: DOMAIN.accounts, key: addrs[2]! },
+    ];
+    const r = await reads.getPinnedMany(keys, 103, id(103));
+    expect(r).toEqual({
+      stale: false,
+      values: [
+        { block: 103, value: "03" },
+        { block: 101, value: "a1" },
+        { block: null, value: null },
+        { block: 100 + shardOf(DOMAIN.code, unhex(CODE), 4), value: "6080" },
+        { block: 100, value: "00" },
+        { block: null, value: null },
+        { block: 102, value: "02" },
+      ],
+    });
+    // Each key is answered exactly as getPinned answers it, at a lower n too.
+    for (const n of [100, 101, 103]) {
+      const many = (await reads.getPinnedMany(keys, n, id(103))) as { values: unknown[] };
+      for (let i = 0; i < keys.length; i++) {
+        const one = (await reads.getPinned(keys[i]!.domain, keys[i]!.key, n, id(103))) as { block: unknown; value: unknown };
+        expect(many.values[i]).toEqual({ block: one.block, value: one.value });
+      }
+    }
+    expect(await reads.getPinnedMany([], 103, id(103))).toEqual({ stale: false, values: [] });
+  });
+
+  test("the batch is stale as soon as one of its shards is", async () => {
+    const { reads, addrs, shardDO } = await setup();
+    const keys = addrs.map((key) => ({ domain: DOMAIN.accounts, key }));
+    expect(await reads.getPinnedMany(keys, 103, id(103))).toMatchObject({ stale: false });
+    // A reorg fences shard 2 first; readers pinned at 103 see the batch stale wherever it lands.
+    await shardDO(2).fence([id(103)]);
+    expect(await reads.getPinnedMany(keys, 103, id(103))).toEqual({ stale: true });
+    expect(await reads.getPinnedMany([keys[2]!], 103, id(103))).toEqual({ stale: true });
+    expect(await reads.getPinnedMany([keys[0]!], 103, id(103))).toMatchObject({ stale: false });
+    // A pin on the surviving branch is fine everywhere.
+    expect(await reads.getPinnedMany(keys, 102, id(102))).toEqual({
+      stale: false,
+      values: [{ block: 100, value: "00" }, { block: 101, value: "01" }, { block: 102, value: "02" }, { block: null, value: null }],
+    });
+  });
+
+  test("keys and pins are validated before any shard is asked", async () => {
+    const { reads, addrs } = await setup();
+    await expect(reads.getPinnedMany([{ domain: DOMAIN.accounts, key: addrs[0]! }], 103, { number: 103, hash: "0x12" })).rejects.toThrow("invalid pin");
+    await expect(reads.getPinnedMany([{ domain: DOMAIN.accounts, key: addrs[0]! }, { domain: 4, key: addrs[1]! }], 103, id(103))).rejects.toThrow("invalid domain");
+    await expect(reads.getPinnedMany([{ domain: DOMAIN.storage, key: addrs[0]! }], 103, id(103))).rejects.toThrow("invalid key");
+    await expect(reads.getPinnedMany(Array.from({ length: 1025 }, () => ({ domain: DOMAIN.accounts, key: addrs[0]! })), 103, id(103))).rejects.toThrow("at most 1024");
+    await expect(reads.getPinnedMany(null as never, 103, id(103))).rejects.toThrow("at most 1024");
+  });
+});
+
 describe("status routes", () => {
   const T0 = Date.UTC(2026, 9, 8, 12, 0, 0);
   const b64 = (b: Uint8Array) => Buffer.from(b).toString("base64");
