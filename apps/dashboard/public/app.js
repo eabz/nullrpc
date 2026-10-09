@@ -396,7 +396,6 @@ function errorsOf(st) {
   };
   add("Pipeline halted", st.halted);
   add("Pipeline", st.last_error);
-  add("Promotion", get(st, "promotion.last_error"));
   return out.sort((a, b) => (b.at || 0) - (a.at || 0));
 }
 
@@ -527,25 +526,28 @@ function historyCharts(id) {
 function promotionCard(st) {
   const prom = st.promotion || {};
   const tip = st.r2_tip;
-  const promotable = prom.promotable;
-  const sinceTip = promotable && tip ? Math.max(0, promotable.number - tip.number) : null;
-  const level = prom.in_flight ? "warning" : prom.last_error ? "serious" : "good";
-  const card = h("div", { class: "card" },
-    cardHead("Archive publishing", ICONS.upload, pill(level, prom.in_flight ? "In flight" : prom.last_error ? "Retrying" : "Idle")),
-    kv([
-      ["Archive tip", tip ? `${headLabel(tip)} · gen ${fmtInt(tip.generation)}` : "–"],
-      ["Promotable", promotable ? headLabel(promotable) : "–"],
-      ["Last", prom.last ? h("span", {}, `#${fmtInt(get(prom, "last.archived_through.number"))} · `, ago(prom.last.at)) : "never"],
-      prom.in_flight ? ["In flight", h("span", {}, `to #${fmtInt(get(prom, "in_flight.to.number"))} · `, ago(prom.in_flight.started_at))] : null,
-      prom.attempts ? ["Attempts", `${fmtInt(prom.attempts)}`] : null,
-      prom.next_attempt_at ? ["Next attempt", ago(prom.next_attempt_at)] : null,
-      prom.prune_pending ? ["Prune pending", `≤ #${fmtInt(prom.prune_pending.number)}`] : null,
-    ]));
-  if (sinceTip != null && prom.min_blocks) {
-    const bar = h("div", { class: "gauge-bar" }, widthBar(sinceTip / prom.min_blocks, ""));
+  const next = prom.next;
+  const due = Boolean(next?.due);
+  const level = !next ? "unknown" : due ? "warning" : "good";
+  const label = !next ? "No schedule" : due ? "Promotion due" : "Waiting";
+  const rows = [
+    ["Archive tip", tip ? `${headLabel(tip)} · gen ${fmtInt(tip.generation)}` : "–"],
+    ["Last promotion", prom.last ? h("span", {}, `#${fmtInt(get(prom, "last.archived_through.number"))} · `, ago(prom.last.at)) : "never"],
+  ];
+  if (next) {
+    rows.push(["Finalized, not archived", `${fmtInt(next.finalized_above)} blocks`]);
+    rows.push(["Full batch", `${fmtInt(next.batch)} blocks · once #${fmtInt(next.due_block)} is finalized`]);
+    rows.push(["Age limit", next.deadline ? h("span", {}, `${dur(next.max_age_s)} · `, ago(next.deadline)) : `${dur(next.max_age_s)} · no block waiting`]);
+  }
+  const card = h("div", { class: "card" }, cardHead("Archive publishing", ICONS.upload, pill(level, label)), kv(rows));
+  if (next && next.finalized_above != null) {
+    const bar = h("div", { class: "gauge-bar" }, widthBar(next.finalized_above / next.batch, ""));
     card.append(h("div", { class: "gauge" },
-      h("div", { class: "gauge-top" }, h("span", {}, "Toward next update"), h("span", {}, `${fmtInt(sinceTip)} / ${fmtInt(prom.min_blocks)} blocks · or ${dur(prom.max_age_s || 0)}`)),
+      h("div", { class: "gauge-top" }, h("span", {}, "Toward the next promotion"),
+        h("span", {}, due ? "due now" : `${fmtInt(next.finalized_above)} / ${fmtInt(next.batch)} blocks${next.deadline ? " · or " + agoText(next.deadline) : ""}`)),
       bar));
+  } else if (!next) {
+    card.append(h("p", { class: "all-clear" }, "The daemon has not reported its promotion rule yet."));
   }
   card.append(freshness("Archive tip checked", tip?.checked_at, 6 * 60_000)); // refreshed every 5 min
   return card;

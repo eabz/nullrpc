@@ -14,12 +14,14 @@ import { caller, keyFrom, verifyKey, type Caller } from "./access/identity";
 import { Ledger, type AccessApi } from "./access/ledger";
 import { limitByPlan, takePublic, takeStrict, type RateLimiter } from "./access/rate";
 import { Archive } from "./archive/archive";
+import { archiveCacheHeader, CachedSource, type ArchiveCacheCounter } from "./archive/cached";
 import { R2Source } from "./archive/source";
 import { ArchiveError } from "./archive/types";
 import { Chain } from "./chain";
 import { Live, type LiveApi } from "./live";
 import { METHODS } from "./methods";
 import { pageResponse, statusResponse, usageResponse, type PageConfig } from "./page/page";
+import { ResponseCache, responseCacheHeader, type CacheStatus } from "./response-cache";
 import { errorResponse, MAX_BATCH, RpcError, validate, type MethodEnv, type RpcRequest } from "./rpc";
 import type { ExecutorApi } from "./executor";
 
@@ -62,6 +64,7 @@ const CORS = {
   "access-control-allow-methods": "POST, GET, OPTIONS",
   "access-control-allow-headers": "content-type, authorization, x-api-key",
   "access-control-max-age": "86400",
+  "access-control-expose-headers": "retry-after, x-nullrpc-archive-cache, x-nullrpc-response-cache",
 };
 
 function json(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
@@ -82,13 +85,24 @@ function pageConfig(env: Env): PageConfig {
   };
 }
 
-function openChain(env: Env): Promise<Chain> {
-  const source = new R2Source(env.ARCHIVE);
+/** The data center's cache, when the runtime has one (not in tests or on workers.dev). */
+function edgeCache(): Cache | null {
+  return typeof caches !== "undefined" ? caches.default : null;
+}
+
+/**
+ * The chain for one request, reading the archive through the edge cache (src/archive/cached.ts);
+ * `reads` counts this request's cache hits and misses.
+ */
+async function openChain(env: Env, ctx: ExecutionContext, origin: string): Promise<{ chain: Chain; reads: ArchiveCacheCounter }> {
+  const bucket = new R2Source(env.ARCHIVE);
+  const source = new CachedSource(bucket, edgeCache(), origin, (p) => ctx.waitUntil(p));
   const archive = new Archive(source, env.ARCHIVE_PREFIX);
-  // The live pointers come from live/HEAD.json next to the archive (src/live.ts), through the
-  // data center's cache; the service binding is the fallback and the authority after a reorg.
-  const live = env.LIVE ? new Live(env.LIVE, { source, prefix: env.ARCHIVE_PREFIX, cache: typeof caches === "undefined" ? null : caches.default }) : null;
-  return Chain.open(archive, live);
+  // The live pointers come from live/HEAD.json next to the archive (src/live.ts), read from the
+  // bucket and kept 2 s in the edge cache under their own key (not the archive's day-long one);
+  // the service binding is the fallback and the authority after a reorg.
+  const live = env.LIVE ? new Live(env.LIVE, { source: bucket, prefix: env.ARCHIVE_PREFIX, cache: edgeCache() }) : null;
+  return { chain: await Chain.open(archive, live), reads: source.counter };
 }
 
 // One ledger per isolate (per APP binding object).
@@ -101,15 +115,17 @@ function ledgerFor(app: AccessApi): Ledger {
 
 type RpcResponse = { jsonrpc: string; id: RpcRequest["id"]; result?: unknown; error?: { code: number; message: string } };
 
-async function call(chain: Chain, req: RpcRequest, menv: MethodEnv): Promise<RpcResponse> {
+async function call(chain: Chain, req: RpcRequest, menv: MethodEnv, responses: ResponseCache): Promise<RpcResponse & { cache: CacheStatus }> {
   const handler = METHODS[req.method];
-  if (!handler) return errorResponse(req.id, new RpcError(-32601, `the method ${req.method} does not exist/is not available`));
+  if (!handler) return { ...errorResponse(req.id, new RpcError(-32601, `the method ${req.method} does not exist/is not available`)), cache: "bypass" };
+  const params = req.params ?? [];
   try {
-    return { jsonrpc: "2.0", id: req.id, result: await handler(chain, req.params ?? [], menv) };
+    const { result, status } = await responses.serve(chain, req.method, params, () => handler(chain, params, menv));
+    return { jsonrpc: "2.0", id: req.id, result, cache: status };
   } catch (e) {
-    if (e instanceof RpcError) return errorResponse(req.id, e);
+    if (e instanceof RpcError) return { ...errorResponse(req.id, e), cache: "bypass" };
     console.error(JSON.stringify({ event: "rpc_error", method: req.method, error: e instanceof Error ? e.message : String(e), stack: e instanceof Error ? e.stack : undefined }));
-    return errorResponse(req.id, new RpcError(-32603, e instanceof ArchiveError ? "archive unavailable" : "internal error"));
+    return { ...errorResponse(req.id, new RpcError(-32603, e instanceof ArchiveError ? "archive unavailable" : "internal error")), cache: "bypass" };
   }
 }
 
@@ -193,12 +209,24 @@ async function rpc(request: Request, env: Env, ctx: ExecutionContext): Promise<R
   }
 
   let results: RpcResponse[];
+  const statuses: CacheStatus[] = [];
+  let reads: ArchiveCacheCounter = { hit: 0, miss: 0 };
   try {
-    const chain = await openChain(env);
+    const origin = new URL(request.url).origin;
+    const opened = await openChain(env, ctx, origin);
+    reads = opened.reads;
+    const chain = opened.chain;
     const menv: MethodEnv = { chainId: Number(env.CHAIN_ID), relayUrl: env.RELAY_URL, executor: env.EXECUTOR };
-    results = await Promise.all(items.map((item) => {
+    const responses = new ResponseCache(edgeCache(), origin, Number(env.CHAIN_ID), (p) => ctx.waitUntil(p));
+    results = await Promise.all(items.map(async (item, i) => {
       const req = validate(item);
-      return "error" in req ? (req as RpcResponse) : call(chain, req, menv);
+      if ("error" in req) {
+        statuses[i] = "bypass";
+        return req as RpcResponse;
+      }
+      const { cache, ...res } = await call(chain, req, menv, responses);
+      statuses[i] = cache;
+      return res;
     }));
   } catch (e) {
     if (admitted?.ok) ledger!.release(admitted.line, worst);
@@ -215,7 +243,7 @@ async function rpc(request: Request, env: Env, ctx: ExecutionContext): Promise<R
     ledger.settle(admitted.line, worst, Math.max(INVALID, cost));
     ctx.waitUntil(ledger.renewDue());
   }
-  return json(batch ? results : results[0]);
+  return json(batch ? results : results[0], 200, { "x-nullrpc-archive-cache": archiveCacheHeader(reads), "x-nullrpc-response-cache": responseCacheHeader(statuses, batch) });
 }
 
 export default {
@@ -225,7 +253,7 @@ export default {
     if (request.method === "POST") return rpc(request, env, ctx);
     if (request.method !== "GET" && request.method !== "HEAD") return json({ error: "method not allowed" }, 405);
     const cfg = pageConfig(env);
-    if (url.pathname === "/status.json") return statusResponse(request, cfg, () => openChain(env), ctx);
+    if (url.pathname === "/status.json") return statusResponse(request, cfg, () => openChain(env, ctx, url.origin).then((o) => o.chain), ctx);
     if (url.pathname === "/_status/usage") return usageResponse(request, cfg, ctx);
     if ((url.pathname.startsWith("/_page/") || url.pathname === "/favicon.ico") && env.ASSETS) return env.ASSETS.fetch(request);
     return pageResponse(request, cfg) ?? json({ name: "nullrpc", chain_id: cfg.chainId, protocol: "JSON-RPC 2.0 over HTTPS POST", docs: "https://nullrpc.dev", status: "/status.json" });

@@ -320,6 +320,7 @@ describe("status routes", () => {
       safe: id(101),
       finalized: id(100),
       network_head: { number: 110, hash: hashOf(110).toUpperCase().replace("0X", "0x") },
+      promotion: { batch: 256, max_age_s: 7200, max_batches: 8, group: 1 },
     });
     expect(res.status).toBe(200);
     r = await get("/internal/status");
@@ -336,10 +337,23 @@ describe("status routes", () => {
       pending_blocks: 4,
       last_progress: T0,
       last_ingest: T0,
-      promotion: { last: null },
+      // Block 100 (P+1) is from 2023, so it is past the two-hour age limit: a promotion is due.
+      promotion: {
+        params: { batch: 256, max_age_s: 7200, max_batches: 8, group: 1 },
+        next: { finalized_above: 1, due_block: 355, batch: 256, deadline: (1_700_000_000 + 100 * 12 + 7200) * 1000, max_age_s: 7200, due: true },
+        last: null,
+      },
       counters: { ingest_batches: 1, rows_written: 1, blocks_advanced: 4 },
       shards: 4,
     });
+
+    // With a long age limit and no full batch, nothing is due; a group of 8 moves the due block
+    // to a group boundary. A write without `promotion` keeps the last rule.
+    await ingest(env, "/ingest/blocks", { rows: [{ first: 100, last: 103, chain: b64(row.data), shards: {} }], head: id(103), promotion: { batch: 256, max_age_s: 1_000_000_000, max_batches: 8, group: 8 } });
+    expect((await get("/internal/status")).body.chain.promotion.next).toEqual({ finalized_above: 1, due_block: 359, batch: 256, deadline: (1_700_000_000 + 100 * 12 + 1_000_000_000) * 1000, max_age_s: 1_000_000_000, due: false });
+    expect((await ingest(env, "/ingest/blocks", { rows: [{ first: 100, last: 103, chain: b64(row.data), shards: {} }], head: id(103), promotion: { batch: 0 } })).status).toBe(400);
+    await ingest(env, "/ingest/blocks", { rows: [{ first: 100, last: 103, chain: b64(row.data), shards: {} }], head: id(103) });
+    expect((await get("/internal/status")).body.chain.promotion.params).toEqual({ batch: 256, max_age_s: 1_000_000_000, max_batches: 8, group: 8 });
 
     // Without a network head the target stays the last reported one; a head above it is its own target.
     await ingest(env, "/ingest/blocks", { rows: [{ first: 100, last: 103, chain: b64(row.data), shards: {} }], head: id(103) });
@@ -355,8 +369,9 @@ describe("status routes", () => {
       lag: 8,
       archived_through: id(101),
       pending_blocks: 1,
-      promotion: { last: { archived_through: id(101), generation: 2, at: T0 } },
-      counters: { reorgs: 1, reorged_blocks: 1, prunes: 1, ingest_errors: 1 },
+      // P is 101 now and the window has 102: nothing above P is finalized, 102 waits on its age.
+      promotion: { next: { finalized_above: 0, due_block: 359, deadline: (1_700_000_000 + 102 * 12 + 1_000_000_000) * 1000, due: false }, last: { archived_through: id(101), generation: 2, at: T0 } },
+      counters: { reorgs: 1, reorged_blocks: 1, prunes: 1, ingest_errors: 2 },
       last_error: { message: "/ingest/blocks: rows must hold 1 to 256 groups", at: T0 },
     });
   });

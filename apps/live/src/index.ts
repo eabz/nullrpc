@@ -10,6 +10,8 @@
 //                            head, the status page's target
 //     POST /ingest/reorg     {ancestor, removed: [{number, hash}]}: fence, lower the head, truncate
 //     POST /ingest/prune     {promoted, generation}: after a promotion
+//     Each write may carry `promotion` {batch, max_age_s, max_batches, group}, the daemon's
+//     promotion rule, for the status page.
 //   LiveReads  the entrypoint the RPC Worker binds to read the live window.
 //   LiveStatus the entrypoint the status dashboard binds to (service bindings only; no public route):
 //     GET  /internal/status                 {chain: ChainStatus}
@@ -17,7 +19,7 @@
 
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { fromBase64, normalizeBlockId, normalizeKey, shardOf, unhex, DOMAIN, type BlockId } from "./codec";
-import { HISTORY_RANGES, type ChainDO, type HistoryRange } from "./chain";
+import { HISTORY_RANGES, type ChainDO, type HistoryRange, type PromotionParams } from "./chain";
 import type { Env } from "./env";
 import type { PinnedManyResult, PinnedValue, StateShard } from "./shard";
 
@@ -60,6 +62,18 @@ interface IngestRow {
   shards: Record<string, string>;
 }
 
+/** The daemon's promotion rule from a write's `promotion`, or null when the write has none. */
+function promotionParams(v: unknown): PromotionParams | null {
+  if (v == null) return null;
+  const o = v as Record<string, unknown>;
+  const field = (k: string, min: number) => {
+    const x = Number(o[k]);
+    if (!Number.isSafeInteger(x) || x < min) throw new Error(`promotion.${k} must be an integer ≥ ${min}`);
+    return x;
+  };
+  return { batch: field("batch", 1), max_age_s: field("max_age_s", 0), max_batches: field("max_batches", 1), group: field("group", 1) };
+}
+
 async function ingest(request: Request, env: Env, path: string): Promise<Response> {
   const n = shardCount(env);
   const all = Array.from({ length: n }, (_, i) => i);
@@ -70,7 +84,7 @@ async function ingest(request: Request, env: Env, path: string): Promise<Respons
   const body = (await request.json()) as Record<string, unknown>;
   switch (path) {
     case "/ingest/init": {
-      const st = await chain(env).init(blockId(body.promoted, "promoted"), Number(body.generation), n);
+      const st = await chain(env).init(blockId(body.promoted, "promoted"), Number(body.generation), n, promotionParams(body.promotion));
       return json(st);
     }
     case "/ingest/blocks": {
@@ -97,6 +111,7 @@ async function ingest(request: Request, env: Env, path: string): Promise<Respons
         body.safe ? blockId(body.safe, "safe") : null,
         body.finalized ? blockId(body.finalized, "finalized") : null,
         body.network_head ? blockId(body.network_head, "network_head") : null,
+        promotionParams(body.promotion),
       );
       return json({ head });
     }
@@ -114,7 +129,7 @@ async function ingest(request: Request, env: Env, path: string): Promise<Respons
       const generation = Number(body.generation);
       if (!Number.isSafeInteger(generation) || generation < 1) throw new Error("invalid generation");
       await Promise.all(all.map((i) => shard(env, i).pruneAtOrBelow(promoted.number)));
-      await chain(env).pruneAtOrBelow(promoted, generation);
+      await chain(env).pruneAtOrBelow(promoted, generation, promotionParams(body.promotion));
       return json({ promoted, generation });
     }
   }

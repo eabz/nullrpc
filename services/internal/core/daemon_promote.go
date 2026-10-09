@@ -5,9 +5,10 @@ package core
 // promote moves finalized blocks P+1 … P′ from the spool into a new R2 generation: one
 // segment and one witness range per chunk the blocks touch, a hash index object, a log index
 // object and a level-0 state layer. compact then runs one merge at a time, each publishing
-// its own generation: four contiguous state layers, hash index objects or log index objects of
-// one level (any run, lowest level and oldest first: mergeableRun) into one of the next level,
-// or a complete chunk's segments and witness ranges into one.
+// its own generation: two adjacent state layers, hash index objects or log index objects into
+// one (mergeablePair: small neighbours fold at once, and the closest-sized pair merges while
+// more than max-objects objects sit above the base), or a complete chunk's segments and witness
+// ranges into one.
 // Objects a new generation no longer names are deleted 7 days later.
 
 import (
@@ -285,7 +286,7 @@ func (p *promotion) compact() (bool, error) {
 			}
 			removed = append(removed, keys...)
 		}
-		merged, objs, err := mergeLayers(p.r2.src, layers, group, local, ns, group[0].Level+1)
+		merged, objs, err := mergeLayers(p.r2.src, layers, group, local, ns, uint32(indexLevel(group[0].FirstBlock, group[len(group)-1].LastBlock, p.d.cfg.batch)))
 		if err != nil {
 			return false, err
 		}
@@ -417,56 +418,73 @@ func (p *promotion) compact() (bool, error) {
 	return true, nil
 }
 
-// mergeWidth is how many objects of one level a merge folds into one of the next level.
-const mergeWidth = 4
+// mergeWidth is how many adjacent objects a merge folds into one.
+const mergeWidth = 2
 
-// mergeableLayers picks the state layers the next merge replaces: the run of mergeWidth
-// contiguous layers of one level, none the base, that mergeableRun prefers. It returns the
-// run's position in the manifest, or -1.
+// mergeableLayers picks the state layers the next merge replaces (mergeablePair), returning
+// the older one's position in the manifest, or -1. The base (level 99) never merges.
 func (p *promotion) mergeableLayers(m *Manifest) int {
 	ls := m.StateHistory.Layers
-	return mergeableRun(len(ls), func(i int) (uint64, uint64, int, bool) {
+	return mergeablePair(len(ls), p.d.cfg.maxObjects, p.d.cfg.batch, func(i int) (uint64, uint64, bool) {
 		l := ls[i]
-		return l.FirstBlock, l.LastBlock, int(l.Level), l.Level == baseLevel
+		return l.FirstBlock, l.LastBlock, l.Level == baseLevel
 	})
 }
 
-// mergeableIndex picks the index objects the next merge replaces, likewise; an index object's
-// level follows from its span (indexLevel), and the first object is the base (the backfill's).
+// mergeableIndex picks the index objects the next merge replaces, likewise; the first object is
+// the base (the backfill's).
 func (p *promotion) mergeableIndex(n int, span func(int) (uint64, uint64)) int {
-	batch := p.d.cfg.batch
-	return mergeableRun(n, func(i int) (uint64, uint64, int, bool) {
+	return mergeablePair(n, p.d.cfg.maxObjects, p.d.cfg.batch, func(i int) (uint64, uint64, bool) {
 		f, l := span(i)
-		return f, l, indexLevel(f, l, batch), i == 0
+		return f, l, i == 0
 	})
 }
 
-// mergeableRun finds, among n objects ordered by first block, a run of mergeWidth contiguous
-// objects of one level, none the base: the one of the lowest level, and the oldest of those.
-// Every run qualifies, not only the newest, so a backlog drains: a merged object in the
-// middle of the list never strands the objects around it, and the small objects of the lowest
-// level fold first. It returns the run's start, or -1.
-func mergeableRun(n int, object func(int) (first, last uint64, level int, base bool)) int {
-	best, bestLevel := -1, 0
-	for start := 0; start+mergeWidth <= n; start++ {
-		_, last, level, base := object(start)
-		if base || (best >= 0 && level >= bestLevel) {
+// mergeablePair chooses, among n objects ordered by first block, the two adjacent, contiguous
+// objects the next merge folds into one, neither the base:
+//
+//  1. the pair with the smallest combined span, when that span is at most a batch: the small
+//     objects that max-age promotions write fold into their neighbour at once, before they
+//     count toward the cap;
+//  2. otherwise, when more than maxObjects objects sit above the base, the pair whose spans are
+//     closest (the lowest larger/smaller ratio; ties go to the smaller pair, so the tail
+//     folds first). The spans then stay roughly geometric, so the count holds at the cap and every
+//     block is rewritten about log2(blocks/batch) times over its life. The oldest object above
+//     the base is rewritten once each time the history above the base doubles.
+//
+// It returns the older object's position, or -1 when nothing should merge.
+func mergeablePair(n int, maxObjects, batch uint64, object func(int) (first, last uint64, base bool)) int {
+	small, smallSpan := -1, uint64(0)
+	closest, closestRatio, closestSpan := -1, 0.0, uint64(0)
+	above := uint64(0)
+	for i := 0; i < n; i++ {
+		f, l, base := object(i)
+		if base {
 			continue
 		}
-		run := true
-		for i := start + 1; i < start+mergeWidth; i++ {
-			f, l, lv, b := object(i)
-			if b || lv != level || f != last+1 {
-				run = false
-				break
-			}
-			last = l
+		above++
+		if i == 0 {
+			continue
 		}
-		if run {
-			best, bestLevel = start, level
+		pf, pl, pbase := object(i - 1)
+		if pbase || f != pl+1 {
+			continue
+		}
+		older, newer := pl-pf+1, l-f+1
+		if sum := older + newer; sum <= batch && (small < 0 || sum <= smallSpan) {
+			small, smallSpan = i-1, sum
+		}
+		if ratio := float64(max(older, newer)) / float64(min(older, newer)); closest < 0 || ratio < closestRatio || (ratio == closestRatio && older+newer <= closestSpan) {
+			closest, closestRatio, closestSpan = i-1, ratio, older+newer
 		}
 	}
-	return best
+	switch {
+	case small >= 0:
+		return small
+	case above > maxObjects:
+		return closest
+	}
+	return -1
 }
 
 // replaceRun returns list with the mergeWidth objects at start replaced by merged, in place, so

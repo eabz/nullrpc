@@ -187,6 +187,7 @@ daemon --spool /mnt/nullrpc/spool
 | `--batch` | 256 | blocks per promotion |
 | `--max-age` | 2h | promote a smaller batch once the oldest unpromoted finalized block is this old |
 | `--max-batches` | 8 | batches promoted at most at once |
+| `--max-objects` | 6 | state layers, hash index objects and log index objects kept above the base |
 | `--group` | 1 | blocks per live window row; divides `--batch` |
 | `--window` | 16 | blocks extracted in parallel while catching up |
 | `--genesis` | bundled for Ethereum mainnet and Hoodi | the chain's genesis JSON for any other chain |
@@ -209,11 +210,11 @@ from where it stopped. It logs one JSON line per promotion, merge, reorg and ret
 4. **Promotion.** When a batch is finalized: segments, witness ranges, hash and log index objects
    and a level-0 state layer to R2, a new manifest, `HEAD.json` with `If-Match`, then the live
    window is pruned.
-5. **Compaction.** Between promotions, one merge per generation: any four contiguous state
-   layers or index objects of one level (the lowest level, then the oldest run, so a backlog of
-   small promotions drains instead of stranding behind a merged object) into one of the next
-   level; a complete chunk's segments and witness ranges into one. Replaced objects are deleted
-   7 days later (docs/storage.md, "Compaction").
+5. **Compaction.** Between promotions, one merge per generation: two adjacent state layers or
+   index objects into one (small neighbours fold at once; beyond `--max-objects` above the base,
+   the closest-sized pair), so a lookup's fan-out stays at about six objects however long the
+   chain runs; a complete chunk's segments and witness ranges into one. Replaced objects are
+   deleted 7 days later (docs/storage.md, "Compaction").
 
 ## nullrpc-live-{chain-id}
 
