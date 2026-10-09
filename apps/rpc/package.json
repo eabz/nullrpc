@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun run --cwd ../../packages/executor build && bun run --cwd ../../packages/zstd build",
+    "build": "bun run --cwd ../../packages/executor build && bun run --cwd ../../packages/frames build",
     "dev": "wrangler dev",
     "deploy": "bun run build && wrangler deploy",
     "typecheck": "tsc --noEmit",
@@ -13,7 +13,7 @@
   "dependencies": {
     "@noble/hashes": "^2.0.0",
     "@nullrpc/executor": "workspace:*",
-    "@nullrpc/zstd": "workspace:*"
+    "@nullrpc/frames": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261007.1",

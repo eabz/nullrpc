@@ -11,8 +11,8 @@
 
 import { logCandidates, logIndexCost, logIndexRangeFor, type Group } from "../archive/logindex";
 import type { Chain } from "../chain";
-import { equal, parseData } from "../eth/hex";
-import { blockLogs, frameLogs, type BlockRecord } from "../eth/record";
+import { parseData } from "../eth/hex";
+import { blockLogs, frameLogs, logMatches, type BlockRecord } from "../eth/record";
 import { blockRef, invalidParams, RpcError, type Handler } from "../rpc";
 
 /** The widest block range a query may span (credits.json, eth_getLogs.max_blocks). */
@@ -72,17 +72,6 @@ async function parseFilter(chain: Chain, raw: unknown): Promise<Filter> {
   const to = Math.min(resolve(f.toBlock), latest);
   if (from > to) return { from, to: from - 1, addresses, topics };
   return { from, to, addresses, topics };
-}
-
-function matches(log: { address: Uint8Array; topics: Uint8Array[] }, f: Filter): boolean {
-  if (f.addresses.length && !f.addresses.some((a) => equal(a, log.address))) return false;
-  for (let i = 0; i < f.topics.length; i++) {
-    const accepted = f.topics[i];
-    if (!accepted) continue;
-    const t = log.topics[i];
-    if (!t || !accepted.some((a) => equal(a, t))) return false;
-  }
-  return true;
 }
 
 const hex = (n: number) => `0x${n.toString(16)}`;
@@ -161,10 +150,9 @@ export async function getLogs(chain: Chain, raw: unknown, budget = READ_BUDGET):
     state.overflow = n;
     return false;
   };
-  const want = (address: Uint8Array, topics: Uint8Array[]) => matches({ address, topics }, f);
-  await chain.readArchived(runs, WAVE, (b) => take(b.n, frameLogs(b.frame, b.hash, want)));
+  await chain.readArchived(runs, WAVE, (b) => take(b.n, frameLogs(b.frame, b.hash, f)));
   if (state.overflow === null) {
-    await chain.readBlocks(live, LIVE_WAVE, (rec: BlockRecord) => take(rec.block.header.number, blockLogs(rec).filter((l) => matches(l, f)).map((l) => l.json)));
+    await chain.readBlocks(live, LIVE_WAVE, (rec: BlockRecord) => take(rec.block.header.number, blockLogs(rec).filter((l) => logMatches(l.address, l.topics, f)).map((l) => l.json)));
   }
   if (state.overflow !== null) throw refuse(`query returns more than ${MAX_LOGS} logs`, { from: f.from, to: state.overflow - 1 });
   return out;

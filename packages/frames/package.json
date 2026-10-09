@@ -1,8 +1,8 @@
 {
-  "name": "@nullrpc/zstd",
+  "name": "@nullrpc/frames",
   "private": true,
   "type": "module",
-  "description": "zstd frame decompression in WebAssembly (the C library) for the RPC Worker's archive reads, with fzstd as the fallback when the module cannot be instantiated",
+  "description": "Archive frame decoding in WebAssembly for the RPC Worker: zstd decompression (the C library) and eth_getLogs extraction from block records, with JavaScript fallbacks when the module cannot be instantiated",
   "exports": {
     ".": "./src/index.ts",
     "./test/vitest-wasm": "./test/vitest-wasm.ts"

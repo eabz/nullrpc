@@ -61,7 +61,7 @@
       "dependencies": {
         "@noble/hashes": "^2.0.0",
         "@nullrpc/executor": "workspace:*",
-        "@nullrpc/zstd": "workspace:*",
+        "@nullrpc/frames": "workspace:*",
       },
       "devDependencies": {
         "@cloudflare/workers-types": "^5.20261007.1",
@@ -83,8 +83,8 @@
         "vitest": "^4.0.0",
       },
     },
-    "packages/zstd": {
-      "name": "@nullrpc/zstd",
+    "packages/frames": {
+      "name": "@nullrpc/frames",
       "dependencies": {
         "fzstd": "^0.1.1",
       },
@@ -239,7 +239,7 @@
 
     "@nullrpc/executor": ["@nullrpc/executor@workspace:packages/executor"],
 
-    "@nullrpc/zstd": ["@nullrpc/zstd@workspace:packages/zstd"],
+    "@nullrpc/frames": ["@nullrpc/frames@workspace:packages/frames"],
 
     "@oxc-project/types": ["@oxc-project/types@0.153.0", "", {}, "sha512-jSNrRIyvPVLL5E1z/tS5zLAprosGz/FuI1PWwEOz59j3E4TTTzSpqKb/RDGqJhhW0QHYISGXxq582wGx6T11Tw=="],
 

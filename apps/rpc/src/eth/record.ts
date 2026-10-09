@@ -4,6 +4,7 @@
 // from consecutive cumulative gas, effectiveGasPrice, contractAddress, logIndex, logsBloom and
 // blobGasUsed.
 
+import { FrameError, frameLogs as wasmFrameLogs, type LogFilter } from "@nullrpc/frames";
 import { decodeBlock, blockJson, keccak, type Block, type RawTx } from "./block";
 import { data, quantity, quantityBytes, toBigInt, toNumber } from "./hex";
 import { bytes, decode, encodeBytes, encodeList, intBytes, list, type Rlp } from "./rlp";
@@ -108,14 +109,40 @@ function logsJson(rec: BlockRecord, index: number, firstLogIndex: number) {
   }));
 }
 
-/** Every log of the block with its transaction and block positions, for eth_getLogs. */
+export type { LogFilter } from "@nullrpc/frames";
+
+/** Whether a log passes an eth_getLogs filter: any listed address; per position, any listed topic. */
+export function logMatches(address: Uint8Array, topics: Uint8Array[], f: LogFilter): boolean {
+  if (f.addresses.length && !f.addresses.some((a) => equalBytes(a, address))) return false;
+  for (let i = 0; i < f.topics.length; i++) {
+    const accepted = f.topics[i];
+    if (!accepted) continue;
+    const t = topics[i];
+    if (!t || !accepted.some((a) => equalBytes(a, t))) return false;
+  }
+  return true;
+}
+
 /**
- * The logs of a stored record that `want` accepts, as eth_getLogs returns them, decoding only
+ * The logs of a stored record that `filter` accepts, as eth_getLogs returns them, decoding only
  * what they need: the header, the receipts, and the hash of a transaction with an accepted log
  * (never the other transactions). `hash` is the block's hash from the offsets record, checked
- * against the header. Equivalent to filtering blockLogs(decodeRecord(frame)).
+ * against the header. Equivalent to filtering blockLogs(decodeRecord(frame)). Decoded by the
+ * WebAssembly module (packages/frames); when it is unavailable, or refuses the record, by
+ * `frameLogsJs`, which reports why.
  */
-export function frameLogs(frame: Uint8Array, hash: Uint8Array, want: (address: Uint8Array, topics: Uint8Array[]) => boolean): Record<string, unknown>[] {
+export function frameLogs(frame: Uint8Array, hash: Uint8Array, filter: LogFilter): Record<string, unknown>[] {
+  try {
+    const logs = wasmFrameLogs(frame, hash, filter);
+    if (logs) return logs;
+  } catch (e) {
+    if (!(e instanceof FrameError)) throw e;
+  }
+  return frameLogsJs(frame, hash, (address, topics) => logMatches(address, topics, filter));
+}
+
+/** `frameLogs` in JavaScript, for any `want`: the fallback, and the reference the module is tested against. */
+export function frameLogsJs(frame: Uint8Array, hash: Uint8Array, want: (address: Uint8Array, topics: Uint8Array[]) => boolean): Record<string, unknown>[] {
   const top = list(decode(frame));
   const block = list(decode(bytes(top[0])));
   const header = list(block[0]);

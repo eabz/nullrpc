@@ -6,6 +6,6 @@ import type { Plugin } from "vitest/config";
 
 const WASM_NODE = new URL("./wasm-node.ts", import.meta.url).pathname;
 
-export function zstdWasmNode(): Plugin {
-  return { name: "zstd-wasm-node", enforce: "pre", resolveId: (id) => (id.endsWith("/crate/pkg/zstd.wasm") ? WASM_NODE : null) };
+export function framesWasmNode(): Plugin {
+  return { name: "frames-wasm-node", enforce: "pre", resolveId: (id) => (id.endsWith("/crate/pkg/frames.wasm") ? WASM_NODE : null) };
 }
