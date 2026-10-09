@@ -79,7 +79,7 @@
   var button = document.getElementById("net-button");
   var list = document.getElementById("net-list");
   var options = list ? Array.prototype.slice.call(list.querySelectorAll('[role="option"]')) : [];
-  var selected = { chain: 1, url: "", name: "", label: "" };
+  var selected = { chain: 560048, url: "", name: "", label: "" };
   var onNetworkChange = function () { kickCharts(); };
   var kickCharts = function () {};
   var active = 0;
@@ -146,7 +146,8 @@
 
   // ---- add to wallet (EIP-3085 wallet_addEthereumChain, injected EIP-1193 provider)
   var WALLET_CHAINS = {
-    1: { chainName: "Ethereum (nullrpc)", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, explorer: "https://etherscan.io" }
+    1: { chainName: "Ethereum (nullrpc)", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, explorer: "https://etherscan.io" },
+    560048: { chainName: "Hoodi (nullrpc)", nativeCurrency: { name: "Hoodi Ether", symbol: "ETH", decimals: 18 }, explorer: "https://hoodi.etherscan.io" }
   };
   var walletButton = document.getElementById("add-wallet");
   var provider = window.ethereum;

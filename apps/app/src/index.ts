@@ -9,6 +9,7 @@
 //   - The `Access` entrypoint, bound by the RPC Workers only (never public): key
 //     entitlements and metering flushes.
 
+import NETWORK_LIST from "../../networks.json";
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { getAddress } from "viem";
 import { creditInvoice, ensureAccount, entitlement, publicEntitlement, recordUsage, withdrawInvoice, type Invoice } from "./db";
@@ -103,8 +104,8 @@ async function body(request: Request): Promise<Record<string, unknown> | null> {
   }
 }
 
-/** The RPC endpoints shown to users. */
-const ENDPOINTS = [{ chain_id: 1, name: "Ethereum", url: "https://eth.nullrpc.dev" }];
+/** The RPC endpoints shown to users (apps/networks.json, enabled ones). */
+const ENDPOINTS = NETWORK_LIST.networks.filter((n) => n.enabled).map((n) => ({ chain_id: n.chain_id, name: n.name, url: n.url, testnet: n.testnet }));
 
 // ---- compliance
 

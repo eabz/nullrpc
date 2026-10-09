@@ -10,10 +10,12 @@
 /** The Cloudflare account of the RPC Worker (GraphQL accountTag). */
 export const CF_ACCOUNT_ID = "60401d41768f5312f816303569019bb5";
 
-/** The endpoints the page lists. Keep in sync with public/index.html. */
-export const NETWORKS = [
-  { chain_id: 1, name: "Ethereum mainnet", url: "https://eth.nullrpc.dev" },
-] as const;
+import NETWORK_LIST from "../../networks.json";
+
+/** The endpoints the page lists (apps/networks.json, enabled ones). Keep public/index.html's picker in sync. */
+export const NETWORKS: readonly { chain_id: number; name: string; url: string }[] = NETWORK_LIST.networks
+  .filter((n) => n.enabled)
+  .map((n) => ({ chain_id: n.chain_id, name: n.label, url: n.url }));
 
 /** Bucket, span and cache lifetime per range (GraphQL allows at most a week per query). */
 export const RANGES = {
@@ -219,7 +221,7 @@ export async function api(
   if (url.pathname === "/api/usage") {
     const range = url.searchParams.get("range") ?? "24h";
     if (!isRange(range)) return err(400, "range must be one of 1h, 24h, 7d");
-    const chainId = Number(url.searchParams.get("chain") ?? NETWORKS[0].chain_id);
+    const chainId = Number(url.searchParams.get("chain") ?? NETWORKS[0]?.chain_id);
     if (!NETWORKS.some((n) => n.chain_id === chainId)) return err(400, "unknown chain");
     const opts = { account: CF_ACCOUNT_ID, token: env.CF_ANALYTICS_TOKEN ?? "", chainId, range };
     return cached(`${url.origin}/api/usage?chain=${chainId}&range=${range}`, ctx, RANGES[range].ttlS, () => usage(fetcher, opts));

@@ -1,0 +1,89 @@
+{
+ "12250000": {
+  "percentiles": [
+   50
+  ],
+  "result": {
+   "oldestBlock": "0xbaeb90",
+   "reward": [
+    [
+     "0x1f6ea08600"
+    ]
+   ],
+   "baseFeePerGas": [
+    "0x0",
+    "0x0"
+   ],
+   "gasUsedRatio": [
+    0.9998328813399942
+   ],
+   "baseFeePerBlobGas": [
+    "0x0",
+    "0x0"
+   ],
+   "blobGasUsedRatio": [
+    0
+   ]
+  }
+ },
+ "20000000": {
+  "percentiles": [
+   10,
+   50,
+   90
+  ],
+  "result": {
+   "oldestBlock": "0x1312d00",
+   "reward": [
+    [
+     "0x2e40d20",
+     "0x3b9aca00",
+     "0xb2d05e00"
+    ]
+   ],
+   "baseFeePerGas": [
+    "0x12643ff14",
+    "0x11cad3c4a"
+   ],
+   "gasUsedRatio": [
+    0.3696564
+   ],
+   "baseFeePerBlobGas": [
+    "0x1",
+    "0x1"
+   ],
+   "blobGasUsedRatio": [
+    0.16666666666666666
+   ]
+  }
+ },
+ "23000000": {
+  "percentiles": [
+   25,
+   75
+  ],
+  "result": {
+   "baseFeePerGas": [
+    "0xe49b92d",
+    "0xd6451e5"
+   ],
+   "gasUsedRatio": [
+    0.2491298
+   ],
+   "baseFeePerBlobGas": [
+    "0x1",
+    "0x1"
+   ],
+   "blobGasUsedRatio": [
+    1
+   ],
+   "oldestBlock": "0x15ef3c0",
+   "reward": [
+    [
+     "0x3fd455",
+     "0x3b9aca00"
+    ]
+   ]
+  }
+ }
+}

@@ -1,0 +1,251 @@
+// State history (storage.md, "State history"): the value of an account, storage slot or code at
+// the end of any archived block. Per lookup: one round of Bloom filter blocks across every
+// layer that starts at or before the block (in parallel), then two page reads (index page, data
+// page) in the newest layer whose filter accepts the key, until one has an entry.
+
+import { keccak_256 } from "@noble/hashes/sha3.js";
+import type { Archive, Pin } from "./archive";
+import { Uvarint } from "./hashindex";
+import { Lru } from "./lru";
+import { ArchiveError, type ObjectRef } from "./types";
+
+export type Domain = "accounts" | "storage" | "code";
+
+/** [key hex, first block, offset, length, uncompressed, sha256 hex] */
+type RootEntry = [string, number, number, number, number, string];
+
+interface DomainDescriptor {
+  packs: ObjectRef[];
+  index: ObjectRef;
+  filter: ObjectRef | null;
+  root: RootEntry[];
+}
+
+interface LayerDescriptor {
+  first: number;
+  last: number;
+  level: number;
+  domains: Partial<Record<Domain, DomainDescriptor>>;
+}
+
+interface LayerRef {
+  first: number;
+  last: number;
+  level: number;
+  descriptor: ObjectRef;
+}
+
+const FILTER_BLOCK = 4096;
+const FILTER_HEADER = 16;
+
+// Decoded immutable pages, per isolate.
+const indexPages = new Lru<string, Promise<IndexEntry[]>>(512);
+const dataPages = new Lru<string, Promise<Uint8Array>>(1024);
+const filterHeaders = new Lru<string, Promise<{ blocks: number; k: number }>>(1024);
+const filterBlocks = new Lru<string, Promise<Uint8Array>>(4096);
+const roots = new WeakMap<RootEntry[], { key: Uint8Array; block: number }[]>();
+
+interface IndexEntry {
+  key: Uint8Array;
+  firstBlock: number;
+  pack: number;
+  offset: number;
+  length: number;
+  uncompressed: number;
+  sha256: Uint8Array;
+}
+
+function fromHex(hex: string): Uint8Array {
+  const s = hex.startsWith("0x") ? hex.slice(2) : hex;
+  const out = new Uint8Array(s.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(s.slice(i * 2, i * 2 + 2), 16);
+  return out;
+}
+
+/** Compares (key, block) pairs: keys as bytes, then blocks. */
+function compare(ak: Uint8Array, ab: number, bk: Uint8Array, bb: number): number {
+  const n = Math.min(ak.length, bk.length);
+  for (let i = 0; i < n; i++) if (ak[i] !== bk[i]) return ak[i]! - bk[i]!;
+  if (ak.length !== bk.length) return ak.length - bk.length;
+  return ab - bb;
+}
+
+/** Index of the last element at or before (key, n), or -1. */
+function lastAtOrBefore<T>(items: T[], at: (t: T) => [Uint8Array, number], key: Uint8Array, n: number): number {
+  let lo = 0;
+  let hi = items.length - 1;
+  let found = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const [k, b] = at(items[mid]!);
+    if (compare(k, b, key, n) <= 0) {
+      found = mid;
+      lo = mid + 1;
+    } else hi = mid - 1;
+  }
+  return found;
+}
+
+function bytes(r: Uvarint, frame: Uint8Array, n: number): Uint8Array {
+  const out = frame.subarray(r.pos, r.pos + n);
+  if (out.length !== n) throw new ArchiveError("truncated state page");
+  r.pos += n;
+  return out;
+}
+
+function parseIndexPage(frame: Uint8Array): IndexEntry[] {
+  const r = new Uvarint(frame);
+  const n = r.next();
+  const out: IndexEntry[] = [];
+  for (let i = 0; i < n; i++) {
+    const key = bytes(r, frame, r.next());
+    out.push({ key, firstBlock: r.next(), pack: r.next(), offset: r.next(), length: r.next(), uncompressed: r.next(), sha256: bytes(r, frame, 32) });
+  }
+  return out;
+}
+
+/** The key's last value at or before `n` in a data page: Uint8Array, or undefined if none. */
+function findInDataPage(frame: Uint8Array, key: Uint8Array, n: number): Uint8Array | undefined {
+  const r = new Uvarint(frame);
+  while (!r.done) {
+    const k = bytes(r, frame, r.next());
+    const count = r.next();
+    const cmp = compare(k, 0, key, 0);
+    let block = 0;
+    let found: Uint8Array | undefined;
+    for (let i = 0; i < count; i++) {
+      block = i === 0 ? r.next() : block + r.next();
+      const v = bytes(r, frame, r.next());
+      if (cmp === 0 && block <= n) found = v;
+    }
+    if (cmp === 0) return found;
+    if (cmp > 0) return undefined;
+  }
+  return undefined;
+}
+
+export class StateHistory {
+  constructor(
+    private readonly archive: Archive,
+    private readonly pin: Pin,
+  ) {}
+
+  private layers(): LayerRef[] {
+    return (this.pin.manifest.state_history.layers as LayerRef[]).slice().sort((a, b) => a.first - b.first);
+  }
+
+  private filterHeader(ref: ObjectRef): Promise<{ blocks: number; k: number }> {
+    let p = filterHeaders.get(ref.sha256);
+    if (!p) {
+      p = this.archive.range(ref, 0, FILTER_HEADER).then((h) => {
+        if (new TextDecoder().decode(h.subarray(0, 8)) !== "NRPCBLM1") throw new ArchiveError(`bad filter ${ref.key}`);
+        const v = new DataView(h.buffer, h.byteOffset, h.byteLength);
+        return { blocks: v.getUint32(8, true), k: v.getUint32(12, true) };
+      });
+      filterHeaders.set(ref.sha256, p);
+      p.catch(() => filterHeaders.delete(ref.sha256));
+    }
+    return p;
+  }
+
+  /** Whether a layer's filter may contain the key (true when the layer has no filter). */
+  private async mayContain(d: DomainDescriptor, key: Uint8Array): Promise<boolean> {
+    if (!d.filter) return true;
+    const h = keccak_256(key);
+    const hv = new DataView(h.buffer, h.byteOffset, h.byteLength);
+    const header = await this.filterHeader(d.filter);
+    if (header.blocks === 0) return false;
+    const block = hv.getUint32(0, true) % header.blocks;
+    const id = `${d.filter.sha256}:${block}`;
+    let p = filterBlocks.get(id);
+    if (!p) {
+      p = this.archive.range(d.filter, FILTER_HEADER + block * FILTER_BLOCK, FILTER_BLOCK);
+      filterBlocks.set(id, p);
+      p.catch(() => filterBlocks.delete(id));
+    }
+    const bits = await p;
+    const h1 = hv.getBigUint64(8, true);
+    const h2 = hv.getBigUint64(16, true);
+    for (let i = 0n; i < BigInt(header.k); i++) {
+      const bit = Number((h1 + i * h2) % 32768n);
+      if ((bits[bit >> 3]! & (1 << (bit & 7))) === 0) return false;
+    }
+    return true;
+  }
+
+  private rootKeys(d: DomainDescriptor) {
+    let r = roots.get(d.root);
+    if (!r) {
+      r = d.root.map(([k, b]) => ({ key: fromHex(k), block: b }));
+      roots.set(d.root, r);
+    }
+    return r;
+  }
+
+  /** The key's newest value at or before `n` within one layer; undefined if the layer has none. */
+  private async inLayer(d: DomainDescriptor, key: Uint8Array, n: number): Promise<Uint8Array | undefined> {
+    const rk = this.rootKeys(d);
+    const ri = lastAtOrBefore(rk, (e) => [e.key, e.block], key, n);
+    if (ri < 0) return undefined;
+    const root = d.root[ri]!;
+    const id = `${d.index.sha256}:${root[2]}`;
+    let ip = indexPages.get(id);
+    if (!ip) {
+      ip = this.archive
+        .frame({ pack: d.index, offset: root[2], compressed: root[3], uncompressed: root[4], sha256: fromHex(root[5]) })
+        .then(parseIndexPage);
+      indexPages.set(id, ip);
+      ip.catch(() => indexPages.delete(id));
+    }
+    const page = await ip;
+    const di = lastAtOrBefore(page, (e) => [e.key, e.firstBlock], key, n);
+    if (di < 0) return undefined;
+    const e = page[di]!;
+    const pack = d.packs[e.pack];
+    if (!pack) throw new ArchiveError("state index names a missing pack");
+    const did = `${pack.sha256}:${e.offset}`;
+    let dp = dataPages.get(did);
+    if (!dp) {
+      dp = this.archive.frame({ pack, offset: e.offset, compressed: e.length, uncompressed: e.uncompressed, sha256: e.sha256 });
+      dataPages.set(did, dp);
+      dp.catch(() => dataPages.delete(did));
+    }
+    return findInDataPage(await dp, key, n);
+  }
+
+  /** The value at the end of block `n` (empty when absent or zero). */
+  async get(domain: Domain, key: Uint8Array, n: number): Promise<Uint8Array> {
+    const candidates = this.layers().filter((l) => l.first <= n);
+    const descriptors = await Promise.all(candidates.map((l) => this.archive.json<LayerDescriptor>(l.descriptor)));
+    const withDomain = descriptors.map((d) => d.domains[domain]).map((d, i) => ({ d, layer: candidates[i]! })).filter((x) => x.d) as { d: DomainDescriptor; layer: LayerRef }[];
+    const accepted = await Promise.all(withDomain.map((x) => this.mayContain(x.d, key)));
+    // Newest layer first: the first with an entry at or before n answers.
+    for (let i = withDomain.length - 1; i >= 0; i--) {
+      if (!accepted[i]) continue;
+      const v = await this.inLayer(withDomain[i]!.d, key, n);
+      if (v !== undefined) return v;
+    }
+    return new Uint8Array();
+  }
+}
+
+export interface Account {
+  nonce: number;
+  balance: bigint;
+  /** 32 bytes, or null for an account without code. */
+  codeHash: Uint8Array | null;
+}
+
+/** Decodes an `accounts` value; null when empty (no account). */
+export function decodeAccount(v: Uint8Array): Account | null {
+  if (v.length === 0) return null;
+  const r = new Uvarint(v);
+  const nonce = r.next();
+  const len = r.next();
+  let balance = 0n;
+  for (let i = 0; i < len; i++) balance = (balance << 8n) | BigInt(v[r.pos + i]!);
+  r.pos += len;
+  const codeHash = r.pos < v.length ? v.subarray(r.pos, r.pos + 32) : null;
+  if (codeHash && codeHash.length !== 32) throw new ArchiveError("bad account code hash");
+  return { nonce, balance, codeHash };
+}

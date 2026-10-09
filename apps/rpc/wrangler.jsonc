@@ -1,0 +1,81 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  // One RPC Worker per chain, named nullrpc-rpc-{chain-id}: the landing page and the status
+  // dashboard read its traffic from Cloudflare's Workers analytics by this script name.
+  // Each chain is a Wrangler environment (bindings are not inherited, so each repeats them):
+  //
+  //   bunx wrangler deploy --env 560048     Hoodi             hoodi.nullrpc.dev
+  //   bunx wrangler deploy --env 1          Ethereum mainnet  eth.nullrpc.dev
+  //   bunx wrangler secret put KEY_SECRET --env <id>   (the same value as nullrpc-app's KEY_SECRET)
+  //
+  // Requires, per chain: nullrpc-live-{id} (apps/live), nullrpc-app (apps/app), nullrpc-executor
+  // (apps/executor), and the archive under ARCHIVE_PREFIX in the nullrpc bucket.
+  "name": "nullrpc-rpc",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-08",
+  "workers_dev": false,
+  "preview_urls": false,
+  // Request logs stay off: the privacy notice promises no request logs. Errors are logged
+  // without IP addresses or request contents.
+  "observability": { "enabled": true, "logs": { "enabled": true, "invocation_logs": false }, "traces": { "enabled": false } },
+  // The endpoint page's static files (public/_page). The Worker routes every request first.
+  "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": true },
+  "env": {
+    "560048": {
+      "name": "nullrpc-rpc-560048",
+      "routes": [{ "pattern": "hoodi.nullrpc.dev", "custom_domain": true }],
+      "vars": {
+        "CHAIN_ID": "560048",
+        "CHAIN_NAME": "Hoodi",
+        "ARCHIVE_PREFIX": "560048-bbe312868b376a3001692a646dd2d7d1e4406380dfd86b98aa8a34d1557c971b",
+        "ACCESS": "keys",
+        "STATUS_URL": "https://status.nullrpc.dev",
+        // No private relay serves Hoodi; testnet transactions go to the ethPandaOps public node.
+        "RELAY_URL": "https://rpc.hoodi.ethpandaops.io"
+      },
+      "r2_buckets": [{ "binding": "ARCHIVE", "bucket_name": "nullrpc" }],
+      "services": [
+        { "binding": "LIVE", "service": "nullrpc-live-560048", "entrypoint": "LiveReads" },
+        { "binding": "APP", "service": "nullrpc-app", "entrypoint": "Access" },
+        { "binding": "EXECUTOR", "service": "nullrpc-executor", "entrypoint": "Executor" }
+      ],
+      "durable_objects": { "bindings": [{ "name": "RATE_BUDGET", "class_name": "RateBudget", "script_name": "nullrpc-app" }] },
+      // Per-plan requests per second, per location; namespaces are shared by every chain, so one
+      // account's rate covers all chains. Limits are per 10 s (plan rps × 10).
+      "ratelimits": [
+        { "name": "RPC_RATE_LIMIT_PUBLIC", "namespace_id": "9100", "simple": { "limit": 100, "period": 10 } },
+        { "name": "RPC_RATE_LIMIT_FREE", "namespace_id": "9101", "simple": { "limit": 200, "period": 10 } },
+        { "name": "RPC_RATE_LIMIT_BUILDER", "namespace_id": "9102", "simple": { "limit": 2500, "period": 10 } },
+        { "name": "RPC_RATE_LIMIT_GROWTH", "namespace_id": "9103", "simple": { "limit": 10000, "period": 10 } },
+        { "name": "RPC_RATE_LIMIT_SCALE", "namespace_id": "9104", "simple": { "limit": 30000, "period": 10 } }
+      ]
+    },
+    "1": {
+      "name": "nullrpc-rpc-1",
+      "routes": [{ "pattern": "eth.nullrpc.dev", "custom_domain": true }],
+      "vars": {
+        "CHAIN_ID": "1",
+        "CHAIN_NAME": "Ethereum",
+        "ARCHIVE_PREFIX": "1-d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3",
+        "ACCESS": "keys",
+        "STATUS_URL": "https://status.nullrpc.dev",
+        // Flashbots Protect: private submission, no public mempool.
+        "RELAY_URL": "https://rpc.flashbots.net"
+      },
+      "r2_buckets": [{ "binding": "ARCHIVE", "bucket_name": "nullrpc" }],
+      "services": [
+        { "binding": "LIVE", "service": "nullrpc-live-1", "entrypoint": "LiveReads" },
+        { "binding": "APP", "service": "nullrpc-app", "entrypoint": "Access" },
+        { "binding": "EXECUTOR", "service": "nullrpc-executor", "entrypoint": "Executor" }
+      ],
+      "durable_objects": { "bindings": [{ "name": "RATE_BUDGET", "class_name": "RateBudget", "script_name": "nullrpc-app" }] },
+      "ratelimits": [
+        { "name": "RPC_RATE_LIMIT_PUBLIC", "namespace_id": "9100", "simple": { "limit": 100, "period": 10 } },
+        { "name": "RPC_RATE_LIMIT_FREE", "namespace_id": "9101", "simple": { "limit": 200, "period": 10 } },
+        { "name": "RPC_RATE_LIMIT_BUILDER", "namespace_id": "9102", "simple": { "limit": 2500, "period": 10 } },
+        { "name": "RPC_RATE_LIMIT_GROWTH", "namespace_id": "9103", "simple": { "limit": 10000, "period": 10 } },
+        { "name": "RPC_RATE_LIMIT_SCALE", "namespace_id": "9104", "simple": { "limit": 30000, "period": 10 } }
+      ]
+    }
+  }
+}

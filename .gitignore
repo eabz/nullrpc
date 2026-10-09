@@ -4,3 +4,8 @@ node_modules/
 .DS_Store
 .secrets/
 services/bin/
+
+# Rust build output (apps/executor)
+target/
+**/crate/pkg/
+*.wasm.map

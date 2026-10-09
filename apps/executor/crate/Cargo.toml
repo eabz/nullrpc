@@ -1,0 +1,42 @@
+[package]
+name = "nullrpc-executor"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+rust-version = "1.95"
+description = "EVM execution and tracing for nullrpc, compiled to WebAssembly (pure compute: state arrives through rounds)"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+alloy-consensus = { version = "2.5.0", default-features = false, features = ["std", "serde"] }
+alloy-eips = { version = "2.5.0", default-features = false, features = ["std", "serde"] }
+alloy-evm = { version = "0.39.0", default-features = false, features = ["std", "rpc", "overrides"] }
+alloy-genesis = { version = "2.5.0", default-features = false, features = ["std"] }
+alloy-hardforks = "0.4.9"
+alloy-primitives = { version = "1.7.3", default-features = false, features = ["std", "serde", "rlp"] }
+alloy-rlp = "0.3.16"
+alloy-rpc-types-eth = { version = "2.5.0", default-features = false, features = ["std", "serde"] }
+alloy-rpc-types-trace = "2.5.0"
+revm = { version = "43.0.3", default-features = false, features = ["std", "portable", "optional_eip3607", "optional_no_base_fee", "optional_fee_charge", "optional_balance_check", "optional_block_gas_limit", "memory_limit"] }
+revm-inspectors = { version = "0.44.1", default-features = false, features = ["std", "serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+hex = "0.4"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "=0.2.129"
+getrandom = { version = "0.2", features = ["js"] }
+
+[profile.release]
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+debug = false
+
+[profile.dev]
+opt-level = 1

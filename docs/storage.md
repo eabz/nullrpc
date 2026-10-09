@@ -104,6 +104,16 @@ manifest, then `HEAD.json`. The first generation writes `HEAD.json` with `If-Non
 Every later one uses `If-Match` with the ETag of the `HEAD.json` it read. A conflict stops the
 writer; it never overwrites.
 
+### Chain config
+
+`config/{sha256}.json` is the `config` member of the blockchain's `genesis.json`, verbatim, as
+geth and the other clients read it: `chainId`, the fork activation blocks (`homesteadBlock`
+through `londonBlock`, `mergeNetsplitBlock`), `terminalTotalDifficulty`, the fork timestamps
+(`shanghaiTime`, `cancunTime`, `pragueTime`, `osakaTime`, and later `bpo*Time` forks),
+`blobSchedule`, and `depositContractAddress`. The executor derives each block's EVM rules and
+blob parameters from it. The genesis allocation is not repeated here: it is the state history's
+values at block 0.
+
 ### Packs
 
 Every `.pack` file starts with a 16-byte header, followed by independent zstd frames:
@@ -125,6 +135,15 @@ length after. The Worker refuses frames larger than 8 MiB uncompressed. Pack fil
 A segment holds consecutive blocks inside one chunk (`chunk_blocks` blocks, aligned to
 multiples of it). Promotion adds segments to the open chunk; when a chunk is complete, its
 segments are rewritten as one.
+
+`meta.json` describes the segment and references its two data objects:
+
+```json
+{"first": 0, "last": 8191, "last_hash": "0x…", "blocks": ObjectRef, "offsets": ObjectRef}
+```
+
+`blocks` is `blocks.pack` and `offsets` is `offsets.bin`; `offsets.bytes` must be
+`(last − first + 1) × 80`.
 
 `offsets.bin` has one 80-byte record per block, in block order, so block N's record is at
 byte `(N − first) × 80`:
@@ -205,6 +224,9 @@ Finds the blocks that may contain logs matching an `eth_getLogs` filter.
 - **Partitions.** An object's blocks are split at multiples of 65,536. A query reads only the
   partitions its range touches.
 - **Directory.** Per partition, `2^bucket_bits` records in the hash index's 56-byte layout.
+- **Object.** A `LogIndexObject` in the manifest is
+  `{"first", "last", "partitions": [{"start", "bucket_bits", "directory": ObjectRef}], "packs": [ObjectRef]}`,
+  with `start` the partition's first block (a multiple of `partition_blocks`, or `first`).
 - **Bucket frame.** Per key, sorted by `K`: `uvarint(K − previous K)`, `uvarint(n)`,
   `uvarint(b₀ − partition start)`, then `uvarint(bᵢ − bᵢ₋₁ − 1)` for the other blocks.
 
@@ -245,8 +267,24 @@ index page := uvarint(n) (uvarint(len(key)) key uvarint(first_block) uvarint(pac
 
 A group's first block delta is the absolute block number, the others are relative to the previous
 entry. Data pages are about 32 KiB uncompressed. An index page lists up to 1,024 data pages by
-their first `(key, block)`. `layer.json` names the packs, and per domain a root with the first
-`(key, block)` of every index page and the filter.
+their first `(key, block)`. `pack` in an index page indexes the domain's `packs` in `layer.json`:
+
+```json
+{"first": 0, "last": 23899903, "level": 99,
+ "domains": {
+   "accounts": {"packs": [ObjectRef], "index": ObjectRef, "filter": ObjectRef,
+                "root": [["<key hex>", first_block, offset, length, uncompressed, "<sha256 hex>"]]},
+   "storage": {…}, "code": {…}}}
+```
+
+`index` is `{domain}.index.pack`, `filter` is `{domain}.filter`, and `root` has one entry per index
+page, in order: the page's first `(key, block)` and its frame in `index`. A domain with no entries
+in the layer is omitted.
+
+**Finding a page.** In the root, take the last index page whose first `(key, block)` is at or
+before `(key, n)`; in that page, the last data page likewise. Keys compare as bytes, then blocks
+as numbers. The key's newest entry at or before `n` is in that data page, or the key has none in
+the layer.
 
 **Lookup of `(key, n)` in a layer:** pick the index page from the root (cached), read it, pick
 the data page, read it, and take the key's last entry at or before `n`. Two range reads.
@@ -260,7 +298,8 @@ the data page, read it, and take the key's last entry at or before `n`. Two rang
 A key's block is `u32(keccak256(key)[0..4]) mod block_count`. Inside that 4 KiB block it sets
 k = 7 bits at `(h1 + i·h2) mod 32768`, with h1 and h2 the u64 values of `keccak256(key)[8..16]`
 and `[16..24]`. Writers size `block_count` for 10 bits per key (about 1 % false positives).
-Checking a key takes one 4 KiB range read per layer, and every layer's block can be read in the
+Bit `b` of a block is bit `b mod 8` (least significant first) of byte `b ÷ 8`; the u32 and u64
+values are little-endian. Checking a key takes one 4 KiB range read per layer, and every layer's block can be read in the
 same round.
 
 **Lookup of `(key, n)` across layers:** read the filter blocks of every layer that starts at or
@@ -325,7 +364,8 @@ Both classes live in the chain's `nullrpc-live-{chain-id}` Worker (`apps/live`, 
 environment per chain). The daemon writes through its ingest route
 (`https://live-{chain-id}.nullrpc.dev/ingest/*`) with a bearer token (the `INGEST_TOKEN` secret).
 The chain's RPC Worker, `nullrpc-rpc-{chain-id}`, reads through a service binding to its
-`LiveReads` entrypoint. The daemon
+`LiveReads` entrypoint, and the status dashboard through one to its `LiveStatus` entrypoint
+(named entrypoints have no public route). The daemon
 writes to R2 through the S3 API with a token scoped to the archive bucket; the RPC Worker has
 read-only R2 bindings.
 
@@ -356,20 +396,27 @@ One object, named by the chain ID. A section's payload is the block record (the 
 payload := uvarint(len) record uvarint(len) witness uvarint(n) tx_hash[32]{n}
 ```
 
-It also keeps `kv(k, v)`: head, safe, finalized, promoted (`P`), generation and the shard count.
-Hash and transaction lookups use in-memory maps built from the rows on first use.
+It also keeps `kv(k, v)`: head, safe, finalized, promoted (`P`), generation and the shard count,
+and for the status page the network head, progress times, counters and the last ingest error.
+Hash and transaction lookups use in-memory maps built from the rows on first use after a wake;
+every write then updates them for the rows it touches, so reads after an ingest never rebuild.
 
 | Call | Caller | Does |
 |---|---|---|
 | `init(promoted, generation, shards)` | daemon | first start after the backfill |
 | `putRows([{first, last, data}])` | daemon | writes rows; rewriting a group replaces it |
-| `setHead(head, safe, finalized)` | daemon | moves the head; the head's section must exist, or the head is `P` |
+| `setHead(head, safe, finalized, network_head)` | daemon | moves the head; the head's section must exist, or the head is `P` |
 | `fence(removed)`, `truncateAbove(n)` | daemon | reorgs |
 | `pruneAtOrBelow(promoted, generation)` | daemon | after a promotion; sets `P` |
-| `state()` | Worker | head, safe, finalized, `P`, generation |
+| `state()` | Worker | head, safe, finalized, `P`, generation, shard count |
 | `block(number or hash, pin)` | Worker | a block's record, if at or below the pin |
 | `witness(number, pin)` | Worker | a block's witness |
 | `txBlock(hash, pin)` | Worker | the block of a transaction hash above `P` |
+| `status()`, `history(range)` | dashboard | pipeline status; head and network head once a minute |
+
+`LiveReads` lowercases and checks every pin (`0x` and 64 hex digits, a block number ≥ 0) and
+every state key (`0x` optional, any case, the domain's key length; domains 1, 2 and 3 only)
+before it calls an object.
 
 The Worker caches `state()` per data center for half a block time, and block records and
 witnesses by block hash with no expiry, so most reads never reach the object.
@@ -385,7 +432,8 @@ payload := (u8(domain) key uvarint(len) value)*      domain: 1 accounts (key 20 
                                                      2 storage (52), 3 code (32), 4 wipe (20, no value)
 ```
 
-On wake the object builds an in-memory index: key → versions by block.
+On first use after a wake the object builds an in-memory index, key → versions by block; every
+write then updates it for the rows it touches.
 
 | Call | Caller | Does |
 |---|---|---|
@@ -407,9 +455,24 @@ Every request carries `Authorization: Bearer INGEST_TOKEN`. Bodies are JSON; row
 |---|---|
 | `GET /ingest/state` | the `ChainDO` pointers and the shard count |
 | `POST /ingest/init {promoted, generation}` | first start after the backfill |
-| `POST /ingest/blocks {rows: [{first, last, chain, shards: {i: data}}], head, safe, finalized}` | shard rows, then `ChainDO` rows, then the head |
+| `POST /ingest/blocks {rows: [{first, last, chain, shards: {i: data}}], head, safe, finalized, network_head?}` | shard rows, then `ChainDO` rows, then the head; `network_head` is the node's head |
 | `POST /ingest/reorg {ancestor, removed}` | fence everywhere, lower the head, truncate everywhere |
 | `POST /ingest/prune {promoted, generation}` | prune every shard and `ChainDO` at or below `promoted` |
+
+### Status route
+
+`LiveStatus` serves the status dashboard (`LIVE_{chain-id}` service binding):
+
+| Request | Returns |
+|---|---|
+| `GET /internal/status` | `{chain: {executed_head, target, lag, safe, finalized, optimistic, archived_through, r2_tip, pending_blocks, last_progress, last_ingest, promotion, counters, halted, last_error, …}}` |
+| `GET /internal/history?range=1h\|24h\|7d` | `{bucket_s, from, to, retention_s, points: [{t, executed, target, lag, rate}]}` |
+
+`target` is the last `network_head` the daemon sent, or the head until it sends one; `lag` is
+`target − head`. `ChainDO` samples the head and target once a minute (an alarm) and keeps 7
+days. History buckets are 1 minute (1h), 5 minutes (24h) and 1 hour (7d); each point is the
+bucket's last sample, and `rate` is blocks per second since the sample before it. Times are
+seconds, except `at`, `last_progress`, `last_ingest` and error times (milliseconds).
 
 ### Reads above `P`
 
@@ -417,12 +480,22 @@ Every request carries `Authorization: Bearer INGEST_TOKEN`. Bodies are JSON; row
 
 A state read at block `n`:
 
-1. The Worker pins the head `(M, H)` from its cached `head()`.
+1. The Worker pins the head `(M, H)` from its cached `state()`.
 2. If `n ≤ P`, it reads R2 state history at `n`.
 3. Otherwise it calls `getPinned(key, n, (M, H))` on the key's shard. A row in `P+1 … n`
    answers. No row means the key has not changed since `P`, and the Worker reads R2 history at
    `P`.
-4. `stale` means a reorg removed the pinned head. The Worker reads `head()` again and retries.
+4. `stale` means a reorg removed the pinned head. The Worker reads `state()` again and retries.
+
+**Promotion race.** A promotion publishes `HEAD.json` first; `/ingest/prune` then prunes the
+shards and sets `P` in `ChainDO` last. Once a shard is pruned, a state read at `n` in
+`P+1 … P′` finds no row there, and a Worker that still holds the old `P` (from `state()` or its
+manifest) would read R2 history at the old `P`. The Worker therefore re-reads `HEAD.json`
+whenever `state().promoted` is newer than its manifest (`catchUpArchive` in
+apps/rpc/src/chain.ts), and reads at or below the new `P` go to R2. This covers reads made after
+`P` is set: a `state()` read between the shard prune and the `P` update still says the old `P`,
+and the Worker keeps it for up to half a block time, so a read in that window can return a value
+from before `P′`.
 
 ### Reorgs
 

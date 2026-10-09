@@ -1,0 +1,91 @@
+// Hash index (storage.md, "Hash index"): the block of a transaction or block hash, in a fixed
+// number of reads. Per index object, in parallel: one 56-byte directory record, then one bucket
+// frame. Matches are only candidates (keys are 6-byte prefixes); callers confirm each by
+// reading the block and comparing the full hash.
+
+import type { Archive, Pin } from "./archive";
+import { ArchiveError, type HashIndexObject, type IndexPart } from "./types";
+
+const DIRECTORY_RECORD = 56;
+
+export interface Candidate {
+  block: number;
+  /** Transaction index within the block (transactions only). */
+  index: number;
+}
+
+/** Reads unsigned LEB128 values up to 2^53. */
+export class Uvarint {
+  pos = 0;
+  constructor(private readonly bytes: Uint8Array) {}
+
+  get done(): boolean {
+    return this.pos >= this.bytes.length;
+  }
+
+  next(): number {
+    let v = 0;
+    let mul = 1;
+    for (;;) {
+      const b = this.bytes[this.pos++];
+      if (b === undefined) throw new ArchiveError("truncated uvarint");
+      v += (b & 0x7f) * mul;
+      if (b < 0x80) return v;
+      mul *= 128;
+      if (mul > 2 ** 56) throw new ArchiveError("uvarint too long");
+    }
+  }
+}
+
+/** The index key: the first `keyBytes` bytes of the hash, big-endian. */
+export function indexKey(hash: Uint8Array, keyBytes: number): number {
+  let k = 0;
+  for (let i = 0; i < keyBytes; i++) k = k * 256 + hash[i]!;
+  return k;
+}
+
+async function lookupObject(archive: Archive, obj: HashIndexObject, part: IndexPart, key: number, keyBytes: number, withIndex: boolean): Promise<Candidate[]> {
+  const bucket = Math.floor(key / 2 ** (keyBytes * 8 - part.bucket_bits));
+  const rec = await archive.range(part.directory, bucket * DIRECTORY_RECORD, DIRECTORY_RECORD);
+  const view = new DataView(rec.buffer, rec.byteOffset, rec.byteLength);
+  const entries = view.getUint32(16, true);
+  if (entries === 0) return [];
+  const pack = obj.packs[view.getUint16(20, true)];
+  if (!pack) throw new ArchiveError("hash index directory names a missing pack");
+  const frame = await archive.frame({
+    pack,
+    offset: Number(view.getBigUint64(0, true)),
+    compressed: view.getUint32(8, true),
+    uncompressed: view.getUint32(12, true),
+    sha256: rec.subarray(24, 56),
+  });
+  const r = new Uvarint(frame);
+  const out: Candidate[] = [];
+  let k = 0;
+  for (let i = 0; i < entries; i++) {
+    k += r.next();
+    const block = obj.first + r.next();
+    const index = withIndex ? r.next() : 0;
+    // Entries are sorted by key: stop once past it.
+    if (k > key) break;
+    if (k === key) out.push({ block, index });
+  }
+  return out;
+}
+
+async function lookup(archive: Archive, pin: Pin, hash: Uint8Array, kind: "transactions" | "blocks"): Promise<Candidate[]> {
+  const { key_bytes, objects } = pin.manifest.hash_index;
+  const key = indexKey(hash, key_bytes);
+  const found = await Promise.all(objects.map((o) => lookupObject(archive, o, o[kind], key, key_bytes, kind === "transactions")));
+  return found.flat();
+}
+
+/** Candidate locations (block, index) of a transaction hash. */
+export function transactionCandidates(archive: Archive, pin: Pin, hash: Uint8Array): Promise<Candidate[]> {
+  return lookup(archive, pin, hash, "transactions");
+}
+
+/** Candidate block numbers of a block hash. */
+export async function blockCandidates(archive: Archive, pin: Pin, hash: Uint8Array): Promise<number[]> {
+  return (await lookup(archive, pin, hash, "blocks")).map((c) => c.block);
+}

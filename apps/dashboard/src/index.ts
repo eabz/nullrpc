@@ -19,7 +19,7 @@
 // usage and pipeline responses are cached per colo with the Cache API, so page views do not
 // translate 1:1 into upstream calls.
 import { analytics, GraphQLApiError, isRange, pipeline, RANGES } from "./analytics";
-import { CF_ACCOUNT_ID, chains, endpoint, liveBinding, type Env } from "./env";
+import { CF_ACCOUNT_ID, chains, endpoint, liveBinding, type Env, type Chain } from "./env";
 
 const ERROR_TTL_S = 15;
 /** The endpoint caches its /status.json 5 s per colo; the page polls every 5 s. */
@@ -79,7 +79,7 @@ async function status(url: URL, env: Env): Promise<Response> {
   const chain = chains(env).find((c) => c.id === id);
   if (!chain) return json({ error: "unknown chain" }, 400);
   const live = liveBinding(env, chain.id);
-  if (!live) return json({ error: "no live pipeline for this chain", chain_id: chain.id }, 404);
+  if (!live) return endpointStatus(env, chain);
   try {
     const res = await live.fetch("https://live/internal/status");
     if (!res.ok) {
@@ -94,6 +94,54 @@ async function status(url: URL, env: Env): Promise<Response> {
   }
 }
 
+/**
+ * Chain status from the RPC endpoint's /status.json (served by the RPC Worker), in the live
+ * pipeline's shape: the newest served block is the executed head, and the target is the head
+ * the chain should have reached by now at 12-second slots, so lag counts blocks the endpoint is
+ * behind (missed slots make it a slight overestimate).
+ */
+async function endpointStatus(env: Env, chain: Chain): Promise<Response> {
+  const origin = endpoint(env, chain);
+  if (!origin) return json({ error: "no endpoint for this chain", chain_id: chain.id }, 404);
+  try {
+    const res = await fetch(`${origin}/status.json`, { headers: { accept: "application/json" }, signal: AbortSignal.timeout(3_000) });
+    if (!res.ok) return json({ error: "endpoint status unavailable", upstream_status: res.status }, 502);
+    const s = (await res.json()) as {
+      latest?: { number?: number; hash?: string; timestamp?: number | null };
+      finalized?: { number?: number; hash?: string; timestamp?: number | null };
+      safe?: number;
+      archived_through?: number;
+      state?: string;
+    };
+    const now = Date.now();
+    const head = s.latest && typeof s.latest.number === "number" ? s.latest : null;
+    const age = head && typeof head.timestamp === "number" ? Math.max(0, now / 1000 - head.timestamp) : null;
+    const lag = age === null ? null : Math.max(0, Math.floor(age / 12) - 1);
+    const block = (b: typeof head) => (b && typeof b.number === "number" ? { number: b.number, hash: b.hash ?? null, timestamp: b.timestamp ?? null } : null);
+    return json({
+      chain_id: chain.id,
+      name: chain.name,
+      fetched_at: now,
+      source: "endpoint",
+      status: {
+        at: now,
+        executed_head: block(head),
+        target: head && lag !== null ? { number: head.number! + lag } : null,
+        lag,
+        finalized: block(s.finalized ?? null),
+        optimistic: typeof s.safe === "number" ? { number: s.safe } : null,
+        archived_through: typeof s.archived_through === "number" ? { number: s.archived_through } : null,
+        last_progress: head && typeof head.timestamp === "number" ? head.timestamp * 1000 : null,
+        halted: s.state === "unavailable",
+        last_error: s.state === "delayed" ? "new blocks are delayed" : null,
+      },
+    });
+  } catch (e) {
+    console.error(`status ${chain.id}: ${e instanceof Error ? e.message : String(e)}`);
+    return json({ error: "endpoint status unavailable" }, 502);
+  }
+}
+
 /** History of one chain's live pipeline (samples once a minute in its ChainDO). */
 async function historyRoute(url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
   const range = url.searchParams.get("range") ?? "1h";
@@ -101,7 +149,8 @@ async function historyRoute(url: URL, env: Env, ctx: ExecutionContext): Promise<
   const chain = chains(env).find((c) => c.id === url.searchParams.get("chain"));
   if (!chain) return json({ error: "unknown chain" }, 400);
   const live = liveBinding(env, chain.id);
-  if (!live) return json({ error: "no live pipeline for this chain", chain_id: chain.id }, 404);
+  // Without a live pipeline there are no per-minute samples yet: an empty history.
+  if (!live) return json({ chain_id: chain.id, name: chain.name, range, bucket_s: 60, from: null, to: null, retention_s: 0, generated_at: Date.now(), points: [] });
   // The key holds only validated values, so query strings cannot bust or poison the cache.
   return cached(`${url.origin}/api/history?chain=${chain.id}&range=${range}`, ctx, async () => {
     try {

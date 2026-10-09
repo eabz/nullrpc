@@ -372,8 +372,8 @@
         // The key's ready-to-use URL on the public Ethereum endpoint (same as the Docs examples).
         const urls = [h("div", { class: "key-endpoint" },
           h("span", { class: "tag" }, "Ethereum"),
-          h("code", {}, DOCS_URL + "/" + k.key.slice(0, 7) + "…"),
-          copyButton(DOCS_URL + "/" + k.key, "Copy URL"))];
+          h("code", {}, endpointUrl() + "/" + k.key.slice(0, 7) + "…"),
+          copyButton(endpointUrl() + "/" + k.key, "Copy URL"))];
         return h("li", { class: "key-card" },
           h("div", { class: "key-card-head" },
             h("div", {}, h("p", { class: "key-name" }, k.name), h("p", { class: "panel-muted" }, "Created " + date(k.created_at))),
@@ -790,8 +790,8 @@
   const DOCS = window.NULLRPC_DOCS || { groups: [], methods: [] };
   let docsMethod = "eth_getBalance";
   let docsLang = "curl";
-  // Every example calls the public Ethereum mainnet endpoint (no key needed to try it).
-  const DOCS_URL = "https://eth.nullrpc.dev";
+  // Every example calls the first public endpoint (apps/networks.json via /api/config; no key needed to try it).
+  const endpointUrl = () => (config && config.endpoints && config.endpoints[0] && config.endpoints[0].url) || "https://hoodi.nullrpc.dev";
 
   function creditsOf(name) {
     const range = (config.credits.ranges || {})[name];
@@ -877,7 +877,7 @@
     if (!m) return;
     docsMethod = m.name;
     for (const a of $("docs-list").querySelectorAll(".docs-item")) a.setAttribute("aria-current", String(a.dataset.method === m.name));
-    const code = example(m, DOCS_URL);
+    const code = example(m, endpointUrl());
 
     const params = m.params.length
       ? h("ul", { class: "params" }, ...m.params.map((p, n) =>
@@ -911,9 +911,9 @@
       h("h4", {}, "Returns"), h("p", { class: "docs-returns" }, m.returns),
       h("h4", {}, "Example"),
       h("div", { class: "code-panel" },
-        h("div", { class: "code-bar" }, langs, h("div", { class: "code-bar-end" }, h("span", { class: "code-endpoint-name" }, "eth.nullrpc.dev"), navigator.clipboard ? copyButton(() => code) : "")),
+        h("div", { class: "code-bar" }, langs, h("div", { class: "code-bar-end" }, h("span", { class: "code-endpoint-name" }, endpointUrl().replace("https://", "")), navigator.clipboard ? copyButton(() => code) : "")),
         h("pre", { class: "code" }, h("code", {}, ...highlight(code)))),
-      h("p", { class: "docs-muted docs-key-note" }, "Examples use the public endpoint, so you can try them as they are. For your plan's quota and rate, add your API key to the path (" + DOCS_URL + "/YOUR_API_KEY) or send it as the x-api-key header. A batch of up to 32 calls costs the sum of its calls."),
+      h("p", { class: "docs-muted docs-key-note" }, "Examples use the public endpoint, so you can try them as they are. For your plan's quota and rate, add your API key to the path (" + endpointUrl() + "/YOUR_API_KEY) or send it as the x-api-key header. A batch of up to 32 calls costs the sum of its calls."),
       nav,
     );
   }

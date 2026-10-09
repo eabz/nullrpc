@@ -1,0 +1,21 @@
+{
+  "name": "nullrpc-executor",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "sh scripts/build.sh",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "sh scripts/build.sh && cargo test --manifest-path crate/Cargo.toml && vitest run",
+    "fixtures": "node test/fixtures/fetch.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261007.1",
+    "@noble/hashes": "^2.0.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.0",
+    "wrangler": "^4.148.0"
+  }
+}

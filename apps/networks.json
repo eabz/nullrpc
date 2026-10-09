@@ -1,0 +1,25 @@
+{
+  "_comment": "The RPC networks nullrpc serves. Single source for the landing page, the status dashboard and the account app. `enabled` networks are listed publicly; flip mainnet on once nullrpc-rpc-1 is deployed.",
+  "networks": [
+    {
+      "chain_id": 560048,
+      "name": "Hoodi",
+      "label": "Hoodi testnet",
+      "url": "https://hoodi.nullrpc.dev",
+      "testnet": true,
+      "enabled": true,
+      "explorer": "https://hoodi.etherscan.io",
+      "currency": { "name": "Hoodi Ether", "symbol": "ETH", "decimals": 18 }
+    },
+    {
+      "chain_id": 1,
+      "name": "Ethereum",
+      "label": "Ethereum mainnet",
+      "url": "https://eth.nullrpc.dev",
+      "testnet": false,
+      "enabled": false,
+      "explorer": "https://etherscan.io",
+      "currency": { "name": "Ether", "symbol": "ETH", "decimals": 18 }
+    }
+  ]
+}
