@@ -42,12 +42,16 @@ export interface Pin {
 export class Archive {
   constructor(
     private readonly source: Source,
-    /** `{chain-id}-{genesis-hash}`; object keys in references are relative to it. */
+    /**
+     * `{chain-id}-{genesis-hash}`: the archive's namespace in the bucket, where HEAD.json is. Every
+     * ObjectRef's `key` is a full bucket key that already starts with it (docs/storage.md).
+     */
     private readonly prefix: string,
   ) {}
 
-  private key(key: string): string {
-    return `${this.prefix}/${key}`;
+  /** The bucket key of `ref`: as written, or namespaced when a writer left the namespace off. */
+  private key(ref: ObjectRef): string {
+    return ref.key.startsWith(`${this.prefix}/`) ? ref.key : `${this.prefix}/${ref.key}`;
   }
 
   /**
@@ -65,7 +69,7 @@ export class Archive {
   }
 
   private async readPin(): Promise<Pin> {
-    const raw = await this.source.get(this.key("HEAD.json"));
+    const raw = await this.source.get(`${this.prefix}/HEAD.json`);
     if (!raw) throw new ArchiveError("archive has no HEAD.json");
     const head = JSON.parse(new TextDecoder().decode(raw)) as Head;
     if (head.version !== 1) throw new ArchiveError(`unsupported HEAD version ${head.version}`);
@@ -81,7 +85,7 @@ export class Archive {
     let p = json.get(id);
     if (!p) {
       p = (async () => {
-        const raw = await this.source.get(this.key(ref.key));
+        const raw = await this.source.get(this.key(ref));
         if (!raw) throw new ArchiveError(`missing object ${ref.key}`);
         await this.check(raw, ref);
         return JSON.parse(new TextDecoder().decode(raw));
@@ -100,7 +104,7 @@ export class Archive {
   /** Raw bytes of an immutable object's range (no digest: callers check what they read). */
   range(ref: ObjectRef, offset: number, length: number): Promise<Uint8Array> {
     if (offset < 0 || length < 0 || offset + length > ref.bytes) throw new ArchiveError(`range outside ${ref.key}`);
-    return this.source.range(this.key(ref.key), offset, length);
+    return this.source.range(this.key(ref), offset, length);
   }
 
   /** One frame: checked compressed length and SHA-256, decompressed, checked uncompressed length. */
@@ -133,12 +137,13 @@ export class Archive {
   private async offsetsRecord(meta: SegmentMeta, n: number): Promise<Uint8Array> {
     const i = n - meta.first;
     const page = Math.floor(i / OFFSETS_PAGE);
-    const id = `${meta.offsets.sha256}:${page}`;
+    const offsets = meta.files["offsets.bin"];
+    const id = `${offsets.sha256}:${page}`;
     let p = pages.get(id);
     if (!p) {
       const start = page * OFFSETS_PAGE * OFFSET_RECORD;
       const count = Math.min(OFFSETS_PAGE, meta.last - meta.first + 1 - page * OFFSETS_PAGE);
-      p = this.range(meta.offsets, start, count * OFFSET_RECORD);
+      p = this.range(offsets, start, count * OFFSET_RECORD);
       pages.set(id, p);
       p.catch(() => pages.delete(id));
     }
@@ -151,11 +156,11 @@ export class Archive {
     const seg = this.segment(pin, n);
     if (!seg) return null;
     const meta = await this.json<SegmentMeta>(seg.meta);
-    if (meta.offsets.bytes !== (meta.last - meta.first + 1) * OFFSET_RECORD) throw new ArchiveError("offsets.bin has the wrong size");
+    if (meta.files["offsets.bin"].bytes !== (meta.last - meta.first + 1) * OFFSET_RECORD) throw new ArchiveError("offsets.bin has the wrong size");
     const rec = await this.offsetsRecord(meta, n);
     const view = new DataView(rec.buffer, rec.byteOffset, rec.byteLength);
     const frame = await this.frame({
-      pack: meta.blocks,
+      pack: meta.files["blocks.pack"],
       offset: Number(view.getBigUint64(32, true)),
       compressed: view.getUint32(40, true),
       uncompressed: view.getUint32(44, true),

@@ -57,8 +57,9 @@ names and digests, so a directory's name changes whenever its content does.
   bytes.
 - **Nothing is found by listing.** A reader starts at `HEAD.json`, reads the manifest it names,
   and reaches every other object through references in the manifest.
-- **Every reference is checked.** An `ObjectRef` is `{"key", "bytes", "sha256"}`. Readers check
-  the size, and the SHA-256 of every frame they read.
+- **Every reference is checked.** An `ObjectRef` is `{"key", "bytes", "sha256"}`. `key` is the
+  object's full key in the bucket, namespace included (`{chain-id}-{genesis-hash}/…`). Readers
+  check the size, and the SHA-256 of every frame they read.
 - **A reader pins one generation per request.** It reads `HEAD.json` (cached in the isolate for
   up to 10 seconds) and uses that manifest for the whole request.
 - **Garbage collection.** After a merge, objects that no manifest of the last 7 days references
@@ -106,12 +107,12 @@ writer; it never overwrites.
 
 ### Chain config
 
-`config/{sha256}.json` is the `config` member of the blockchain's `genesis.json`, verbatim, as
-geth and the other clients read it: `chainId`, the fork activation blocks (`homesteadBlock`
+`config/{sha256}.json` is the blockchain's `genesis.json`, verbatim. Its `config` member is what
+geth and the other clients read as the chain configuration: `chainId`, the fork activation blocks (`homesteadBlock`
 through `londonBlock`, `mergeNetsplitBlock`), `terminalTotalDifficulty`, the fork timestamps
 (`shanghaiTime`, `cancunTime`, `pragueTime`, `osakaTime`, and later `bpo*Time` forks),
 `blobSchedule`, and `depositContractAddress`. The executor derives each block's EVM rules and
-blob parameters from it. The genesis allocation is not repeated here: it is the state history's
+blob parameters from that member. The genesis allocation in the file is also the state history's
 values at block 0.
 
 ### Packs
@@ -127,8 +128,9 @@ Every `.pack` file starts with a 16-byte header, followed by independent zstd fr
 
 Each frame is one record, read with one range request. A reader checks the frame's length and
 SHA-256 (from the reference that pointed to it) before decompressing, and the uncompressed
-length after. The Worker refuses frames larger than 8 MiB uncompressed. Pack files rotate at
-1 GiB from the backfill and 64 MiB from promotion.
+length after. The Worker refuses frames larger than 8 MiB uncompressed. Frame offsets are
+absolute in the file (the first frame starts at byte 16), and each frame is one zstd frame with
+its content size. Pack files rotate at 1 GiB.
 
 ### Block bundles
 
@@ -139,11 +141,12 @@ segments are rewritten as one.
 `meta.json` describes the segment and references its two data objects:
 
 ```json
-{"first": 0, "last": 8191, "last_hash": "0x…", "blocks": ObjectRef, "offsets": ObjectRef}
+{"first": 0, "last": 8191, "first_parent_hash": "0x…", "last_hash": "0x…",
+ "files": {"blocks.pack": ObjectRef, "offsets.bin": ObjectRef}}
 ```
 
-`blocks` is `blocks.pack` and `offsets` is `offsets.bin`; `offsets.bytes` must be
-`(last − first + 1) × 80`.
+`first_parent_hash` is the parent of the first block (the previous segment's `last_hash`; zero
+for block 0). `offsets.bin`'s `bytes` must be `(last − first + 1) × 80`.
 
 `offsets.bin` has one 80-byte record per block, in block order, so block N's record is at
 byte `(N − first) × 80`:
@@ -209,7 +212,7 @@ An index object covers a block range and has two parts, transactions and blocks:
   (u32), uncompressed length (u32), entries (u32), pack index in `packs` (u16), zero (u16),
   SHA-256 of the frame (32 bytes). An empty bucket is 56 zero bytes.
 - **Bucket frame.** Entries sorted by `(K, block, index)`. Each entry is `uvarint(K − previous
-  K)`, `uvarint(block − first)` and, for transactions, `uvarint(index in block)`.
+  K)` (the first relative to the bucket's base key, `bucket << (48 − bucket_bits)`), `uvarint(block − first)` and, for transactions, `uvarint(index in block)`.
 
 **Lookup:** for every object, one 56-byte directory read and one frame read, all objects in
 parallel. Each candidate is confirmed by reading its block and comparing the full hash, so a
@@ -223,12 +226,16 @@ Finds the blocks that may contain logs matching an `eth_getLogs` filter.
   `K` is the first 6 bytes of SHA-256(tag ‖ value).
 - **Partitions.** An object's blocks are split at multiples of 65,536. A query reads only the
   partitions its range touches.
-- **Directory.** Per partition, `2^bucket_bits` records in the hash index's 56-byte layout.
 - **Object.** A `LogIndexObject` in the manifest is
-  `{"first", "last", "partitions": [{"start", "bucket_bits", "directory": ObjectRef}], "packs": [ObjectRef]}`,
-  with `start` the partition's first block (a multiple of `partition_blocks`, or `first`).
-- **Bucket frame.** Per key, sorted by `K`: `uvarint(K − previous K)`, `uvarint(n)`,
-  `uvarint(b₀ − partition start)`, then `uvarint(bᵢ − bᵢ₋₁ − 1)` for the other blocks.
+  `{"first", "last", "partitions": [{"bucket_bits", "keys", "entries"}], "directory": ObjectRef, "packs": [ObjectRef]}`.
+  Partition j is absolute partition `⌊first / partition_blocks⌋ + j` and covers its blocks within
+  `[first, last]`; every partition the object's range touches is listed.
+- **Directory.** One object: per partition, in order, `2^bucket_bits` records in the hash index's
+  56-byte layout, so partition j's records start at the sum of `56 × 2^bucket_bits` over the
+  partitions before it. A record's count is the number of keys in the bucket.
+- **Bucket frame.** Per key, sorted by `K`: `uvarint(K − previous K)` (the first relative to the
+  bucket's base key, `bucket << (48 − bucket_bits)`), `uvarint(n)`, `uvarint(b₀ − partition's first
+  block)`, then `uvarint(bᵢ − bᵢ₋₁ − 1)` for the other blocks.
 
 **Lookup:** the filter's addresses form one group, and each constrained topic position forms
 another. A group's candidates are the union of its keys' blocks; the query's candidates are the
@@ -252,7 +259,7 @@ the blocks where it changed.
 | Domain | Key | Value; empty means absent or zero |
 |---|---|---|
 | `accounts` | address, 20 bytes | `uvarint(nonce)`, `uvarint(len)`, balance (big-endian, `len` bytes), code hash (32 bytes, omitted for no code) |
-| `storage` | address ‖ slot, 52 bytes | big-endian value, leading zeros removed |
+| `storage` | address ‖ slot, 52 bytes | big-endian value (live layers remove leading zeros; the base layer keeps the client's bytes) |
 | `code` | code hash, 32 bytes | bytecode; one entry, at block 0 |
 
 A **layer** covers a block range. Per domain, its entries are sorted by `(key, block)`; an
@@ -270,16 +277,20 @@ entry. Data pages are about 32 KiB uncompressed. An index page lists up to 1,024
 their first `(key, block)`. `pack` in an index page indexes the domain's `packs` in `layer.json`:
 
 ```json
-{"first": 0, "last": 23899903, "level": 99,
+{"first": 0, "last": 23899903,
  "domains": {
-   "accounts": {"packs": [ObjectRef], "index": ObjectRef, "filter": ObjectRef,
-                "root": [["<key hex>", first_block, offset, length, uncompressed, "<sha256 hex>"]]},
-   "storage": {…}, "code": {…}}}
+   "accounts": {"keys": 0, "entries": 0, "pages": 0, "packs": [ObjectRef], "index": ObjectRef,
+                "root": [{"first_key": "<hex, no 0x>", "first_block": 0,
+                          "record": {"block_number": 0, "offset": 16, "length": 0,
+                                     "uncompressed_length": 0, "sha256": "<hex>"}}],
+                "filter": ObjectRef},
+   "code": {…}, "storage": {…}}}
 ```
 
 `index` is `{domain}.index.pack`, `filter` is `{domain}.filter`, and `root` has one entry per index
-page, in order: the page's first `(key, block)` and its frame in `index`. A domain with no entries
-in the layer is omitted.
+page, in order: the page's first `(key, block)` and its frame in `index` (`record.block_number` is
+the page's ordinal, not a block). Every domain is listed; one without entries has an empty `root`.
+The layer's level is in the manifest only.
 
 **Finding a page.** In the root, take the last index page whose first `(key, block)` is at or
 before `(key, n)`; in that page, the last data page likewise. Keys compare as bytes, then blocks

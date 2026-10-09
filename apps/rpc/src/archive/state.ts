@@ -11,10 +11,19 @@ import { ArchiveError, type ObjectRef } from "./types";
 
 export type Domain = "accounts" | "storage" | "code";
 
-/** [key hex, first block, offset, length, uncompressed, sha256 hex] */
-type RootEntry = [string, number, number, number, number, string];
+/** One index page: its first (key, block) and its frame in the domain's `index` pack. */
+interface RootEntry {
+  /** Hex without 0x. */
+  first_key: string;
+  first_block: number;
+  /** `block_number` is the index page's ordinal; offset and lengths locate it in `index`. */
+  record: { block_number: number; offset: number; length: number; uncompressed_length: number; sha256: string };
+}
 
 interface DomainDescriptor {
+  keys: number;
+  entries: number;
+  pages: number;
   packs: ObjectRef[];
   index: ObjectRef;
   filter: ObjectRef | null;
@@ -24,7 +33,6 @@ interface DomainDescriptor {
 interface LayerDescriptor {
   first: number;
   last: number;
-  level: number;
   domains: Partial<Record<Domain, DomainDescriptor>>;
 }
 
@@ -176,7 +184,7 @@ export class StateHistory {
   private rootKeys(d: DomainDescriptor) {
     let r = roots.get(d.root);
     if (!r) {
-      r = d.root.map(([k, b]) => ({ key: fromHex(k), block: b }));
+      r = d.root.map((e) => ({ key: fromHex(e.first_key), block: e.first_block }));
       roots.set(d.root, r);
     }
     return r;
@@ -187,12 +195,12 @@ export class StateHistory {
     const rk = this.rootKeys(d);
     const ri = lastAtOrBefore(rk, (e) => [e.key, e.block], key, n);
     if (ri < 0) return undefined;
-    const root = d.root[ri]!;
-    const id = `${d.index.sha256}:${root[2]}`;
+    const rec = d.root[ri]!.record;
+    const id = `${d.index.sha256}:${rec.offset}`;
     let ip = indexPages.get(id);
     if (!ip) {
       ip = this.archive
-        .frame({ pack: d.index, offset: root[2], compressed: root[3], uncompressed: root[4], sha256: fromHex(root[5]) })
+        .frame({ pack: d.index, offset: rec.offset, compressed: rec.length, uncompressed: rec.uncompressed_length, sha256: fromHex(rec.sha256) })
         .then(parseIndexPage);
       indexPages.set(id, ip);
       ip.catch(() => indexPages.delete(id));
@@ -217,7 +225,8 @@ export class StateHistory {
   async get(domain: Domain, key: Uint8Array, n: number): Promise<Uint8Array> {
     const candidates = this.layers().filter((l) => l.first <= n);
     const descriptors = await Promise.all(candidates.map((l) => this.archive.json<LayerDescriptor>(l.descriptor)));
-    const withDomain = descriptors.map((d) => d.domains[domain]).map((d, i) => ({ d, layer: candidates[i]! })).filter((x) => x.d) as { d: DomainDescriptor; layer: LayerRef }[];
+    // Domains without entries in a layer have an empty root.
+    const withDomain = descriptors.map((d) => d.domains[domain]).map((d, i) => ({ d, layer: candidates[i]! })).filter((x) => x.d && x.d.root.length) as { d: DomainDescriptor; layer: LayerRef }[];
     const accepted = await Promise.all(withDomain.map((x) => this.mayContain(x.d, key)));
     // Newest layer first: the first with an entry at or before n answers.
     for (let i = withDomain.length - 1; i >= 0; i--) {

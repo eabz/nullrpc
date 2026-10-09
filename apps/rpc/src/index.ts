@@ -104,7 +104,7 @@ async function call(chain: Chain, req: RpcRequest, menv: MethodEnv): Promise<Rpc
     return { jsonrpc: "2.0", id: req.id, result: await handler(chain, req.params ?? [], menv) };
   } catch (e) {
     if (e instanceof RpcError) return errorResponse(req.id, e);
-    console.error(JSON.stringify({ event: "rpc_error", method: req.method, error: e instanceof Error ? e.message : String(e) }));
+    console.error(JSON.stringify({ event: "rpc_error", method: req.method, error: e instanceof Error ? e.message : String(e), stack: e instanceof Error ? e.stack : undefined }));
     return errorResponse(req.id, new RpcError(-32603, e instanceof ArchiveError ? "archive unavailable" : "internal error"));
   }
 }

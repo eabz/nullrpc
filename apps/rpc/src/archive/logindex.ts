@@ -8,15 +8,21 @@ import { indexKey, Uvarint } from "./hashindex";
 import { ArchiveError, type ObjectRef } from "./types";
 
 interface Partition {
-  start: number;
   bucket_bits: number;
-  directory: ObjectRef;
+  keys: number;
+  entries: number;
 }
 
+/**
+ * One log index object. Partition j covers absolute partition `floor(first / PB) + j`, clipped
+ * to [first, last]; its 56-byte bucket records start in `directory` after the records of the
+ * partitions before it (each `56 << bucket_bits` bytes).
+ */
 interface LogIndexObject {
   first: number;
   last: number;
   partitions: Partition[];
+  directory: ObjectRef;
   packs: ObjectRef[];
 }
 
@@ -30,12 +36,13 @@ export async function logKey(tag: number, value: Uint8Array, keyBytes: number): 
   return indexKey(new Uint8Array(await crypto.subtle.digest("SHA-256", input)), keyBytes);
 }
 
-async function partitionBlocks(archive: Archive, obj: LogIndexObject, p: Partition, key: number, keyBytes: number, from: number, to: number): Promise<number[]> {
-  const bucket = Math.floor(key / 2 ** (keyBytes * 8 - p.bucket_bits));
-  const rec = await archive.range(p.directory, bucket * DIRECTORY_RECORD, DIRECTORY_RECORD);
+async function partitionBlocks(archive: Archive, obj: LogIndexObject, p: Partition, dirOffset: number, lo: number, key: number, keyBytes: number, from: number, to: number): Promise<number[]> {
+  const shift = 2 ** (keyBytes * 8 - p.bucket_bits);
+  const bucket = Math.floor(key / shift);
+  const rec = await archive.range(obj.directory, dirOffset + bucket * DIRECTORY_RECORD, DIRECTORY_RECORD);
   const view = new DataView(rec.buffer, rec.byteOffset, rec.byteLength);
-  const entries = view.getUint32(16, true);
-  if (entries === 0) return [];
+  const keys = view.getUint32(16, true);
+  if (keys === 0) return [];
   const pack = obj.packs[view.getUint16(20, true)];
   if (!pack) throw new ArchiveError("log index directory names a missing pack");
   const frame = await archive.frame({
@@ -46,14 +53,15 @@ async function partitionBlocks(archive: Archive, obj: LogIndexObject, p: Partiti
     sha256: rec.subarray(24, 56),
   });
   const r = new Uvarint(frame);
-  let k = 0;
-  for (let i = 0; i < entries; i++) {
+  // Key deltas start from the bucket's base key; block numbers from the partition's first block.
+  let k = bucket * shift;
+  for (let i = 0; i < keys; i++) {
     k += r.next();
     const n = r.next();
     const blocks: number[] = [];
     let b = 0;
     for (let j = 0; j < n; j++) {
-      b = j === 0 ? p.start + r.next() : b + r.next() + 1;
+      b = j === 0 ? lo + r.next() : b + r.next() + 1;
       if (k === key && b >= from && b <= to) blocks.push(b);
     }
     if (k === key) return blocks;
@@ -64,16 +72,21 @@ async function partitionBlocks(archive: Archive, obj: LogIndexObject, p: Partiti
 
 /** Archived blocks in [from, to] whose logs may contain the field value. */
 async function blocksFor(archive: Archive, pin: Pin, tag: number, value: Uint8Array, from: number, to: number): Promise<Set<number>> {
-  const { key_bytes, partition_blocks, objects } = pin.manifest.log_index as { key_bytes: number; partition_blocks: number; objects: LogIndexObject[] };
+  const index = pin.manifest.log_index as { key_bytes: number; partition_blocks: number; objects: LogIndexObject[] } | null;
+  if (!index) return new Set();
+  const { key_bytes, partition_blocks: pb, objects } = index;
   const key = await logKey(tag, value, key_bytes);
   const reads: Promise<number[]>[] = [];
-  for (const obj of objects) {
+  for (const obj of objects ?? []) {
     if (obj.last < from || obj.first > to) continue;
-    for (const p of obj.partitions) {
-      const end = Math.min(obj.last, Math.floor(p.start / partition_blocks) * partition_blocks + partition_blocks - 1);
-      if (end < from || p.start > to) continue;
-      reads.push(partitionBlocks(archive, obj, p, key, key_bytes, from, to));
-    }
+    let dirOffset = 0;
+    obj.partitions.forEach((p, j) => {
+      const abs = Math.floor(obj.first / pb) + j;
+      const lo = Math.max(abs * pb, obj.first);
+      const hi = Math.min(abs * pb + pb - 1, obj.last);
+      if (hi >= from && lo <= to) reads.push(partitionBlocks(archive, obj, p, dirOffset, lo, key, key_bytes, from, to));
+      dirOffset += DIRECTORY_RECORD * 2 ** p.bucket_bits;
+    });
   }
   return new Set((await Promise.all(reads)).flat());
 }

@@ -22,9 +22,9 @@ export interface SegmentEntry {
 export interface SegmentMeta {
   first: number;
   last: number;
+  first_parent_hash: string;
   last_hash: string;
-  blocks: ObjectRef;
-  offsets: ObjectRef;
+  files: { "blocks.pack": ObjectRef; "offsets.bin": ObjectRef };
 }
 
 export interface IndexPart {
@@ -52,8 +52,8 @@ export interface Manifest {
   finalized_observed: { number: number; hash: string };
   chunk_blocks: number;
   segments: SegmentEntry[];
-  hash_index: { key_bytes: number; objects: HashIndexObject[] };
-  log_index: { key_bytes: number; partition_blocks: number; objects: unknown[] };
+  hash_index: { key_bytes: number; objects: HashIndexObject[] } | null;
+  log_index: { key_bytes: number; partition_blocks: number; objects: unknown[] } | null;
   state_history: { layers: unknown[] };
   witnesses: unknown;
   created_at: string;

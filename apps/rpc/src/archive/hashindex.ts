@@ -61,7 +61,8 @@ async function lookupObject(archive: Archive, obj: HashIndexObject, part: IndexP
   });
   const r = new Uvarint(frame);
   const out: Candidate[] = [];
-  let k = 0;
+  // Key deltas start from the bucket's base key.
+  let k = bucket * 2 ** (keyBytes * 8 - part.bucket_bits);
   for (let i = 0; i < entries; i++) {
     k += r.next();
     const block = obj.first + r.next();
@@ -74,6 +75,7 @@ async function lookupObject(archive: Archive, obj: HashIndexObject, part: IndexP
 }
 
 async function lookup(archive: Archive, pin: Pin, hash: Uint8Array, kind: "transactions" | "blocks"): Promise<Candidate[]> {
+  if (!pin.manifest.hash_index) return [];
   const { key_bytes, objects } = pin.manifest.hash_index;
   const key = indexKey(hash, key_bytes);
   const found = await Promise.all(objects.map((o) => lookupObject(archive, o, o[kind], key, key_bytes, kind === "transactions")));

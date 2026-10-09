@@ -28,8 +28,9 @@ const hexOf = (b: Uint8Array) => Buffer.from(b).toString("hex");
 export class Builder {
   readonly objects = new Map<string, Uint8Array>();
   put(key: string, bytes: Uint8Array): ObjectRef {
+    // References carry full bucket keys, as the daemon writes them (docs/storage.md).
     this.objects.set(`${PREFIX}/${key}`, bytes);
-    return { key, bytes: bytes.length, sha256: hexOf(sha(bytes)) };
+    return { key: `${PREFIX}/${key}`, bytes: bytes.length, sha256: hexOf(sha(bytes)) };
   }
   putJson(key: string, value: unknown): ObjectRef {
     return this.put(key, new TextEncoder().encode(JSON.stringify(value)));
@@ -94,7 +95,8 @@ function hashIndex(b: Builder, fixtures: Fixture[], first: number, last: number,
     }
     const records: { frame: number; entries: number }[] = Array.from({ length: 2 ** bits }, () => ({ frame: -1, entries: 0 }));
     for (const [bucket, es] of buckets) {
-      let prev = 0;
+      // Key deltas start from the bucket's base key (services/internal/core/hashindex.go).
+      let prev = bucket * 2 ** (KEY_BYTES * 8 - bits);
       const bytes: number[] = [];
       for (const e of es) {
         bytes.push(...uvarint(e.k - prev), ...uvarint(e.block - first));
@@ -171,7 +173,7 @@ export function buildArchive(fixtures: Fixture[], opts: ArchiveOptions = {}): Ma
     const dir = `segments/${String(first).padStart(20, "0")}-${String(last).padStart(20, "0")}-${run.at(-1)!.block.hash.slice(2)}/c0ffee`;
     const blocks = b.put(`${dir}/blocks.pack`, p.bytes);
     const offs = b.put(`${dir}/offsets.bin`, offsets);
-    const meta = b.putJson(`${dir}/meta.json`, { first, last, last_hash: run.at(-1)!.block.hash, blocks, offsets: offs });
+    const meta = b.putJson(`${dir}/meta.json`, { first, last, first_parent_hash: run[0]!.block.parentHash, last_hash: run.at(-1)!.block.hash, files: { "blocks.pack": blocks, "offsets.bin": offs } });
     return { first, last, last_hash: run.at(-1)!.block.hash, meta };
   });
   const half = Math.ceil(fixtures.length / 2);
@@ -182,7 +184,7 @@ export function buildArchive(fixtures: Fixture[], opts: ArchiveOptions = {}): Ma
     hashIndex(b, hi, Number(hi[0]!.block.number), Number(hi.at(-1)!.block.number), { tx: 6, block: 2 }),
   ];
   const tip = fixtures.at(-1)!.block;
-  const config = b.putJson("config/genesis.json", MAINNET_CONFIG);
+  const config = b.putJson("config/genesis.json", { config: MAINNET_CONFIG, alloc: {} });
   const manifest = b.putJson("manifests/00000000000000000001-test.json", {
     format: "nullrpc-archive",
     version: 1,
@@ -244,7 +246,12 @@ function stateLayer(b: Builder, all: StateEntry[], first: number, last: number, 
     const entries = all
       .filter((e) => e.domain === domain && e.block >= first && e.block <= last)
       .sort((x, y) => cmpKey(x.key, y.key) || x.block - y.block);
-    if (!entries.length) continue;
+    if (!entries.length) {
+      // Domains without entries are still listed, with an empty root.
+      const empty = pack([], 2);
+      domains[domain] = { keys: 0, entries: 0, pages: 0, packs: [b.put(`${dir}/${domain}.0000.pack`, empty.bytes)], index: b.put(`${dir}/${domain}.index.pack`, empty.bytes), filter: null, root: [] };
+      continue;
+    }
     // Data pages: groups of (key, entries); a key's run may continue on the next page.
     const pages: { first: StateEntry; bytes: number[] }[] = [];
     let cur: { first: StateEntry; bytes: number[] } | null = null;
@@ -284,13 +291,21 @@ function stateLayer(b: Builder, all: StateEntry[], first: number, last: number, 
     const keys = [...new Map(entries.map((e) => [hexOf(e.key), e.key])).values()];
     const filter = filters ? b.put(`${dir}/${domain}.filter`, bloom(keys)) : null;
     domains[domain] = {
+      keys: keys.length,
+      entries: entries.length,
+      pages: pages.length,
       packs: [dataRef],
       index: indexRef,
+      root: index.frames.map((fr, j) => ({
+        first_key: hexOf(indexFirsts[j]!.key),
+        first_block: indexFirsts[j]!.block,
+        // block_number is the index page's ordinal (services/internal/core/statebuild.go).
+        record: { block_number: j, offset: fr.offset, length: fr.compressed, uncompressed_length: fr.uncompressed, sha256: hexOf(fr.sha256) },
+      })),
       filter,
-      root: index.frames.map((fr, j) => [hexOf(indexFirsts[j]!.key), indexFirsts[j]!.block, fr.offset, fr.compressed, fr.uncompressed, hexOf(fr.sha256)]),
     };
   }
-  const descriptor = b.putJson(`${dir}/layer.json`, { first, last, level: n, domains });
+  const descriptor = b.putJson(`${dir}/layer.json`, { first, last, domains });
   return { first, last, level: n, descriptor };
 }
 
@@ -301,7 +316,8 @@ export function encodeAccount(nonce: number, balance: bigint, codeHash?: Uint8Ar
   return Uint8Array.from([...uvarint(nonce), ...uvarint(bal.length), ...bal, ...(codeHash ?? [])]);
 }
 
-// ---- log index (storage.md, "Log index"), built from the fixtures' receipts.
+// ---- log index (storage.md, "Log index"; services/internal/core/logindex.go), built from the
+// fixtures' receipts: one object, every partition its range touches, one concatenated directory.
 
 export function logIndex(b: Builder, fixtures: Fixture[], partitionBlocks = 65_536, bucketBits = 4) {
   const keyOf = (tag: number, value: string) => {
@@ -312,13 +328,13 @@ export function logIndex(b: Builder, fixtures: Fixture[], partitionBlocks = 65_5
   };
   const first = Number(fixtures[0]!.block.number);
   const last = Number(fixtures.at(-1)!.block.number);
-  // partition start -> key -> blocks
-  const parts = new Map<number, Map<number, Set<number>>>();
+  const firstPart = Math.floor(first / partitionBlocks);
+  const count = Math.floor(last / partitionBlocks) - firstPart + 1;
+  // partition ordinal -> key -> blocks
+  const parts = Array.from({ length: count }, () => new Map<number, Set<number>>());
   for (const f of fixtures) {
     const n = Number(f.block.number);
-    const start = Math.max(first, Math.floor(n / partitionBlocks) * partitionBlocks);
-    const keys = parts.get(start) ?? new Map<number, Set<number>>();
-    parts.set(start, keys);
+    const keys = parts[Math.floor(n / partitionBlocks) - firstPart]!;
     for (const r of f.receipts)
       for (const l of r.logs) {
         const add = (k: number) => keys.set(k, (keys.get(k) ?? new Set()).add(n));
@@ -327,43 +343,50 @@ export function logIndex(b: Builder, fixtures: Fixture[], partitionBlocks = 65_5
       }
   }
   const frames: Uint8Array[] = [];
-  const directories: { start: number; records: { frame: number; entries: number }[] }[] = [];
-  for (const [start, keys] of [...parts].sort((a, c) => a[0] - c[0])) {
+  const records: { frame: number; keys: number }[][] = [];
+  const meta: { bucket_bits: number; keys: number; entries: number }[] = [];
+  parts.forEach((keys, j) => {
+    const lo = Math.max((firstPart + j) * partitionBlocks, first);
     const buckets = new Map<number, [number, number[]][]>();
-    for (const [k, set] of [...keys].sort((a, c) => a[0] - c[0])) {
+    for (const [k, set] of [...keys].sort((x, y) => x[0] - y[0])) {
       const bucket = Math.floor(k / 2 ** (KEY_BYTES * 8 - bucketBits));
-      buckets.set(bucket, [...(buckets.get(bucket) ?? []), [k, [...set].sort((a, c) => a - c)]]);
+      buckets.set(bucket, [...(buckets.get(bucket) ?? []), [k, [...set].sort((x, y) => x - y)]]);
     }
-    const records = Array.from({ length: 2 ** bucketBits }, () => ({ frame: -1, entries: 0 }));
+    const recs = Array.from({ length: 2 ** bucketBits }, () => ({ frame: -1, keys: 0 }));
+    let entries = 0;
     for (const [bucket, list] of buckets) {
       const bytes: number[] = [];
-      let prev = 0;
+      let prev = bucket * 2 ** (KEY_BYTES * 8 - bucketBits);
       for (const [k, blocks] of list) {
         bytes.push(...uvarint(k - prev), ...uvarint(blocks.length));
-        blocks.forEach((bl, i) => bytes.push(...uvarint(i === 0 ? bl - start : bl - blocks[i - 1]! - 1)));
+        blocks.forEach((bl, i) => bytes.push(...uvarint(i === 0 ? bl - lo : bl - blocks[i - 1]! - 1)));
         prev = k;
+        entries += blocks.length;
       }
-      records[bucket] = { frame: frames.length, entries: list.length };
+      recs[bucket] = { frame: frames.length, keys: list.length };
       frames.push(Uint8Array.from(bytes));
     }
-    directories.push({ start, records });
-  }
+    records.push(recs);
+    meta.push({ bucket_bits: bucketBits, keys: keys.size, entries });
+  });
   const p = pack(frames, 4);
   const range = `${String(first).padStart(20, "0")}-${String(last).padStart(20, "0")}`;
   const packRef = b.put(`log-index/${range}/pack-${hexOf(sha(p.bytes))}.pack`, p.bytes);
-  const partitions = directories.map((d) => {
-    const dir = new Uint8Array(d.records.length * 56);
-    const view = new DataView(dir.buffer);
-    d.records.forEach((r, i) => {
-      if (r.frame < 0) return;
-      const fr = p.frames[r.frame]!;
-      view.setBigUint64(i * 56, BigInt(fr.offset), true);
-      view.setUint32(i * 56 + 8, fr.compressed, true);
-      view.setUint32(i * 56 + 12, fr.uncompressed, true);
-      view.setUint32(i * 56 + 16, r.entries, true);
-      dir.set(fr.sha256, i * 56 + 24);
-    });
-    return { start: d.start, bucket_bits: bucketBits, directory: b.put(`log-index/${range}/directory-${d.start}-${hexOf(sha(dir))}.dir`, dir) };
-  });
-  return { key_bytes: KEY_BYTES, partition_blocks: partitionBlocks, objects: [{ first, last, partitions, packs: [packRef] }] };
+  const dir = new Uint8Array(records.reduce((n, r) => n + r.length * 56, 0));
+  const view = new DataView(dir.buffer);
+  let at = 0;
+  for (const recs of records)
+    for (const r of recs) {
+      if (r.frame >= 0) {
+        const fr = p.frames[r.frame]!;
+        view.setBigUint64(at, BigInt(fr.offset), true);
+        view.setUint32(at + 8, fr.compressed, true);
+        view.setUint32(at + 12, fr.uncompressed, true);
+        view.setUint32(at + 16, r.keys, true);
+        dir.set(fr.sha256, at + 24);
+      }
+      at += 56;
+    }
+  const directory = b.put(`log-index/${range}/directory-${hexOf(sha(dir))}.dir`, dir);
+  return { key_bytes: KEY_BYTES, partition_blocks: partitionBlocks, objects: [{ first, last, partitions: meta, directory, packs: [packRef] }] };
 }

@@ -43,8 +43,10 @@ export class Chain {
   }
 
   /** The chain config object (storage.md, "Chain config"), cached by digest. */
-  config(): Promise<Record<string, unknown>> {
-    return this.archive.json<Record<string, unknown>>(this.pin.manifest.config);
+  async config(): Promise<Record<string, unknown>> {
+    // The object is the chain's genesis.json; its `config` member is the fork schedule.
+    const genesis = await this.archive.json<Record<string, unknown>>(this.pin.manifest.config);
+    return (genesis.config as Record<string, unknown> | undefined) ?? genesis;
   }
 
   /** The archive this request reads (for index lookups by method modules). */
