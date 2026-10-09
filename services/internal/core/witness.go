@@ -10,9 +10,10 @@ package core
 // every replay is checked against the header's gas used and receipts root.
 //
 // One witness range per segment: witnesses/{first}-{last}-{content-id}/ with offsets.bin
-// (56 bytes per block) and witness.{n}.pack (one frame per block, codec 5). Blocks execute in
-// parallel; each range is written in block order. A sample of blocks is cross-checked
-// against the state history layer, an independent extraction of the same state.
+// (56 bytes per block) and witness.{n}.pack (one frame per block, codec 5). Workers execute
+// runs of consecutive blocks in parallel, carrying state from block to block (executor.go);
+// ranges are written in block order as their segments complete. A sample of blocks is
+// cross-checked against the state history layer, an independent extraction of the same state.
 
 import (
 	"bytes"
@@ -35,14 +36,18 @@ import (
 )
 
 const (
-	witnessVersion     = 1
-	witnessOffsetLen   = 56
-	witnessPackLimit   = 1 << 30
-	witnessFlagExists  = 1
-	witnessFlagCode    = 2
-	witnessCheckEvery  = 997 // cross-check one block in this many against the state layer
-	witnessStateFile   = "witnesses.json"
-	witnessBatch       = 16 // consecutive blocks per worker read transaction
+	witnessVersion    = 1
+	witnessOffsetLen  = 56
+	witnessPackLimit  = 1 << 30
+	witnessFlagExists = 1
+	witnessFlagCode   = 2
+	witnessCheckEvery = 997 // cross-check one block in this many against the state layer
+	witnessStateFile  = "witnesses.json"
+	witnessBatch      = 16   // consecutive blocks per read transaction
+	witnessRun        = 1024 // consecutive blocks a worker executes on carried state
+	// witnessOverlayCheckEvery: one block in this many is executed again from the history
+	// alone, and its witness must match the one built on carried state.
+	witnessOverlayCheckEvery = 128
 )
 
 // Pre-transaction system call contracts: their slots in a witness hold the value after the
@@ -274,8 +279,126 @@ func checkWitnessRanges(st witnessState, bundles []BundleRef) error {
 	return nil
 }
 
-// witnessStage executes every block of every segment, one range at a time, resuming after the
-// ranges WORK/witnesses.json already lists.
+// witnessJob is a run of consecutive blocks one worker executes on carried state, within
+// one segment (index seg of the segments being built).
+type witnessJob struct {
+	seg         int
+	first, last uint64
+}
+
+// witnessJobs splits each segment into runs of witnessRun blocks.
+func witnessJobs(segments [][2]uint64) []witnessJob {
+	var jobs []witnessJob
+	for seg, r := range segments {
+		for n := r[0]; n <= r[1]; n += witnessRun {
+			jobs = append(jobs, witnessJob{seg: seg, first: n, last: min(n+witnessRun-1, r[1])})
+		}
+	}
+	return jobs
+}
+
+// runWitnessJobs executes jobs on workers goroutines. Each job runs on a fresh overlay, one
+// read transaction per witnessBatch blocks; onWitness is called from the workers for every
+// block, onSegment once all of a segment's jobs are done (from whichever worker finishes
+// it). One block in witnessOverlayCheckEvery is executed again from the history alone and
+// must give the same witness. The first error stops everything.
+func runWitnessJobs(exec *witnessExecutor, jobs []witnessJob, workers int,
+	onWitness func(job witnessJob, n uint64, wit *blockWitness) error, onSegment func(seg int) error) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	remaining := map[int]int{}
+	for _, j := range jobs {
+		remaining[j.seg]++
+	}
+	var mu sync.Mutex
+	var firstErr error
+	fail := func(err error) {
+		mu.Lock()
+		if firstErr == nil {
+			firstErr = err
+		}
+		mu.Unlock()
+		cancel()
+	}
+	runJob := func(job witnessJob) error {
+		ov := newStateOverlay()
+		for _, r := range batchRanges(job.first, job.last) {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			err := func() error {
+				tx, err := exec.readTx(ctx)
+				if err != nil {
+					return err
+				}
+				defer tx.Rollback()
+				for n := r[0]; n <= r[1]; n++ {
+					wit, err := exec.execute(ctx, tx, n, ov)
+					if err != nil {
+						return err
+					}
+					if n%witnessOverlayCheckEvery == 0 {
+						ref, err := exec.execute(ctx, tx, n, nil)
+						if err != nil {
+							return err
+						}
+						if !bytes.Equal(ref.encode(), wit.encode()) {
+							return fmt.Errorf("block %d: the witness built on carried state differs from the one built from the history", n)
+						}
+					}
+					if err := onWitness(job, n, wit); err != nil {
+						return err
+					}
+				}
+				return nil
+			}()
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	queue := make(chan witnessJob)
+	var wg sync.WaitGroup
+	for range max(1, workers) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for job := range queue {
+				if ctx.Err() != nil {
+					continue
+				}
+				if err := runJob(job); err != nil {
+					fail(err)
+					continue
+				}
+				mu.Lock()
+				remaining[job.seg]--
+				last := remaining[job.seg] == 0
+				mu.Unlock()
+				if last {
+					if err := onSegment(job.seg); err != nil {
+						fail(err)
+					}
+				}
+			}
+		}()
+	}
+	for _, j := range jobs {
+		select {
+		case queue <- j:
+		case <-ctx.Done():
+		}
+	}
+	close(queue)
+	wg.Wait()
+	mu.Lock()
+	defer mu.Unlock()
+	return firstErr
+}
+
+// witnessStage executes every block of every segment, resuming after the ranges
+// WORK/witnesses.json already lists. Segments are written in order as they complete.
 func witnessStage(w *workDir) error {
 	layerRef, bundles := w.layerAndBundles()
 	if layerRef == nil || len(bundles) == 0 {
@@ -310,101 +433,96 @@ func witnessStage(w *workDir) error {
 		return err
 	}
 	defer closeExec()
-	workers := max(1, w.opts.execWorkers)
+	pending := bundles[len(st.Ranges):]
+	segments := make([][2]uint64, len(pending))
+	for i, b := range pending {
+		segments[i] = [2]uint64{b.FirstBlock, b.LastBlock}
+	}
 	started := time.Now()
-	var executed atomic.Uint64
-	for _, b := range bundles[len(st.Ranges):] {
-		frames := make([]frame, b.LastBlock-b.FirstBlock+1)
-		batches := make(chan [2]uint64)
-		var wg sync.WaitGroup
-		var mu sync.Mutex
-		var firstErr error
-		var checked uint64
-		fail := func(err error) {
-			mu.Lock()
-			if firstErr == nil {
-				firstErr = err
-			}
-			mu.Unlock()
-		}
-		failed := func() bool { mu.Lock(); defer mu.Unlock(); return firstErr != nil }
-		for range workers {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				for r := range batches {
-					if failed() {
-						continue
-					}
-					// One short read transaction per batch.
-					err := func() error {
-						tx, err := exec.readTx(context.Background())
-						if err != nil {
-							return err
+	var executed, checked atomic.Uint64
+	// Frames of the segments in flight, by segment. A writer goroutine writes completed
+	// segments in order and releases their frames; its error stops the workers.
+	var mu sync.Mutex
+	frames := map[int][]frame{}
+	ready := make(chan int, len(segments))
+	var writeErr error
+	writerDone := make(chan struct{})
+	go func() {
+		defer close(writerDone)
+		complete := map[int]bool{}
+		next := 0
+		for seg := range ready {
+			complete[seg] = true
+			for complete[next] && writeErr == nil {
+				first := segments[next][0]
+				mu.Lock()
+				segFrames := frames[next]
+				delete(frames, next)
+				mu.Unlock()
+				rng, objs, err := writeWitnessRange(w.archive(), w.namespace, first, segFrames)
+				if err == nil && target != nil {
+					if _, err = target.put(context.Background(), w.archive(), objs); err == nil {
+						if st.Uploaded == nil {
+							st.Uploaded = map[uint64]bool{}
 						}
-						defer tx.Rollback()
-						for n := r[0]; n <= r[1]; n++ {
-							wit, err := exec.execute(context.Background(), tx, n)
-							if err != nil {
-								return err
-							}
-							if n%witnessCheckEvery == 0 {
-								c, err := checkWitness(layer, n, wit)
-								if err != nil {
-									return err
-								}
-								mu.Lock()
-								checked += uint64(c)
-								mu.Unlock()
-							}
-							frames[n-b.FirstBlock] = compressFrame(wit.encode())
-							executed.Add(1)
-						}
-						return nil
-					}()
-					if err != nil {
-						fail(err)
+						st.Uploaded[rng.First] = true
 					}
 				}
-			}()
+				if err == nil {
+					st.Ranges = append(st.Ranges, rng)
+					st.Checked = checked.Load()
+					err = save()
+				}
+				mu.Lock()
+				writeErr = err
+				mu.Unlock()
+				if err != nil {
+					return
+				}
+				rate := float64(executed.Load()) / time.Since(started).Seconds()
+				fmt.Fprintf(os.Stderr, "{\"witnesses\":\"%d-%d\",\"blocks_per_s\":%.0f,\"eta_s\":%.0f,\"cross_checked_values\":%d}\n",
+					rng.First, rng.Last, rate, float64(layerRef.LastBlock-rng.Last)/max(rate, 1e-9), st.Checked)
+				next++
+			}
 		}
-		for _, r := range batchRanges(b.FirstBlock, b.LastBlock) {
-			batches <- r
-		}
-		close(batches)
-		wg.Wait()
-		if firstErr != nil {
-			return firstErr
-		}
-		rng, objs, err := writeWitnessRange(w.archive(), w.namespace, b.FirstBlock, frames)
-		if err != nil {
-			return err
-		}
-		st.Ranges = append(st.Ranges, rng)
-		st.Checked += checked
-		if target != nil {
-			sst, err := target.put(context.Background(), w.archive(), objs)
+	}()
+	onWitness := func(job witnessJob, n uint64, wit *blockWitness) error {
+		if n%witnessCheckEvery == 0 {
+			c, err := checkWitness(layer, n, wit)
 			if err != nil {
 				return err
 			}
-			if st.Uploaded == nil {
-				st.Uploaded = map[uint64]bool{}
-			}
-			st.Uploaded[rng.First] = true
-			_ = sst
+			checked.Add(uint64(c))
 		}
-		if err := save(); err != nil {
+		fr := compressFrame(wit.encode())
+		mu.Lock()
+		err := writeErr
+		segFrames := frames[job.seg]
+		if segFrames == nil && err == nil {
+			segFrames = make([]frame, segments[job.seg][1]-segments[job.seg][0]+1)
+			frames[job.seg] = segFrames
+		}
+		mu.Unlock()
+		if err != nil {
 			return err
 		}
-		done := float64(executed.Load())
-		rate := done / time.Since(started).Seconds()
-		fmt.Fprintf(os.Stderr, "{\"witnesses\":\"%d-%d\",\"blocks_per_s\":%.0f,\"eta_s\":%.0f,\"cross_checked_values\":%d}\n",
-			rng.First, rng.Last, rate, float64(layerRef.LastBlock-rng.Last)/max(rate, 1e-9), st.Checked)
+		segFrames[n-segments[job.seg][0]] = fr
+		executed.Add(1)
+		return nil
 	}
-	return nil
+	err = runWitnessJobs(exec, witnessJobs(segments), w.opts.execWorkers, onWitness, func(seg int) error {
+		ready <- seg
+		return nil
+	})
+	close(ready)
+	<-writerDone
+	if err != nil {
+		return err
+	}
+	return writeErr
 }
 
-// runWitnessTest executes a block range with the witness executor and reports its speed,
+// runWitnessTest executes a block range like the witness stage and reports its speed,
 // without writing anything: `backfill witness-test --from N --to M`.
 func runWitnessTest(args []string) {
 	fs := flag.NewFlagSet("witness-test", flag.ExitOnError)
@@ -425,33 +543,27 @@ func runWitnessTest(args []string) {
 	}
 	defer closeExec()
 	started := time.Now()
-	var blocks, accounts, slots, bytes atomic.Uint64
-	err = parallelEach(batchRanges(*from, *to), max(1, *workers), func(r [2]uint64) error {
-		tx, err := exec.readTx(context.Background())
-		if err != nil {
-			return err
+	var blocks, accounts, slots, size atomic.Uint64
+	// Segments of the pipeline's size, so the runs match the stage's.
+	var segments [][2]uint64
+	for n := *from; n <= *to; n += 8192 {
+		segments = append(segments, [2]uint64{n, min(n+8191, *to)})
+	}
+	err = runWitnessJobs(exec, witnessJobs(segments), *workers, func(_ witnessJob, _ uint64, wit *blockWitness) error {
+		blocks.Add(1)
+		accounts.Add(uint64(len(wit.accounts)))
+		for _, s := range wit.storage {
+			slots.Add(uint64(len(s)))
 		}
-		defer tx.Rollback()
-		for n := r[0]; n <= r[1]; n++ {
-			wit, err := exec.execute(context.Background(), tx, n)
-			if err != nil {
-				return err
-			}
-			blocks.Add(1)
-			accounts.Add(uint64(len(wit.accounts)))
-			for _, s := range wit.storage {
-				slots.Add(uint64(len(s)))
-			}
-			bytes.Add(uint64(len(wit.encode())))
-		}
+		size.Add(uint64(len(wit.encode())))
 		return nil
-	})
+	}, func(int) error { return nil })
 	if err != nil {
 		fail(err)
 	}
 	secs := time.Since(started).Seconds()
 	fmt.Printf("{\"blocks\":%d,\"seconds\":%.1f,\"blocks_per_s\":%.0f,\"accounts\":%d,\"slots\":%d,\"witness_bytes\":%d}\n",
-		blocks.Load(), secs, float64(blocks.Load())/secs, accounts.Load(), slots.Load(), bytes.Load())
+		blocks.Load(), secs, float64(blocks.Load())/secs, accounts.Load(), slots.Load(), size.Load())
 }
 
 // batchRanges splits first..last into runs of witnessBatch blocks.

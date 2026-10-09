@@ -61,30 +61,41 @@ the block touches, including keys it only reads. The RPC Worker replays any tran
 the block from it in memory.
 
 The backfill executes every block in process with the client's own EVM, reading the archive
-node's database directly and read-only: no RPC, no tracer and no JSON. The block's state reader
-is the client's history at the start of the block, after its pre-transaction system calls (on
-Ethereum: EIP-4788 beacon roots, EIP-2935 block hashes). The executor records the first read
-of every account and storage slot. The EVM's in-block cache answers any later read of the same
-key, so every recorded value is the key's value at the start of the block, whether or not a
-later transaction changes it.
+node's database directly and read-only: no RPC, no tracer and no JSON. The block's
+transactions read state through the client's history at the start of the block, after its
+pre-transaction system calls (on Ethereum: EIP-4788 beacon roots, EIP-2935 block hashes). The
+executor records the first read of every account and storage slot. The EVM's in-block cache
+answers any later read of the same key, so every recorded value is the key's value at the
+start of the block, whether or not a later transaction changes it.
 
 A replay therefore applies the witness and skips the pre-transaction system calls: their
 effect is already in it. Post-transaction work (withdrawals, EIP-7002 and EIP-7251 requests)
 does not affect any transaction.
+
+**Carried state.** Reads from the history files are the slow part of execution, and
+consecutive blocks touch many of the same keys. Each worker therefore executes a run of 1,024
+consecutive blocks and carries state from one block to the next: the value after each block
+of every key it touched, kept in memory. The next block reads those keys from memory and only
+the others from the history. To keep the carried state exact, every block runs the way the
+node runs it, with the client's engine: the pre-transaction system calls, the transactions,
+and the block's end (rewards, withdrawals, request system calls), with every write applied to
+the carried state. Nothing about which keys change outside transactions is assumed. The
+witness records only the transactions' reads.
 
 Execution is checked on every block, not sampled:
 
 - The gas used must equal the header's `gasUsed`, and the blob gas used its `blobGasUsed`.
 - From Byzantium on, the receipts the execution produced must hash to the header's
   `receiptsRoot`.
+- One block in 128 is executed again from the history alone, without carried state, and
+  must give the same witness byte for byte.
 
-A block that fails either check stops the run.
+A block that fails any check stops the run.
 
-Every block's state is in the archive, so blocks do not depend on each other. The witness
-stage executes many blocks in parallel (`--exec-workers`, one per core by default), 16
-consecutive blocks per short read transaction. It is the longest stage of the backfill, and
-it must finish before the archive is deleted: a pruned node cannot produce witnesses for old
-blocks.
+Runs are independent, so the witness stage executes many of them in parallel
+(`--exec-workers`, one per core by default), 16 blocks per short read transaction. It is the
+longest stage of the backfill, and it must finish before the archive is deleted: a pruned
+node cannot produce witnesses for old blocks.
 
 ## Phase 2: Prune
 
