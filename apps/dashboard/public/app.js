@@ -17,6 +17,7 @@ const state = {
   range: "1h",
   status: new Map(), // id -> {data, error, at}
   history: new Map(), // id -> {points: [{t, executed, target, lag, rate}], bucket_s, from, to} from /api/history
+  recent: new Map(), // id -> [{t (s), executed, lag}] from the status polls, the last RATE_WINDOW_MS
   analytics: null,
   analyticsError: null,
   lastOk: 0,
@@ -346,8 +347,23 @@ async function pollHistory() {
 const historyPoints = (id) => state.history.get(id)?.points || [];
 
 /** Blocks/s and net catch-up (lag decrease) per s over the last RATE_WINDOW_MS of history. */
+/** Keeps the head and lag of every status poll for the rate, so it moves with the head. */
+function noteRecent(id, st) {
+  const executed = st?.executed_head?.number;
+  if (typeof executed !== "number") return;
+  const t = Date.now() / 1000;
+  const list = (state.recent.get(id) || []).filter((p) => (t - p.t) * 1000 <= RATE_WINDOW_MS);
+  list.push({ t, executed, lag: typeof st.lag === "number" ? st.lag : null });
+  state.recent.set(id, list);
+}
+
+/**
+ * Block rate and catch-up speed over the last few minutes: from the status polls (every 2 s)
+ * once they span a minute, else from the per-minute history (fetched once a minute).
+ */
 function rates(id) {
-  const pts = historyPoints(id);
+  const recent = state.recent.get(id) || [];
+  const pts = recent.length >= 2 && recent[recent.length - 1].t - recent[0].t >= 60 ? recent : historyPoints(id);
   if (pts.length < 2) return null;
   const last = pts[pts.length - 1];
   const first = pts.find((p) => (last.t - p.t) * 1000 <= RATE_WINDOW_MS) || pts[0];
@@ -644,6 +660,7 @@ async function pollStatus() {
         const r = await fetchJson(`/api/status?chain=${encodeURIComponent(id)}`);
         if (!r.ok || !r.body) throw new Error(r.body?.error || `HTTP ${r.status}`);
         state.status.set(id, { data: r.body, at: Date.now() });
+        noteRecent(id, r.body.status);
         anyOk = true;
       } catch (e) {
         err = e.message || String(e);
