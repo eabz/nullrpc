@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <meta name="description" content="nullrpc service status: live network health, RPC traffic, and latency. Affordable RPC: no IP addresses stored, no request logs, no trackers.">
+  <title>nullrpc status</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate icon" href="/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to service status</a>
+  <div class="glow" aria-hidden="true"></div>
+  <div class="page">
+    <header class="top">
+      <a class="brand" href="https://nullrpc.dev" aria-label="nullrpc home">
+        <img class="brand-logo-dark" src="/brand/logo-dark.svg" alt="" width="176" height="45">
+        <img class="brand-logo-light" src="/brand/logo-light.svg" alt="" width="176" height="45">
+        <span class="brand-section">Status</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary">
+        <p class="live" id="live-indicator" role="status" aria-live="polite" data-phase="wait">
+          <svg class="live-ring" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" focusable="false"><circle class="live-track" cx="10" cy="10" r="7"/><circle class="live-fill" cx="10" cy="10" r="7"/></svg>
+          <span class="live-label" id="live-label">Connecting</span>
+        </p>
+        <a class="nav-cta" href="https://app.nullrpc.dev">Get an API key</a>
+      </nav>
+    </header>
+    <div class="network-bar">
+      <p class="net-label" id="net-label">Network</p>
+      <div class="net-select">
+        <button type="button" class="net-button" id="net-button" aria-haspopup="listbox" aria-expanded="false" aria-controls="net-list" aria-labelledby="net-label net-name">
+          <span class="net-mark" id="net-mark"></span><span class="net-name" id="net-name">Loading</span><span class="tab-dot" id="net-dot" aria-hidden="true"></span>
+          <svg class="net-chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <ul class="net-list" id="net-list" role="listbox" tabindex="-1" aria-labelledby="net-label" hidden></ul>
+      </div>
+    </div>
+
+    <main id="main" tabindex="-1">
+      <section class="panel-card" aria-labelledby="live-h">
+        <div class="panel-head">
+          <div>
+            <p class="crumb">Network health</p>
+            <h1 class="panel-title" id="live-h">Synchronization</h1>
+          </div>
+        </div>
+        <div id="live-body"><div class="skeleton"></div></div>
+      </section>
+
+      <section class="panel-card" aria-labelledby="rpc-h">
+        <div class="panel-head">
+          <div>
+            <p class="crumb">RPC</p>
+            <h2 class="panel-title" id="rpc-h">Traffic and latency</h2>
+          </div>
+          <div class="seg" role="radiogroup" aria-label="Analytics range" id="range">
+            <button type="button" role="radio" data-range="1h">1h</button>
+            <button type="button" role="radio" data-range="24h">24h</button>
+            <button type="button" role="radio" data-range="7d">7d</button>
+          </div>
+        </div>
+        <div id="rpc-body"></div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <p>© 2026 Grupo Kindynos, S.A.P.I. de C.V. · nullrpc is a service of Kindynos</p>
+      <nav class="foot-links" aria-label="Legal">
+      <a href="https://nullrpc.dev/terms">Terms</a>
+      <a href="https://nullrpc.dev/privacy">Privacy</a>
+      </nav>
+      <a class="foot-social" href="https://x.com/nullrpc" rel="me noopener" aria-label="nullrpc on X"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M18.9 2.25h3.36l-7.34 8.39 8.64 11.11h-6.76l-5.3-6.93-6.06 6.93H2.08l7.85-8.97L1.64 2.25h6.93l4.79 6.33zm-1.18 17.5h1.86L7.58 4.14H5.58z"/></svg><span>@nullrpc</span></a>
+    </footer>
+  </div>
+  <div class="tooltip" id="tooltip" role="status" hidden></div>
+</body>
+</html>

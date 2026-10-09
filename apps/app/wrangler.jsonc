@@ -1,0 +1,38 @@
+// The nullrpc platform Worker: wallet sign-in, API keys, plans, payments, and the `Access`
+// entrypoint the RPC Worker binds as `APP`.
+//
+// Secrets (bunx wrangler secret put NAME):
+//   SESSION_SECRET     required
+//   KEY_SECRET         required; the same value as the RPC Worker's KEY_SECRET
+//   ADMIN_TOKEN        optional; enables /api/admin/* and /admin
+//   TURNSTILE_SECRET   optional; Turnstile is on when it and TURNSTILE_SITE_KEY (src/gate.ts) are set
+// Fixed settings live in code: the treasury, payment network and RPC (src/payments.ts), the
+// seller (src/legal.ts), the endpoints (src/index.ts) and the sign-up limits (src/gate.ts).
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "nullrpc-app",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-06",
+  "workers_dev": false,
+  "preview_urls": false,
+  // Worker logs only; no per-request invocation logs, which would record client IP addresses.
+  "observability": { "enabled": true, "logs": { "enabled": true, "invocation_logs": false } },
+  "routes": [{ "pattern": "app.nullrpc.dev", "custom_domain": true }],
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "nullrpc", "database_id": "e023e6c1-6954-4dd0-b4a0-b45932711f27", "migrations_dir": "migrations" }
+  ],
+  // RateBudget: the strict per-second limiter for paid plans, bound by the RPC Worker with
+  // script_name "nullrpc-app". In-memory only.
+  "durable_objects": { "bindings": [{ "name": "RATE_BUDGET", "class_name": "RateBudget" }] },
+  "migrations": [{ "tag": "v1-rate-budget", "new_sqlite_classes": ["RateBudget"] }],
+  // Every 2 minutes: verify submitted payments, expire stale invoices, re-screen accounts for
+  // sanctions. Daily at 00:05 UTC: the anomaly report.
+  "triggers": { "crons": ["*/2 * * * *", "5 0 * * *"] }
+}

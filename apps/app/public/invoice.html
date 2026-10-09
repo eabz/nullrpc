@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<meta name="robots" content="noindex">
+<title>Invoice · nullrpc</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="stylesheet" href="/style.css">
+<script src="/invoice.js" defer></script>
+</head>
+<body class="invoice-page">
+<div class="wrap">
+<header class="top invoice-top">
+<a class="brand" href="/" aria-label="nullrpc account">
+<picture>
+<source srcset="/brand/logo-light.svg" media="(prefers-color-scheme: light)">
+<img class="logo" src="/brand/logo-dark.svg" width="176" height="45" alt="nullrpc">
+</picture>
+</a>
+<button type="button" class="btn ghost no-print" id="print" hidden>Print or save as PDF</button>
+</header>
+<main id="main">
+<p class="banner" id="banner" role="alert" hidden></p>
+<article class="invoice" id="invoice" hidden>
+<div class="invoice-head">
+<div>
+<p class="panel-crumb" id="inv-kind">Invoice</p>
+<h1 class="invoice-title" id="inv-title"></h1>
+</div>
+<dl class="invoice-dates" id="inv-dates"></dl>
+</div>
+<div class="invoice-parties">
+<section aria-labelledby="seller-h"><h2 class="invoice-h" id="seller-h">From</h2><div id="inv-seller"></div></section>
+<section aria-labelledby="buyer-h"><h2 class="invoice-h" id="buyer-h">Bill to</h2><div id="inv-buyer"></div></section>
+</div>
+<table class="table invoice-lines">
+<thead><tr><th scope="col">Description</th><th scope="col" class="num-col">Amount (USD)</th></tr></thead>
+<tbody id="inv-lines"></tbody>
+</table>
+<section aria-labelledby="pay-h"><h2 class="invoice-h" id="pay-h">Payment</h2><div id="inv-payment"></div></section>
+<section aria-labelledby="notes-h"><h2 class="invoice-h" id="notes-h">Notes</h2><ul class="invoice-notes" id="inv-notes"></ul></section>
+</article>
+</main>
+</div>
+</body>
+</html>

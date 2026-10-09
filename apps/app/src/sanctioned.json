@@ -1,0 +1,5 @@
+{
+  "_comment": "Places nullrpc does not serve. Read by the zone WAF rule and by nullrpc-app (sign-in and payments, from request.cf). Countries are ISO 3166-1 alpha-2; regions are ISO 3166-2 subdivisions: Crimea (UA-43), Sevastopol (UA-40), Donetsk (UA-14) and Luhansk (UA-09). Syria stays listed while counsel reviews the 2025 US/EU easing. Russia and Belarus are not listed: they are subject to sectoral, not comprehensive, sanctions (counsel decision).",
+  "countries": ["CU", "IR", "KP", "SY"],
+  "regions": ["UA-43", "UA-40", "UA-14", "UA-09"]
+}

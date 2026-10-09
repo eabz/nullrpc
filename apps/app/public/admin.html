@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<meta name="robots" content="noindex, nofollow">
+<title>nullrpc · Admin</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+<script src="/admin.js" defer></script>
+</head>
+<body>
+<div class="glow" aria-hidden="true"></div>
+<div class="wrap">
+<header class="top">
+<a class="brand" href="/" aria-label="nullrpc account">
+<picture>
+<source srcset="/brand/logo-light.svg" media="(prefers-color-scheme: light)">
+<img class="logo" src="/brand/logo-dark.svg" width="176" height="45" alt="nullrpc">
+</picture>
+</a>
+<nav class="top-nav" aria-label="Admin">
+<button type="button" class="account" id="lock" hidden><span>Lock</span></button>
+</nav>
+</header>
+<main id="main" tabindex="-1">
+<p class="banner" id="banner" role="alert" hidden></p>
+
+<section class="signin" id="unlock-panel" aria-labelledby="unlock-h">
+<h1 id="unlock-h">Admin</h1>
+<form class="key-create admin-unlock" id="unlock">
+<label class="sr-only" for="token">Admin token</label>
+<input id="token" type="password" autocomplete="off" placeholder="Admin token (ADMIN_TOKEN)" required>
+<button type="submit" class="btn">Unlock</button>
+</form>
+<p class="note">The token stays in this tab only (session storage) and is sent as a bearer token to /api/admin.</p>
+</section>
+
+<div id="admin" hidden>
+<div class="tabs" role="tablist" aria-label="Admin">
+<button type="button" role="tab" id="tab-users" aria-controls="panel-users" aria-selected="true">Users</button>
+<button type="button" role="tab" id="tab-refunds" aria-controls="panel-refunds" aria-selected="false" tabindex="-1">Refunds <span class="tab-count" id="refund-count" hidden></span></button>
+</div>
+
+<div class="tab-panel" role="tabpanel" id="panel-users" aria-labelledby="tab-users">
+<section class="panel-card" aria-labelledby="users-h">
+<p class="panel-crumb">Accounts</p>
+<h2 class="panel-title" id="users-h">Users</h2>
+<p class="panel-summary" id="users-totals"></p>
+<form class="admin-filters" id="users-filter">
+<label class="sr-only" for="users-q">Search</label>
+<input id="users-q" type="search" placeholder="Address, name, tax ID or country" autocomplete="off" spellcheck="false">
+<div class="seg" role="radiogroup" aria-label="Status" id="users-status">
+<button type="button" role="radio" data-status="all" aria-checked="true">All</button>
+<button type="button" role="radio" data-status="active" aria-checked="false">Active</button>
+<button type="button" role="radio" data-status="paid" aria-checked="false">Paid</button>
+<button type="button" role="radio" data-status="suspended" aria-checked="false">Suspended</button>
+</div>
+</form>
+<div class="table-card">
+<div class="table-wrap">
+<table class="table admin-table">
+<thead><tr><th scope="col">Account</th><th scope="col">Customer</th><th scope="col">Plan</th><th scope="col">Usage</th><th scope="col">Joined</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+<tbody id="users"></tbody>
+</table>
+</div>
+</div>
+</section>
+</div>
+
+<div class="tab-panel" role="tabpanel" id="panel-refunds" aria-labelledby="tab-refunds" hidden>
+<section class="panel-card" aria-labelledby="refunds-h">
+<p class="panel-crumb">Billing</p>
+<h2 class="panel-title" id="refunds-h">Refunds</h2>
+<p class="panel-summary">Send each refund in USDC on Ethereum from the treasury to the customer's wallet within 14 days of the withdrawal. <strong>Send with wallet</strong> opens the transfer in your browser wallet (connect the Trezor to it); or send it from Trezor Suite and paste the transaction hash. The transaction is checked on-chain before the refund is marked sent.</p>
+<p class="note" id="refunds-summary" role="status"></p>
+<div class="seg admin-seg" role="radiogroup" aria-label="Refund status" id="refunds-status">
+<button type="button" role="radio" data-status="pending" aria-checked="true">To send</button>
+<button type="button" role="radio" data-status="sent" aria-checked="false">Sent</button>
+<button type="button" role="radio" data-status="all" aria-checked="false">All</button>
+</div>
+<div class="table-card">
+<div class="table-wrap">
+<table class="table admin-table">
+<thead><tr><th scope="col">Due</th><th scope="col">Invoice</th><th scope="col">Customer</th><th scope="col">Refund</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+<tbody id="refunds"></tbody>
+</table>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+
+<dialog class="dialog dialog-sm admin-dialog" id="ask" aria-labelledby="ask-h">
+<h2 class="dialog-title" id="ask-h"></h2>
+<p class="panel-muted" id="ask-text"></p>
+<label class="field"><span id="ask-label"></span><input id="ask-input" autocomplete="off" spellcheck="false"></label>
+<p class="checkout-status" id="ask-status" role="status"></p>
+<div class="confirm-actions">
+<button type="button" class="btn ghost" id="ask-cancel">Cancel</button>
+<button type="button" class="btn" id="ask-ok"><span class="spinner" aria-hidden="true"></span><span class="btn-text"></span></button>
+</div>
+</dialog>
+</div>
+</body>
+</html>

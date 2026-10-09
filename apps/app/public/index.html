@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<meta name="description" content="nullrpc account: API keys, usage and plans. Sign in with your Ethereum wallet.">
+<title>nullrpc · Account</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preload" href="/fonts/plex-sans-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/style.css">
+<script src="/docs.js" defer></script>
+<script src="/app.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="glow" aria-hidden="true"></div>
+<div class="wrap">
+<header class="top">
+<a class="brand" href="https://nullrpc.dev" aria-label="nullrpc home">
+<picture>
+<source srcset="/brand/logo-light.svg" media="(prefers-color-scheme: light)">
+<img class="logo" src="/brand/logo-dark.svg" width="176" height="45" alt="nullrpc">
+</picture>
+</a>
+<nav class="top-nav" aria-label="Primary">
+<button type="button" class="account" id="signout" hidden><span class="addr num" id="who-address"></span><span>Sign out</span></button>
+</nav>
+</header>
+
+<main id="main" tabindex="-1">
+<p class="banner" id="banner" role="alert" hidden></p>
+
+<section class="signin" id="signin" aria-labelledby="signin-h">
+<h1 id="signin-h">Sign in with your wallet</h1>
+<div class="wallets" id="wallets"></div>
+<div class="turnstile" id="turnstile" hidden></div>
+</section>
+
+<div id="app" hidden>
+<div class="tabs" role="tablist" aria-label="Account">
+<button type="button" role="tab" id="tab-overview" aria-controls="panel-overview" aria-selected="true">Overview</button>
+<button type="button" role="tab" id="tab-keys" aria-controls="panel-keys" aria-selected="false" tabindex="-1">API keys</button>
+<button type="button" role="tab" id="tab-payments" aria-controls="panel-payments" aria-selected="false" tabindex="-1">Payments</button>
+<button type="button" role="tab" id="tab-docs" aria-controls="panel-docs" aria-selected="false" tabindex="-1">Docs</button>
+</div>
+<div class="tab-panel" role="tabpanel" id="panel-overview" aria-labelledby="tab-overview">
+<section class="panel-card plan-hero" aria-labelledby="plan-h">
+<div class="plan-hero-head">
+<div>
+<p class="panel-crumb">Your plan</p>
+<h2 class="panel-title"><span id="plan-h"><span id="plan-name">–</span></span> <span class="status-pill" id="plan-status"></span></h2>
+<div class="panel-tags" id="plan-tags"></div>
+</div>
+<div class="plan-hero-actions">
+<button type="button" class="btn" id="plan-change">Upgrade</button>
+<button type="button" class="btn ghost" id="plan-renew" hidden>Renew</button>
+</div>
+</div>
+<div class="usage-meter">
+<div class="usage-meter-head"><span id="plan-usage"></span><span class="usage-pct" id="plan-pct"></span></div>
+<div class="meter" aria-hidden="true"><span id="plan-bar"></span></div>
+<p class="usage-meter-foot" id="plan-period"></p>
+<div class="gate-note" id="plan-unverified" role="status" hidden>
+<p class="gate-title">Free credits need a wallet with on-chain history; or choose Builder.</p>
+<p class="note" id="plan-unverified-text"></p>
+<div class="gate-actions">
+<button type="button" class="btn" id="gate-builder">Choose Builder</button>
+<button type="button" class="btn ghost" id="gate-recheck"><span class="spinner" aria-hidden="true"></span><span class="btn-text">Check my wallet again</span></button>
+</div>
+</div>
+<p class="warn" id="plan-exhausted" hidden>This period's credits are used up and requests are refused until it resets. Upgrade to continue now.</p>
+</div>
+<div class="stats">
+<div class="stat">
+<p class="stat-label">Rate limit</p>
+<p class="stat-value"><span id="plan-rps">–</span> <span class="unit">req/s</span></p>
+<div class="meter meter-sm" aria-hidden="true"><span id="rps-bar"></span></div>
+<p class="stat-note" id="plan-throughput"></p>
+</div>
+<div class="stat usage-stat"><p class="stat-label">Requests</p><p class="stat-value" id="usage-requests">–</p><p class="stat-note" id="usage-requests-rate"></p></div>
+<div class="stat usage-stat"><p class="stat-label">Credits</p><p class="stat-value" id="usage-credits">–</p><p class="stat-note" id="usage-credits-share"></p></div>
+<div class="stat usage-stat"><p class="stat-label">Credits per request</p><p class="stat-value" id="usage-avg">–</p><p class="stat-note" id="usage-peak-when">A typical call is about 20</p></div>
+</div>
+</section>
+
+<section class="panel-card usage-card" aria-labelledby="usage-h">
+<div class="panel-head">
+<div>
+<p class="panel-crumb">Activity</p>
+<h2 class="panel-title panel-title-sm" id="usage-h">Usage</h2>
+</div>
+<div class="usage-controls">
+<div class="seg" id="usage-metric" role="radiogroup" aria-label="Metric">
+<button type="button" role="radio" data-metric="credits" aria-checked="true">Credits</button>
+<button type="button" role="radio" data-metric="requests" aria-checked="false">Requests</button>
+</div>
+<div class="seg" id="range" role="radiogroup" aria-label="Time range">
+<button type="button" role="radio" data-range="24h" aria-checked="true">24h</button>
+<button type="button" role="radio" data-range="7d" aria-checked="false">7d</button>
+<button type="button" role="radio" data-range="30d" aria-checked="false">30d</button>
+</div>
+</div>
+</div>
+<p class="usage-chart-title" id="usage-chart-title">Credits per hour</p>
+<div class="usage-chart"><canvas id="usage-canvas" role="img" aria-label="Usage per hour"></canvas></div>
+<p class="usage-empty" id="usage-empty" hidden>No usage in this range yet. Requests made with your API keys show up here within a minute.</p>
+<h3 class="panel-h">By API key</h3>
+<div class="table-card">
+<div class="table-wrap">
+<table class="table usage-keys">
+<thead><tr><th scope="col">Key</th><th scope="col">Requests</th><th scope="col">Credits</th><th scope="col">Share</th></tr></thead>
+<tbody id="usage-keys"></tbody>
+</table>
+</div>
+</div>
+</section>
+</div>
+<div class="tab-panel" role="tabpanel" id="panel-keys" aria-labelledby="tab-keys" hidden>
+<section class="panel-card" aria-labelledby="keys-h">
+<p class="panel-crumb">Access</p>
+<h2 class="panel-title" id="keys-h">API keys</h2>
+<div class="panel-tags"><span class="tag" id="keys-count">0 of 5 keys</span></div>
+<form class="key-create" id="key-form">
+<label class="sr-only" for="key-name">Key name</label>
+<input id="key-name" maxlength="40" placeholder="Name your key, for example production" required>
+<button type="submit" class="btn"><span aria-hidden="true">+</span> Create key</button>
+</form>
+<ul class="keys" id="keys"></ul>
+</section>
+</div>
+<div class="tab-panel" role="tabpanel" id="panel-payments" aria-labelledby="tab-payments" hidden>
+<section class="panel-card" aria-labelledby="invoices-h">
+<p class="panel-crumb">Billing</p>
+<h2 class="panel-title" id="invoices-h">Payments</h2>
+<p class="panel-summary">Plans paid from your wallet, with their invoices and on-chain transactions. Unpaid payments can be deleted. You can withdraw from a plan within 14 days of payment and get back the unused time (<a href="https://nullrpc.dev/terms#refunds" target="_blank" rel="noopener">terms</a>).</p>
+<p class="note" id="payments-status" role="status"></p>
+<div class="table-card">
+<div class="table-wrap">
+<table class="table payments">
+<thead><tr><th scope="col">Date</th><th scope="col">Item</th><th scope="col">Amount</th><th scope="col">Network</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+<tbody id="invoices"></tbody>
+</table>
+</div>
+<div class="table-empty-state" id="invoices-none" hidden>
+<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" focusable="false"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="M3.5 9.5h17M7 14.5h4"/></svg>
+<p class="table-empty-title">No payments yet</p>
+<p class="note">Plans you buy appear here, each with its invoice.</p>
+</div>
+</div>
+</section>
+</div>
+<div class="tab-panel" role="tabpanel" id="panel-docs" aria-labelledby="tab-docs" hidden>
+<section class="block docs" aria-label="Docs">
+<div class="docs-layout">
+<nav class="docs-nav" aria-label="Methods">
+<label class="search"><span class="sr-only">Find a method</span><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><input id="docs-filter" type="search" placeholder="Find a method" autocomplete="off" spellcheck="false"></label>
+<div class="docs-list" id="docs-list"></div>
+<p class="docs-none" id="docs-none" hidden>No method matches.</p>
+</nav>
+<article class="docs-detail" id="docs-detail" aria-live="polite"></article>
+</div>
+</section>
+</div>
+</div>
+</main>
+<dialog class="dialog" id="checkout" aria-labelledby="checkout-h">
+<form method="dialog" class="dialog-close-form"><button class="dialog-close" aria-label="Close" value="cancel">×</button></form>
+<p class="panel-crumb">Plans</p>
+<h2 class="dialog-title" id="checkout-h">Choose your plan</h2>
+<p class="panel-muted">Pay upfront in USDC on Ethereum from your signed-in wallet. Longer terms cost less. Plans do not renew automatically.</p>
+<div class="checkout-step"><p class="step-label">1. Plan</p><div class="checkout-plans" id="checkout-plans" role="radiogroup" aria-label="Plan"></div></div>
+<div class="checkout-step"><p class="step-label">2. Billing period</p><div class="term-options" id="checkout-months" role="radiogroup" aria-label="Billing period"></div></div>
+<div class="checkout-step">
+<p class="step-label">3. Pay with</p>
+<div class="pay-with" id="pay-with"></div>
+</div>
+<div class="checkout-step">
+<p class="step-label">4. Billing details</p>
+<p class="panel-muted step-help">For your invoice and taxes. Prices exclude tax; the tax for your country is added below.</p>
+<form class="billing" id="billing" novalidate>
+<label class="field field-wide"><span>Name or company</span><input id="bill-name" maxlength="120" autocomplete="name" required></label>
+<label class="field"><span>Country</span><select id="bill-country" autocomplete="country" required></select></label>
+<label class="field"><span id="bill-tax-label">Tax ID</span><input id="bill-tax" maxlength="40" autocomplete="off" spellcheck="false"></label>
+<label class="field field-wide"><span>Address <span class="optional">(optional)</span></span><input id="bill-address" maxlength="240" autocomplete="street-address"></label>
+<label class="check field-wide"><input type="checkbox" id="bill-business"><span>I am buying for a business (a tax ID is then required)</span></label>
+</form>
+</div>
+<div class="checkout-summary" id="checkout-summary"></div>
+<p class="consent" id="checkout-statement">By paying, you ask for your plan to start now. You can withdraw within 14 days of payment and get back the unused part of the plan.</p>
+<p class="sum-note consent-links">See the <a href="https://nullrpc.dev/terms#refunds" target="_blank" rel="noopener">refund and withdrawal terms</a>.</p>
+<button type="button" class="btn checkout-pay" id="checkout-pay"><span class="spinner" aria-hidden="true"></span><span class="btn-text">Pay</span></button>
+<p class="checkout-status" id="pay-status" role="status"></p>
+</dialog>
+
+<dialog class="dialog terms-dialog" id="terms" aria-labelledby="terms-h">
+<div class="terms-head">
+<div>
+<p class="panel-crumb">Before you start</p>
+<h2 class="dialog-title" id="terms-h">Terms of Service</h2>
+</div>
+<div class="seg" role="radiogroup" aria-label="Language" id="terms-lang">
+<button type="button" role="radio" data-lang="en" aria-checked="true">English</button>
+<button type="button" role="radio" data-lang="es" aria-checked="false" lang="es">Español</button>
+</div>
+</div>
+<div class="terms-body" id="terms-body" tabindex="0" role="document" aria-label="Terms of Service text"></div>
+<p class="terms-hint" id="terms-hint" role="status">Scroll to the end of the Terms to accept them.</p>
+<p class="panel-muted terms-privacy">Also see the <a href="https://nullrpc.dev/privacy" target="_blank" rel="noopener">Privacy Notice</a>.</p>
+<label class="check"><input type="checkbox" id="terms-check" disabled><span>I am at least 18, I am not in a sanctioned country or region, and I accept the Terms of Service (version <span id="terms-version"></span>).</span></label>
+<div class="confirm-actions">
+<button type="button" class="btn ghost" id="terms-signout">Sign out</button>
+<button type="button" class="btn" id="terms-accept" disabled><span class="spinner" aria-hidden="true"></span><span class="btn-text">Accept</span></button>
+</div>
+</dialog>
+
+<dialog class="dialog dialog-sm" id="confirm" aria-labelledby="confirm-h" aria-describedby="confirm-text">
+<div class="confirm-icon" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" focusable="false"><path d="M12 9v4M12 17h.01M10.3 3.9L2.4 17.5A2 2 0 0 0 4.1 20.5h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div>
+<h2 class="dialog-title" id="confirm-h"></h2>
+<p class="panel-muted" id="confirm-text"></p>
+<div class="confirm-actions">
+<button type="button" class="btn ghost" id="confirm-cancel">Cancel</button>
+<button type="button" class="btn btn-danger" id="confirm-ok"></button>
+</div>
+</dialog>
+
+
+<footer class="foot">
+<p>© 2026 Grupo Kindynos, S.A.P.I. de C.V. · nullrpc is a service of Kindynos</p>
+<nav class="foot-links" aria-label="Legal">
+<a href="https://nullrpc.dev/terms">Terms</a>
+<a href="https://nullrpc.dev/privacy">Privacy</a>
+</nav>
+<a class="foot-social" href="https://x.com/nullrpc" rel="me noopener" aria-label="nullrpc on X"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M18.9 2.25h3.36l-7.34 8.39 8.64 11.11h-6.76l-5.3-6.93-6.06 6.93H2.08l7.85-8.97L1.64 2.25h6.93l4.79 6.33zm-1.18 17.5h1.86L7.58 4.14H5.58z"/></svg><span>@nullrpc</span></a>
+</footer>
+</div>
+</body>
+</html>

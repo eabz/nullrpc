@@ -1,0 +1,175 @@
+{
+  "name": "nullrpc",
+  "version": "1.0.0",
+  "cssPrefix": "--nr-",
+  "colorSpace": "sRGB",
+  "primitives": {
+    "carbon": "#0A0D12",
+    "surface": "#11151C",
+    "raised": "#181D26",
+    "paper": "#F2F4F7",
+    "white": "#FFFFFF",
+    "mist": "#9BA5B4",
+    "slate": "#4A5565",
+    "signal": "#5B8CFF",
+    "deep-signal": "#1F4FD1",
+    "cobalt": "#2F62E9",
+    "line-dark": "#232A35",
+    "line-light": "#D5DBE3",
+    "success-dark": "#3DD68C",
+    "warning-dark": "#F5B83D",
+    "error-dark": "#F7637A",
+    "success-light": "#15803D",
+    "warning-light": "#B45309",
+    "error-light": "#C0262D",
+    "violet-dark": "#A897FF",
+    "warm-dark": "#F0A35E",
+    "mint-dark": "#4FD1C5",
+    "violet-light": "#6D28D9",
+    "warm-light": "#9A3412",
+    "mint-light": "#0F766E"
+  },
+  "themes": {
+    "dark": {
+      "bg": "#0A0D12",
+      "surface": "#11151C",
+      "surface-raised": "#181D26",
+      "text": "#F2F4F7",
+      "text-secondary": "#9BA5B4",
+      "accent": "#5B8CFF",
+      "border": "#232A35",
+      "border-strong": "#9BA5B4",
+      "focus": "#5B8CFF",
+      "button-bg": "#2F62E9",
+      "button-text": "#FFFFFF",
+      "status-success": "#3DD68C",
+      "status-warning": "#F5B83D",
+      "status-error": "#F7637A",
+      "chart-1": "#5B8CFF",
+      "chart-2": "#A897FF",
+      "chart-3": "#F0A35E",
+      "chart-4": "#4FD1C5"
+    },
+    "light": {
+      "bg": "#F2F4F7",
+      "surface": "#FFFFFF",
+      "surface-raised": "#FFFFFF",
+      "text": "#0A0D12",
+      "text-secondary": "#4A5565",
+      "accent": "#1F4FD1",
+      "border": "#D5DBE3",
+      "border-strong": "#4A5565",
+      "focus": "#1F4FD1",
+      "button-bg": "#1F4FD1",
+      "button-text": "#FFFFFF",
+      "status-success": "#15803D",
+      "status-warning": "#B45309",
+      "status-error": "#C0262D",
+      "chart-1": "#1F4FD1",
+      "chart-2": "#6D28D9",
+      "chart-3": "#9A3412",
+      "chart-4": "#0F766E"
+    }
+  },
+  "themeReferences": {
+    "dark": {
+      "bg": "carbon",
+      "surface": "surface",
+      "surface-raised": "raised",
+      "text": "paper",
+      "text-secondary": "mist",
+      "accent": "signal",
+      "border": "line-dark",
+      "border-strong": "mist",
+      "focus": "signal",
+      "button-bg": "cobalt",
+      "button-text": "white",
+      "status-success": "success-dark",
+      "status-warning": "warning-dark",
+      "status-error": "error-dark",
+      "chart-1": "signal",
+      "chart-2": "violet-dark",
+      "chart-3": "warm-dark",
+      "chart-4": "mint-dark"
+    },
+    "light": {
+      "bg": "paper",
+      "surface": "white",
+      "surface-raised": "white",
+      "text": "carbon",
+      "text-secondary": "slate",
+      "accent": "deep-signal",
+      "border": "line-light",
+      "border-strong": "slate",
+      "focus": "deep-signal",
+      "button-bg": "deep-signal",
+      "button-text": "white",
+      "status-success": "success-light",
+      "status-warning": "warning-light",
+      "status-error": "error-light",
+      "chart-1": "deep-signal",
+      "chart-2": "violet-light",
+      "chart-3": "warm-light",
+      "chart-4": "mint-light"
+    }
+  },
+  "spacingPx": {
+    "space-1": 4,
+    "space-2": 8,
+    "space-3": 12,
+    "space-4": 16,
+    "space-5": 24,
+    "space-6": 32,
+    "space-7": 48,
+    "space-8": 64,
+    "space-9": 96
+  },
+  "radiiPx": {
+    "radius-sm": 2,
+    "radius-md": 4,
+    "radius-lg": 6
+  },
+  "fonts": {
+    "font-sans": "\"IBM Plex Sans\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+    "font-mono": "\"IBM Plex Mono\", \"SFMono-Regular\", Consolas, monospace"
+  },
+  "fontFiles": {
+    "font-sans": [
+      {
+        "path": "../fonts/IBMPlexSans-Regular.woff2",
+        "weight": "400",
+        "style": "normal"
+      },
+      {
+        "path": "../fonts/IBMPlexSans-Medium.woff2",
+        "weight": "500",
+        "style": "normal"
+      },
+      {
+        "path": "../fonts/IBMPlexSans-SemiBold.woff2",
+        "weight": "600",
+        "style": "normal"
+      }
+    ],
+    "font-mono": [
+      {
+        "path": "../fonts/IBMPlexMono-Regular.woff2",
+        "weight": "400",
+        "style": "normal"
+      },
+      {
+        "path": "../fonts/IBMPlexMono-Medium.woff2",
+        "weight": "500",
+        "style": "normal"
+      }
+    ]
+  },
+  "notes": {
+    "border": "Decorative separators only. Use border-strong for the visible boundary of an input or other control.",
+    "button": "Dark mode separates accent (Signal, for text and marks) from button-bg (Cobalt, carrying white text). Light mode uses Deep signal for both.",
+    "focus": "Use a 2px outline and 3px offset against a theme surface; do not place the ring directly on the same accent color.",
+    "chart": "Use labels and distinct markers or line styles; chart-to-chart contrast is not guaranteed.",
+    "surface-raised": "White in light mode; separate adjacent white surfaces with spacing or a decorative border.",
+    "radius": "Corners are tight by design: 2px for inputs and chips, 4px for buttons and cards, 6px maximum for large panels."
+  }
+}

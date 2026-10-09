@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>nullrpc · Reliable blockchain RPC endpoints and archive nodes</title>
+<meta name="description" content="Reliable blockchain RPC endpoints with full archive node data from genesis. Standard JSON-RPC, fair credit-based pricing, and a free plan with 20M credits a month.">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://nullrpc.dev/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="nullrpc">
+<meta property="og:locale" content="en_US">
+<meta property="og:url" content="https://nullrpc.dev/">
+<meta property="og:title" content="nullrpc · Reliable blockchain RPC and archive nodes">
+<meta property="og:description" content="Affordable RPC. Blockchain endpoints with full archive data from genesis. Free plan: 20M credits a month.">
+<meta property="og:image" content="https://nullrpc.dev/social-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="nullrpc. Affordable RPC. Fair pricing. Privacy in focus.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="nullrpc · Reliable blockchain RPC and archive nodes">
+<meta name="twitter:description" content="Affordable RPC. Blockchain endpoints with full archive data from genesis. Free plan: 20M credits a month.">
+<meta name="theme-color" content="#0A0D12" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F2F4F7" media="(prefers-color-scheme: light)">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="sitemap" type="application/xml" href="/sitemap.xml">
+<link rel="preload" href="/fonts/plex-sans-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/plex-sans-600.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/style.css">
+<script src="/app.js" defer></script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://nullrpc.dev/#org",
+      "name": "nullrpc",
+      "parentOrganization": { "@type": "Organization", "name": "Kindynos", "address": { "@type": "PostalAddress", "addressCountry": "MX" } },
+      "url": "https://nullrpc.dev/",
+      "logo": "https://nullrpc.dev/apple-touch-icon.png",
+      "sameAs": ["https://x.com/nullrpc"],
+      "description": "Affordable RPC services: reliable blockchain RPC endpoints with full archive node data."
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://nullrpc.dev/#website",
+      "url": "https://nullrpc.dev/",
+      "name": "nullrpc",
+      "publisher": { "@id": "https://nullrpc.dev/#org" }
+    },
+    {
+      "@type": "Service",
+      "@id": "https://nullrpc.dev/#rpc",
+      "name": "nullrpc Blockchain RPC",
+      "serviceType": "Blockchain RPC and archive node access",
+      "provider": { "@id": "https://nullrpc.dev/#org" },
+      "areaServed": "Worldwide",
+      "url": "https://nullrpc.dev/",
+      "description": "Ethereum mainnet JSON-RPC endpoints with full archive history from genesis and a verified live head. Usage is counted in credits; the free plan includes 20M credits a month.",
+      "offers": [
+        { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "20M credits a month (about 1M requests), 20 requests per second" },
+        { "@type": "Offer", "name": "Builder", "price": "19", "priceCurrency": "USD", "description": "600M credits a month (about 30M requests), 250 requests per second" },
+        { "@type": "Offer", "name": "Growth", "price": "89", "priceCurrency": "USD", "description": "3B credits a month (about 150M requests), 1,000 requests per second" },
+        { "@type": "Offer", "name": "Scale", "price": "599", "priceCurrency": "USD", "description": "20B credits a month (about 1B requests), 3,000 requests per second" }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="glow" aria-hidden="true"></div>
+<div class="wrap">
+<header class="top">
+<a class="brand" href="/">
+<picture>
+<source srcset="/brand/logo-light.svg" media="(prefers-color-scheme: light)">
+<img class="logo" src="/brand/logo-dark.svg" width="176" height="45" alt="nullrpc">
+</picture>
+</a>
+<nav class="top-nav" aria-label="Primary">
+<a href="#try">Try it</a>
+<a href="#pricing">Pricing</a>
+<a class="nav-cta" href="https://app.nullrpc.dev">Sign in</a>
+</nav>
+</header>
+
+<main id="main" tabindex="-1">
+<section class="hero" aria-labelledby="hero-h">
+<div class="hero-copy">
+<p class="eyebrow">RPC infrastructure</p>
+<h1 id="hero-h">Blockchain RPC, <span class="accent">built to be trusted.</span></h1>
+<p class="lede">Affordable, fast RPC access for apps, wallets and developers.</p>
+<p class="intro">Connect your app to the blockchain without running your own servers. Every endpoint is a full archive node, with all blockchain data included.</p>
+<div class="actions">
+<a class="button button-primary" href="#try">Try it now <span aria-hidden="true">↓</span></a>
+<a class="button button-outline" href="https://app.nullrpc.dev">Start free <span aria-hidden="true">↗</span></a>
+</div>
+<p class="hero-note">Start free with <strong>20M credits</strong> a month.</p>
+<ul class="assurances" aria-label="Assurances">
+<li>Full archive from genesis</li>
+<li>Verified live head</li>
+<li>No IP addresses or request logs stored</li>
+</ul>
+<p class="hero-note privacy-note">No trackers. <a href="/privacy#logs">How we handle data</a></p>
+</div>
+<div class="hero-art" aria-hidden="true">
+<svg id="hero-art" viewBox="0 0 560 500" width="560" height="500" focusable="false">
+<defs>
+<pattern id="art-grid" width="20" height="20" patternUnits="userSpaceOnUse"><path class="art-gridline" d="M20 0H0V20"/></pattern>
+<radialGradient id="art-fade-r" cx="50%" cy="44%" r="55%"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient>
+<mask id="art-fade"><rect width="560" height="500" fill="url(#art-fade-r)"/></mask>
+<linearGradient id="art-strip-g"><stop offset="0" stop-color="#000"/><stop offset=".14" stop-color="#fff"/><stop offset=".86" stop-color="#fff"/><stop offset="1" stop-color="#000"/></linearGradient>
+<mask id="art-strip-fade"><rect y="420" width="560" height="60" fill="url(#art-strip-g)"/></mask>
+<path id="art-p1" d="M108 54H190V215H280"/>
+<path id="art-p2" d="M430 42H370V215H280"/>
+<path id="art-p3" d="M144 344H190V215H280"/>
+<path id="art-p4" d="M410 334H370V215H280"/>
+</defs>
+<rect width="560" height="500" fill="url(#art-grid)" mask="url(#art-fade)"/>
+<rect class="art-frame" x="160" y="95" width="240" height="240"/>
+<rect class="art-frame art-frame-dash" x="128" y="63" width="304" height="304"/>
+<path class="art-tick" d="M128 75V63H140M420 63H432V75M432 355V367H420M140 367H128V355"/>
+<use class="art-wire" href="#art-p1"/><use class="art-wire" href="#art-p2"/><use class="art-wire" href="#art-p3"/><use class="art-wire" href="#art-p4"/>
+<g class="art-chip"><rect x="24" y="40" width="84" height="28" rx="2"/><text x="66" y="58">eth_call</text></g>
+<g class="art-chip"><rect x="430" y="28" width="106" height="28" rx="2"/><text x="483" y="46">eth_getLogs</text></g>
+<g class="art-chip"><rect x="16" y="330" width="128" height="28" rx="2"/><text x="80" y="348">eth_getBalance</text></g>
+<g class="art-chip"><rect x="410" y="320" width="134" height="28" rx="2"/><text x="477" y="338">eth_blockNumber</text></g>
+<rect class="art-pulse" x="-3" y="-3" width="6" height="6"><animateMotion dur="2.4s" repeatCount="indefinite" begin="0s"><mpath href="#art-p1"/></animateMotion><animate attributeName="opacity" values="0;1;1;0" dur="2.4s" repeatCount="indefinite" begin="0s"/></rect>
+<rect class="art-pulse" x="-3" y="-3" width="6" height="6"><animateMotion dur="2.4s" repeatCount="indefinite" begin="0.6s"><mpath href="#art-p2"/></animateMotion><animate attributeName="opacity" values="0;1;1;0" dur="2.4s" repeatCount="indefinite" begin="0.6s"/></rect>
+<rect class="art-pulse" x="-3" y="-3" width="6" height="6"><animateMotion dur="2.4s" repeatCount="indefinite" begin="1.2s"><mpath href="#art-p3"/></animateMotion><animate attributeName="opacity" values="0;1;1;0" dur="2.4s" repeatCount="indefinite" begin="1.2s"/></rect>
+<rect class="art-pulse" x="-3" y="-3" width="6" height="6"><animateMotion dur="2.4s" repeatCount="indefinite" begin="1.8s"><mpath href="#art-p4"/></animateMotion><animate attributeName="opacity" values="0;1;1;0" dur="2.4s" repeatCount="indefinite" begin="1.8s"/></rect>
+<rect class="art-reply" x="-2.5" y="-2.5" width="5" height="5"><animateMotion dur="2.4s" repeatCount="indefinite" begin="1.2s" keyPoints="1;0" keyTimes="0;1" calcMode="linear"><mpath href="#art-p1"/></animateMotion><animate attributeName="opacity" values="0;1;1;0" dur="2.4s" repeatCount="indefinite" begin="1.2s"/></rect>
+<rect class="art-reply" x="-2.5" y="-2.5" width="5" height="5"><animateMotion dur="2.4s" repeatCount="indefinite" begin="1.8s" keyPoints="1;0" keyTimes="0;1" calcMode="linear"><mpath href="#art-p2"/></animateMotion><animate attributeName="opacity" values="0;1;1;0" dur="2.4s" repeatCount="indefinite" begin="1.8s"/></rect>
+<rect class="art-reply" x="-2.5" y="-2.5" width="5" height="5"><animateMotion dur="2.4s" repeatCount="indefinite" begin="0s" keyPoints="1;0" keyTimes="0;1" calcMode="linear"><mpath href="#art-p3"/></animateMotion><animate attributeName="opacity" values="0;1;1;0" dur="2.4s" repeatCount="indefinite" begin="0s"/></rect>
+<rect class="art-reply" x="-2.5" y="-2.5" width="5" height="5"><animateMotion dur="2.4s" repeatCount="indefinite" begin="0.6s" keyPoints="1;0" keyTimes="0;1" calcMode="linear"><mpath href="#art-p4"/></animateMotion><animate attributeName="opacity" values="0;1;1;0" dur="2.4s" repeatCount="indefinite" begin="0.6s"/></rect>
+<rect class="art-ring" x="216" y="151" width="128" height="128"><animate attributeName="x" values="216;160" dur="3s" repeatCount="indefinite"/><animate attributeName="y" values="151;95" dur="3s" repeatCount="indefinite"/><animate attributeName="width" values="128;240" dur="3s" repeatCount="indefinite"/><animate attributeName="height" values="128;240" dur="3s" repeatCount="indefinite"/><animate attributeName="opacity" values=".6;0" dur="3s" repeatCount="indefinite"/></rect>
+<rect class="art-core" x="216" y="151" width="128" height="128" rx="4"/>
+<path class="art-mark" transform="translate(232 167) scale(6)" d="M1 1H13L11 3H3V11L1 13ZM15 15H3L5 13H13V5L15 3Z"/>
+<text class="art-label" x="16" y="414">genesis</text>
+<text class="art-label art-label-end" x="544" y="414">verified head</text>
+<g mask="url(#art-strip-fade)"><g class="art-blocks"><animateTransform attributeName="transform" type="translate" from="0 0" to="-672 0" dur="28s" repeatCount="indefinite"/>
+<g class="art-block"><rect x="8" y="428" width="84" height="44" rx="2"/><text x="50" y="455">#26,104,806</text></g>
+<g class="art-block"><rect x="104" y="428" width="84" height="44" rx="2"/><text x="146" y="455">#26,104,807</text></g>
+<g class="art-block"><rect x="200" y="428" width="84" height="44" rx="2"/><text x="242" y="455">#26,104,808</text></g>
+<g class="art-block"><rect x="296" y="428" width="84" height="44" rx="2"/><text x="338" y="455">#26,104,809</text></g>
+<g class="art-block"><rect x="392" y="428" width="84" height="44" rx="2"/><text x="434" y="455">#26,104,810</text></g>
+<g class="art-block"><rect x="488" y="428" width="84" height="44" rx="2"/><text x="530" y="455">#26,104,811</text></g>
+<g class="art-block art-block-head"><rect x="584" y="428" width="84" height="44" rx="2"/><text x="626" y="455">#26,104,812</text></g>
+<g class="art-block"><rect x="680" y="428" width="84" height="44" rx="2"/><text x="722" y="455">#26,104,806</text></g>
+<g class="art-block"><rect x="776" y="428" width="84" height="44" rx="2"/><text x="818" y="455">#26,104,807</text></g>
+<g class="art-block"><rect x="872" y="428" width="84" height="44" rx="2"/><text x="914" y="455">#26,104,808</text></g>
+<g class="art-block"><rect x="968" y="428" width="84" height="44" rx="2"/><text x="1010" y="455">#26,104,809</text></g>
+<g class="art-block"><rect x="1064" y="428" width="84" height="44" rx="2"/><text x="1106" y="455">#26,104,810</text></g>
+<g class="art-block"><rect x="1160" y="428" width="84" height="44" rx="2"/><text x="1202" y="455">#26,104,811</text></g>
+<g class="art-block art-block-head"><rect x="1256" y="428" width="84" height="44" rx="2"/><text x="1298" y="455">#26,104,812</text></g>
+</g></g>
+</svg>
+</div>
+</section>
+
+<section class="section section-try" id="try" aria-labelledby="try-h">
+<div class="try">
+<div class="try-copy">
+<h2 id="try-h">Try it</h2>
+</div>
+<div class="try-pick">
+<p class="label" id="net-label">Choose your network</p>
+<div class="picker">
+<div class="net-select">
+<button type="button" class="net-button" id="net-button" aria-haspopup="listbox" aria-expanded="false" aria-controls="net-list" aria-labelledby="net-label net-name"><svg class="network-mark net-mark" viewBox="0 0 256 417" width="24" height="24" aria-hidden="true" focusable="false"><g fill="currentColor"><path fill-opacity=".8" d="M127.96 0l-2.8 9.5v275.67l2.8 2.79 127.96-75.64z"/><path fill-opacity=".45" d="M127.96 0L0 212.32l127.96 75.64V154.16z"/><path fill-opacity=".8" d="M127.96 312.19l-1.58 1.92v98.2l1.58 4.6L256 236.59z"/><path fill-opacity=".45" d="M127.96 416.9V312.19L0 236.59z"/><path d="M127.96 287.96l127.96-75.64-127.96-58.16z"/><path fill-opacity=".8" d="M0 212.32l127.96 75.64v-133.8z"/></g></svg><span class="net-name" id="net-name">Ethereum</span><svg class="net-chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+<ul class="net-list" id="net-list" role="listbox" tabindex="-1" aria-labelledby="net-label" hidden>
+<li role="group" aria-labelledby="net-group-main"><span class="net-group" id="net-group-main">Networks</span><ul role="presentation">
+<li role="option" id="net-opt-1" data-chain="1" data-url="https://eth.nullrpc.dev" data-name="Ethereum" data-label="Ethereum mainnet" aria-selected="true"><svg class="network-mark net-mark" viewBox="0 0 256 417" width="24" height="24" aria-hidden="true" focusable="false"><g fill="currentColor"><path fill-opacity=".8" d="M127.96 0l-2.8 9.5v275.67l2.8 2.79 127.96-75.64z"/><path fill-opacity=".45" d="M127.96 0L0 212.32l127.96 75.64V154.16z"/><path fill-opacity=".8" d="M127.96 312.19l-1.58 1.92v98.2l1.58 4.6L256 236.59z"/><path fill-opacity=".45" d="M127.96 416.9V312.19L0 236.59z"/><path d="M127.96 287.96l127.96-75.64-127.96-58.16z"/><path fill-opacity=".8" d="M0 212.32l127.96 75.64v-133.8z"/></g></svg><span class="net-opt-name">Ethereum</span><span class="net-sub">ID 1</span></li>
+</ul></li>
+</ul>
+</div>
+<code class="picker-url" id="net-url">https://eth.nullrpc.dev</code>
+<div class="picker-actions">
+<button type="button" class="picker-btn picker-copy" data-copy="net-url" hidden><svg class="ic ic-main" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><svg class="ic ic-check" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span class="btn-text">Copy</span></button>
+<button type="button" class="picker-btn picker-wallet" id="add-wallet" hidden><svg class="ic ic-main" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/></svg><span class="spinner" aria-hidden="true"></span><svg class="ic ic-check" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span class="btn-text">Add to wallet</span></button>
+</div>
+</div>
+<p class="note try-status" id="try-status" role="status"></p>
+</div>
+</div>
+
+<div class="usage" id="usage" aria-labelledby="usage-h">
+<div class="usage-head">
+<div>
+<h3 id="usage-h">Traffic</h3>
+<p class="network-meta">Requests and data served by the <span id="usage-net">Ethereum mainnet</span> endpoint.</p>
+</div>
+<div class="ranges" role="group" aria-label="Time range">
+<button type="button" data-range="1h" aria-pressed="false">1h</button>
+<button type="button" data-range="24h" aria-pressed="true">24h</button>
+<button type="button" data-range="7d" aria-pressed="false">7d</button>
+</div>
+</div>
+<div class="charts">
+<figure class="chart">
+<figcaption>
+<span class="chart-label">Requests</span>
+<span class="chart-total num" id="total-requests">–</span>
+<span class="chart-sub num" id="rate-requests">&nbsp;</span>
+</figcaption>
+<div class="chart-box"><canvas id="chart-requests" role="img" aria-label="Requests over time"></canvas></div>
+</figure>
+<figure class="chart">
+<figcaption>
+<span class="chart-label">Data egress</span>
+<span class="chart-total num" id="total-egress">–</span>
+<span class="chart-sub num" id="rate-egress">&nbsp;</span>
+</figcaption>
+<div class="chart-box"><canvas id="chart-egress" role="img" aria-label="Data egress over time"></canvas></div>
+</figure>
+</div>
+<p class="note usage-status" id="usage-status" role="status"></p>
+<noscript><p class="note">Turn on JavaScript to see live status and traffic, or open <a href="https://status.nullrpc.dev">status.nullrpc.dev</a>.</p></noscript>
+</div>
+</section>
+
+<section class="section" id="pricing" aria-labelledby="pricing-h">
+<div class="section-head">
+<h2 id="pricing-h" class="eyebrow">Pricing</h2>
+</div>
+<ul class="plans">
+<li class="plan" data-plan="free" data-price="0" data-credits="20000000" data-rps="20" data-overage="">
+<span class="plan-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" focusable="false"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.8 2.8M14.9 14.9l2.8 2.8M6.3 17.7l2.8-2.8M14.9 9.1l2.8-2.8"/></svg></span>
+<h3>Free</h3>
+<p class="price"><span class="num">$0</span> <span class="per">/ month</span></p>
+<ul><li><span class="num">20M</span> credits / month</li><li>About <span class="num">1M</span> requests</li><li><span class="num">20</span> req/s</li><li>Stops at the quota</li></ul>
+<a class="button button-outline plan-cta" href="https://app.nullrpc.dev">Start building for free</a>
+</li>
+<li class="plan plan-featured" data-plan="builder" data-price="19" data-credits="600000000" data-rps="250" data-overage="">
+<span class="plan-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" focusable="false"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></span>
+<h3>Builder <span class="plan-tag">Most popular</span></h3>
+<p class="price"><span class="num">$19</span> <span class="per">/ month</span></p>
+<ul><li><span class="num">600M</span> credits / month</li><li>About <span class="num">30M</span> requests</li><li><span class="num">250</span> req/s</li><li>Save up to 20% paying yearly</li></ul>
+<a class="button button-primary plan-cta" href="https://app.nullrpc.dev">Create an account</a>
+</li>
+<li class="plan" data-plan="growth" data-price="89" data-credits="3000000000" data-rps="1000" data-overage="">
+<span class="plan-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" focusable="false"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg></span>
+<h3>Growth</h3>
+<p class="price"><span class="num">$89</span> <span class="per">/ month</span></p>
+<ul><li><span class="num">3B</span> credits / month</li><li>About <span class="num">150M</span> requests</li><li><span class="num">1,000</span> req/s</li><li>Save up to 20% paying yearly</li></ul>
+<a class="button button-outline plan-cta" href="https://app.nullrpc.dev">Create an account</a>
+</li>
+<li class="plan" data-plan="scale" data-price="599" data-credits="20000000000" data-rps="3000" data-overage="">
+<span class="plan-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" focusable="false"><path d="M12 2.5l9 4.5-9 4.5L3 7zM3 12l9 4.5 9-4.5M3 16.5l9 4.5 9-4.5"/></svg></span>
+<h3>Scale</h3>
+<p class="price"><span class="num">$599</span> <span class="per">/ month</span></p>
+<ul><li><span class="num">20B</span> credits / month</li><li>About <span class="num">1B</span> requests</li><li><span class="num">3,000</span> req/s</li><li>Save up to 20% paying yearly</li></ul>
+<a class="button button-outline plan-cta" href="https://app.nullrpc.dev">Create an account</a>
+</li>
+</ul>
+<p class="plans-note">Prices in US dollars, excluding taxes: IVA or VAT is added at checkout where it applies, and the total is shown before you pay. Plans are prepaid and do not renew automatically. See the <a href="/terms#plans">Terms</a>.</p>
+</section>
+
+</main>
+
+<footer class="foot">
+<p>© 2026 Grupo Kindynos, S.A.P.I. de C.V. · nullrpc is a service of Kindynos</p>
+<nav class="foot-links" aria-label="Legal">
+<a href="/terms">Terms</a>
+<a href="/privacy">Privacy</a>
+</nav>
+<a class="foot-social" href="https://x.com/nullrpc" rel="me noopener" aria-label="nullrpc on X"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M18.9 2.25h3.36l-7.34 8.39 8.64 11.11h-6.76l-5.3-6.93-6.06 6.93H2.08l7.85-8.97L1.64 2.25h6.93l4.79 6.33zm-1.18 17.5h1.86L7.58 4.14H5.58z"/></svg><span>@nullrpc</span></a>
+</footer>
+</div>
+</body>
+</html>

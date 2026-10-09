@@ -1,0 +1,219 @@
+[
+  {
+    "file": "apple-touch-icon.png",
+    "format": "png",
+    "width": 180,
+    "height": 180,
+    "alpha": true
+  },
+  {
+    "file": "avatar-1024.png",
+    "format": "png",
+    "width": 1024,
+    "height": 1024,
+    "alpha": true
+  },
+  {
+    "file": "avatar-512.png",
+    "format": "png",
+    "width": 512,
+    "height": 512,
+    "alpha": true
+  },
+  {
+    "file": "avatar.svg",
+    "format": "svg",
+    "width": 512,
+    "height": 512,
+    "alpha": true
+  },
+  {
+    "file": "banner.png",
+    "format": "png",
+    "width": 1600,
+    "height": 480,
+    "alpha": true
+  },
+  {
+    "file": "banner.svg",
+    "format": "svg",
+    "width": 1600,
+    "height": 480,
+    "alpha": true
+  },
+  {
+    "file": "brand-board.png",
+    "format": "png",
+    "width": 1600,
+    "height": 1200,
+    "alpha": true
+  },
+  {
+    "file": "brand-board.svg",
+    "format": "svg",
+    "width": 1600,
+    "height": 1200,
+    "alpha": true
+  },
+  {
+    "file": "clearspace.svg",
+    "format": "svg",
+    "width": 960,
+    "height": 320,
+    "alpha": true
+  },
+  {
+    "file": "favicon-16.png",
+    "format": "png",
+    "width": 16,
+    "height": 16,
+    "alpha": false
+  },
+  {
+    "file": "favicon-32.png",
+    "format": "png",
+    "width": 32,
+    "height": 32,
+    "alpha": true
+  },
+  {
+    "file": "favicon-48.png",
+    "format": "png",
+    "width": 48,
+    "height": 48,
+    "alpha": true
+  },
+  {
+    "file": "favicon.svg",
+    "format": "svg",
+    "width": 32,
+    "height": 32,
+    "alpha": true
+  },
+  {
+    "file": "logo-dark.png",
+    "format": "png",
+    "width": 880,
+    "height": 224,
+    "alpha": true
+  },
+  {
+    "file": "logo-dark.svg",
+    "format": "svg",
+    "width": 440,
+    "height": 112,
+    "alpha": true
+  },
+  {
+    "file": "logo-light.png",
+    "format": "png",
+    "width": 880,
+    "height": 224,
+    "alpha": true
+  },
+  {
+    "file": "logo-light.svg",
+    "format": "svg",
+    "width": 440,
+    "height": 112,
+    "alpha": true
+  },
+  {
+    "file": "logo-mono-dark.png",
+    "format": "png",
+    "width": 880,
+    "height": 224,
+    "alpha": true
+  },
+  {
+    "file": "logo-mono-dark.svg",
+    "format": "svg",
+    "width": 440,
+    "height": 112,
+    "alpha": true
+  },
+  {
+    "file": "logo-mono-light.png",
+    "format": "png",
+    "width": 880,
+    "height": 224,
+    "alpha": true
+  },
+  {
+    "file": "logo-mono-light.svg",
+    "format": "svg",
+    "width": 440,
+    "height": 112,
+    "alpha": true
+  },
+  {
+    "file": "mark-dark.svg",
+    "format": "svg",
+    "width": 96,
+    "height": 96,
+    "alpha": true
+  },
+  {
+    "file": "mark-deep.svg",
+    "format": "svg",
+    "width": 96,
+    "height": 96,
+    "alpha": true
+  },
+  {
+    "file": "mark-light.svg",
+    "format": "svg",
+    "width": 96,
+    "height": 96,
+    "alpha": true
+  },
+  {
+    "file": "mark-signal.svg",
+    "format": "svg",
+    "width": 96,
+    "height": 96,
+    "alpha": true
+  },
+  {
+    "file": "mark-small.svg",
+    "format": "svg",
+    "width": 16,
+    "height": 16,
+    "alpha": true
+  },
+  {
+    "file": "pattern.svg",
+    "format": "svg",
+    "width": 1600,
+    "height": 480,
+    "alpha": true
+  },
+  {
+    "file": "social-card.png",
+    "format": "png",
+    "width": 1200,
+    "height": 630,
+    "alpha": true
+  },
+  {
+    "file": "social-card.svg",
+    "format": "svg",
+    "width": 1200,
+    "height": 630,
+    "alpha": true
+  },
+  {
+    "file": "wordmark-dark.svg",
+    "format": "svg",
+    "width": 320,
+    "height": 104,
+    "alpha": true
+  },
+  {
+    "file": "wordmark-light.svg",
+    "format": "svg",
+    "width": 320,
+    "height": 104,
+    "alpha": true
+  }
+]

@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>Privacy Notice · nullrpc</title>
+<meta name="description" content="How nullrpc and Grupo Kindynos handle personal data, in English and Spanish (Aviso de Privacidad Integral).">
+<link rel="canonical" href="https://nullrpc.dev/privacy">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="stylesheet" href="/style.css">
+<script src="/legal.js" defer></script>
+</head>
+<body class="legal-page">
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="glow" aria-hidden="true"></div>
+<div class="wrap">
+<header class="top">
+<a class="brand" href="/">
+<picture>
+<source srcset="/brand/logo-light.svg" media="(prefers-color-scheme: light)">
+<img class="logo" src="/brand/logo-dark.svg" width="176" height="45" alt="nullrpc">
+</picture>
+</a>
+</header>
+<main id="main" tabindex="-1">
+<div class="legal-shell">
+<div class="legal-bar">
+<p class="legal-crumb"><a href="/">nullrpc</a> <span aria-hidden="true">/</span> <span>Privacy Notice</span></p>
+<nav class="lang-switch" aria-label="Language / Idioma">
+<a href="#en" lang="en" hreflang="en" data-lang="en" aria-current="true">English</a>
+<a href="#es" lang="es" hreflang="es" data-lang="es">Español</a>
+</nav>
+</div>
+<div class="legal-card">
+<article class="legal" lang="en" id="en" data-title="Privacy Notice · nullrpc">
+<header class="legal-title">
+<p class="eyebrow">Legal</p>
+<h1>Privacy Notice</h1>
+<p class="legal-meta">Updated October 7, 2026</p>
+</header>
+<nav class="legal-toc" aria-label="Contents">
+<p class="legal-toc-h">Contents</p>
+<ol>
+<li><a href="#controller">1. Who is responsible</a></li>
+<li><a href="#data">2. What we collect and why</a></li>
+<li><a href="#logs">3. What we do not keep: RPC requests and logs</a></li>
+<li><a href="#blockchain">4. Blockchain data is public</a></li>
+<li><a href="#recipients">5. Who receives data</a></li>
+<li><a href="#transfers">6. International transfers</a></li>
+<li><a href="#rights">7. Your rights</a></li>
+<li><a href="#security">8. Security</a></li>
+<li><a href="#children">9. Children</a></li>
+<li><a href="#changes">10. Changes</a></li>
+</ol>
+</nav>
+<p>This notice explains what personal data nullrpc collects, why, and your rights. It is written to meet the Mexican Ley Federal de Protección de Datos Personales en Posesión de los Particulares, the EU and UK General Data Protection Regulation (GDPR) and US state privacy laws. In short: <strong>we collect as little as we can, we do not sell or share data for advertising, and we use no trackers.</strong></p>
+
+<h2 id="controller">1. Who is responsible</h2>
+<p>The controller (<em>responsable</em>) is <strong>Grupo Kindynos, S.A.P.I. de C.V.</strong>, RFC GKI180321CW7, Sierra Ventana 419, Lomas 3a Sección, 78210 San Luis Potosí, S.L.P., Mexico. Contact for privacy matters: <a href="mailto:privacy@nullrpc.dev">privacy@nullrpc.dev</a>.</p>
+<p>EU representative (GDPR article 27): <span class="todo">[TODO: name and address of the EU representative]</span>. UK representative: <span class="todo">[TODO, if UK customers are served]</span>.</p>
+
+<h2 id="data">2. What we collect and why</h2>
+<div class="table-scroll">
+<table>
+<thead><tr><th scope="col">Data</th><th scope="col">Purpose</th><th scope="col">Legal basis (GDPR)</th><th scope="col">Kept for</th></tr></thead>
+<tbody>
+<tr><td>Your wallet address (your account identifier)</td><td>Sign-in, your account, keys and plan</td><td>Contract</td><td>While the account exists, then as below for invoices</td></tr>
+<tr><td>API key names, and hourly request and credit counts per key</td><td>Metering your plan, showing your usage</td><td>Contract</td><td>13 months</td></tr>
+<tr><td>Billing details you give at checkout (name, country, tax ID, address, whether you buy as a business) and the country your request came from</td><td>Invoices, calculating and paying taxes, evidence of your location for EU VAT</td><td>Legal obligation; contract</td><td>5 years after the payment year (Mexican Código Fiscal, art. 30), or longer where tax law requires</td></tr>
+<tr><td>Invoices, payment amounts and transaction hashes</td><td>Billing, accounting, refunds</td><td>Contract; legal obligation</td><td>Same as billing details</td></tr>
+<tr><td>Which Terms version you accepted and when; your acceptance at checkout</td><td>Proof of the contract and of consumer information</td><td>Legal obligation; legitimate interest</td><td>While the account exists plus 5 years</td></tr>
+<tr><td>Sanctions screening results for your wallet address</td><td>Complying with sanctions laws</td><td>Legal obligation; legitimate interest</td><td>While the account exists plus 5 years</td></tr>
+<tr><td>A session cookie (<code>__Host-nullrpc</code>)</td><td>Keeping you signed in to the app</td><td>Contract (strictly necessary)</td><td>7 days</td></tr>
+<tr><td>Requests without an API key: a keyed, non-reversible hash of your IP network (IPv4 address or IPv6 /64) with a monthly request count. We never store the IP address itself.</td><td>Applying the keyless rate limit and monthly quota</td><td>Legitimate interest (fair use, abuse prevention)</td><td>Current and previous month</td></tr>
+</tbody>
+</table>
+</div>
+<p>All of these purposes are necessary for the Service (in Mexican terms, <em>finalidades primarias</em>). We have <strong>no secondary purposes</strong>: no marketing, profiling or advertising.</p>
+
+<h2 id="logs">3. What we do not keep: RPC requests and logs</h2>
+<ul>
+<li><strong>Request contents.</strong> The RPC endpoints read your JSON-RPC requests only to answer them. We do not log them or store them linked to you or your IP address. To answer faster, responses for common requests are cached by a hash of the request, with no IP address, key or account attached.</li>
+<li><strong>IP addresses.</strong> Our provider Cloudflare necessarily processes your IP address to deliver traffic, apply rate limits and block attacks and sanctioned locations. The RPC endpoints keep no request logs; errors are logged without IP addresses or request contents. The account app keeps short operational logs at Cloudflare for troubleshooting, kept for at most 7 days.</li>
+<li><strong>Signed transactions</strong> you send with <code>eth_sendRawTransaction</code> are forwarded to a third-party transaction relay (for example Flashbots Protect) to be published on the blockchain, where they become public.</li>
+<li><strong>No trackers.</strong> Our websites use no analytics, advertising or social-media cookies, pixels or third-party scripts, and use no browser storage.</li>
+</ul>
+
+<h2 id="blockchain">4. Blockchain data is public</h2>
+<p>Your wallet address and payments to nullrpc are recorded permanently on a public blockchain. Anyone can see that your address paid our treasury address. We cannot delete or change blockchain data.</p>
+
+<h2 id="recipients">5. Who receives data</h2>
+<ul>
+<li><strong>Cloudflare, Inc.</strong> (United States) hosts the Service, its database and caches, as our processor under its data processing agreement.</li>
+<li><strong>Ethereum RPC providers</strong> receive your public wallet address and transaction hashes when we verify payments and query the Chainalysis sanctions oracle (an on-chain contract). Chainalysis does not receive your data from us directly.</li>
+<li><strong>Tax advisors and Mexico's electronic invoicing provider</strong> (<em>PAC</em>), and the tax authority (SAT), receive billing data when invoices or tax returns require it.</li>
+<li><strong>Authorities</strong>, when the law requires it, and a buyer of our business if Kindynos is sold (under this notice).</li>
+</ul>
+<p>We do not sell personal data and do not share it for cross-context behavioural advertising. Transfers to processors do not require your consent under Mexican law; we do not make other transfers that would.</p>
+
+<h2 id="transfers">6. International transfers</h2>
+<p>Kindynos is in Mexico and Cloudflare processes data in the United States and other countries. For data from the EU, EEA, UK or Switzerland, transfers rely on the European Commission's adequacy decision for the EU-US Data Privacy Framework (Cloudflare is certified) and on standard contractual clauses. Mexico does not have an EU adequacy decision; we apply the same protections described here.</p>
+
+<h2 id="rights">7. Your rights</h2>
+<ul>
+<li><strong>Everyone</strong>: you may ask for access to, correction of and deletion of your data, and object to its use. Write to <a href="mailto:privacy@nullrpc.dev">privacy@nullrpc.dev</a> from, or with a signature of, the wallet concerned so we can confirm the request is yours.</li>
+<li><strong>Mexico (ARCO rights)</strong>: access, rectification, cancellation and opposition, and revoking consent or limiting use. Your request must include your name, the wallet address or other data concerned, what you ask for and how we can reply. We answer within 20 business days and, if we accept the request, carry it out within 15 business days after answering. You may complain to the Mexican data protection authority (Secretaría Anticorrupción y Buen Gobierno).</li>
+<li><strong>EU, EEA and UK (GDPR)</strong>: also restriction, portability, and objection to processing based on legitimate interests. We answer within one month. You may complain to your local supervisory authority.</li>
+<li><strong>United States</strong>: residents of states with privacy laws (such as California, Colorado, Virginia or Texas) may ask to know, correct and delete their data. We do not sell or share data, so there is nothing to opt out of; we honour Global Privacy Control signals anyway. We will not discriminate against you for exercising your rights. You may appeal a refusal by replying to our answer.</li>
+</ul>
+<p>We keep data that the law requires us to keep (such as invoices and sanctions records) even after a deletion request, and delete it when that duty ends.</p>
+
+<h2 id="security">8. Security</h2>
+<p>Data is encrypted in transit, the app uses strict browser security policies, API keys are never stored (only an identifier they are derived from), and access to the database is limited to the people who operate the Service. If a breach affects your data, we will notify you and the authorities as the law requires.</p>
+
+<h2 id="children">9. Children</h2>
+<p>The Service is not for anyone under 18, and we do not knowingly collect their data.</p>
+
+<h2 id="changes">10. Changes</h2>
+<p>We will publish changes to this notice here with a new date, and tell signed-in users in the app about material changes.</p>
+</article>
+<article class="legal" lang="es" id="es" data-title="Aviso de Privacidad · nullrpc">
+<header class="legal-title">
+<p class="eyebrow">Aviso legal</p>
+<h1>Aviso de Privacidad Integral</h1>
+<p class="legal-meta">Última actualización: 7 de octubre de 2026</p>
+</header>
+<nav class="legal-toc" aria-label="Contenido">
+<p class="legal-toc-h">Contenido</p>
+<ol>
+<li><a href="#es-responsable">1. Identidad y domicilio del responsable</a></li>
+<li><a href="#es-datos">2. Datos personales que tratamos</a></li>
+<li><a href="#es-finalidades">3. Finalidades</a></li>
+<li><a href="#es-transferencias">4. Remisiones y transferencias</a></li>
+<li><a href="#es-arco">5. Derechos ARCO y revocación del consentimiento</a></li>
+<li><a href="#es-conservacion">6. Conservación</a></li>
+<li><a href="#es-blockchain">7. Datos en blockchain</a></li>
+<li><a href="#es-cookies">8. Cookies</a></li>
+<li><a href="#es-cambios">9. Cambios al aviso</a></li>
+</ol>
+</nav>
+<p>Este aviso se emite conforme a la Ley Federal de Protección de Datos Personales en Posesión de los Particulares y describe cómo tratamos sus datos personales al usar nullrpc. En resumen: <strong>recabamos lo mínimo, no vendemos datos, no hacemos publicidad ni usamos rastreadores.</strong></p>
+
+<h2 id="es-responsable">1. Identidad y domicilio del responsable</h2>
+<p>El responsable es <strong>Grupo Kindynos, S.A.P.I. de C.V.</strong>, con RFC GKI180321CW7 y domicilio en Sierra Ventana 419, Lomas 3a Sección, C.P. 78210, San Luis Potosí, S.L.P., México. Contacto en materia de privacidad: <a href="mailto:privacy@nullrpc.dev">privacy@nullrpc.dev</a>.</p>
+
+<h2 id="es-datos">2. Datos personales que tratamos</h2>
+<ul>
+<li><strong>Identificación de cuenta</strong>: dirección de su wallet de Ethereum.</li>
+<li><strong>Uso del Servicio</strong>: nombres de sus claves de API y conteos por hora de solicitudes y créditos.</li>
+<li><strong>Facturación</strong> (solo si compra un plan): nombre o razón social, país, RFC o identificación fiscal, domicilio, si compra como empresa, y el país desde el que se realizó la solicitud.</li>
+<li><strong>Pagos</strong>: comprobantes, montos y hashes de transacciones.</li>
+<li><strong>Cumplimiento</strong>: versión de los Términos aceptada y fecha; su aceptación al pagar; resultado de la verificación de su wallet contra listas de sanciones.</li>
+<li><strong>Sesión</strong>: una cookie estrictamente necesaria (<code>__Host-nullrpc</code>) que dura 7 días.</li>
+<li><strong>Solicitudes sin clave</strong>: un hash con llave, no reversible, de su red IP (dirección IPv4 o prefijo IPv6 /64) con el conteo mensual. Nunca guardamos la dirección IP.</li>
+</ul>
+<p>No tratamos datos personales sensibles. No guardamos el contenido de sus solicitudes RPC ni las asociamos a usted o a su IP; nuestro proveedor Cloudflare procesa su dirección IP de forma transitoria para entregar el tráfico, aplicar límites y bloquear ataques y ubicaciones sancionadas. Las transacciones firmadas que envíe con <code>eth_sendRawTransaction</code> se reenvían a un relay de terceros para publicarse en la blockchain, donde son públicas. Nuestros sitios no usan cookies de analítica o publicidad, píxeles ni scripts de terceros.</p>
+
+<h2 id="es-finalidades">3. Finalidades</h2>
+<p>Finalidades primarias, necesarias para el Servicio:</p>
+<ul>
+<li>crear y administrar su cuenta, claves y plan, y medir su consumo;</li>
+<li>cobrar, emitir comprobantes y CFDI, y cumplir obligaciones fiscales;</li>
+<li>atender desistimientos, reembolsos y solicitudes;</li>
+<li>cumplir con leyes de sanciones y prevenir abusos, fraudes y ataques;</li>
+<li>conservar evidencia de la aceptación de los Términos.</li>
+</ul>
+<p><strong>No tratamos sus datos para finalidades secundarias</strong> (mercadotecnia, publicidad o perfilamiento).</p>
+
+<h2 id="es-transferencias">4. Remisiones y transferencias</h2>
+<ul>
+<li><strong>Cloudflare, Inc.</strong> (Estados Unidos), como encargado, aloja el Servicio, la base de datos y la caché.</li>
+<li><strong>Proveedores RPC de Ethereum</strong> reciben su dirección de wallet pública y hashes de transacciones al verificar pagos y consultar el oráculo de sanciones de Chainalysis (un contrato en la blockchain).</li>
+<li><strong>Proveedor autorizado de certificación (PAC), asesores fiscales y el SAT</strong>, para emitir CFDI y cumplir obligaciones fiscales.</li>
+<li><strong>Autoridades competentes</strong>, cuando la ley lo exija.</li>
+</ul>
+<p>Estas transferencias no requieren su consentimiento por ser necesarias para cumplir el contrato o una obligación legal, o por tratarse de remisiones a encargados. No vendemos sus datos.</p>
+
+<h2 id="es-arco">5. Derechos ARCO y revocación del consentimiento</h2>
+<p>Usted puede acceder a sus datos, rectificarlos, cancelarlos u oponerse a su tratamiento (derechos ARCO), así como revocar su consentimiento o limitar el uso o divulgación de sus datos, enviando una solicitud a <a href="mailto:privacy@nullrpc.dev">privacy@nullrpc.dev</a> con:</p>
+<ul>
+<li>su nombre y un medio para responderle;</li>
+<li>la dirección de wallet y, para acreditar su titularidad, un mensaje firmado con ella (o los documentos que acrediten su identidad o representación);</li>
+<li>la descripción clara de los datos y del derecho que desea ejercer.</li>
+</ul>
+<p>Le responderemos en un plazo máximo de 20 días hábiles y, si procede, haremos efectiva la solicitud dentro de los 15 días hábiles siguientes. Conservaremos los datos que la ley nos obligue a guardar (por ejemplo, comprobantes fiscales durante 5 años conforme al artículo 30 del Código Fiscal de la Federación). Si considera que su derecho no fue atendido, puede acudir a la autoridad de protección de datos personales (Secretaría Anticorrupción y Buen Gobierno).</p>
+
+<h2 id="es-conservacion">6. Conservación</h2>
+<p>Datos de cuenta: mientras exista la cuenta. Uso por hora: 13 meses. Facturación y pagos: 5 años o lo que exija la ley fiscal. Aceptación de Términos y verificación de sanciones: mientras exista la cuenta y 5 años más. Solicitudes sin clave: mes actual y anterior. Cookie de sesión: 7 días.</p>
+
+<h2 id="es-blockchain">7. Datos en blockchain</h2>
+<p>Su dirección de wallet y sus pagos a nullrpc quedan registrados de forma pública y permanente en la blockchain. No podemos borrar ni modificar esos registros.</p>
+
+<h2 id="es-cookies">8. Cookies</h2>
+<p>Solo usamos la cookie de sesión de la aplicación, necesaria para mantener su sesión. No usamos cookies, web beacons ni tecnologías de rastreo con fines de publicidad o analítica.</p>
+
+<h2 id="es-cambios">9. Cambios al aviso</h2>
+<p>Publicaremos cualquier cambio en esta página con su fecha de actualización y lo informaremos en la aplicación cuando sea relevante.</p>
+</article>
+</div>
+</div>
+</main>
+<footer class="foot">
+<p>© 2026 Grupo Kindynos, S.A.P.I. de C.V. · nullrpc is a service of Kindynos</p>
+<nav class="foot-links" aria-label="Legal">
+<a href="/terms">Terms</a>
+<a href="/privacy">Privacy</a>
+</nav>
+<a class="foot-social" href="https://x.com/nullrpc" rel="me noopener" aria-label="nullrpc on X"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M18.9 2.25h3.36l-7.34 8.39 8.64 11.11h-6.76l-5.3-6.93-6.06 6.93H2.08l7.85-8.97L1.64 2.25h6.93l4.79 6.33zm-1.18 17.5h1.86L7.58 4.14H5.58z"/></svg><span>@nullrpc</span></a>
+</footer>
+</div>
+</body>
+</html>

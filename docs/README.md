@@ -58,3 +58,7 @@ grey is outside nullrpc, red stops the pipeline.
 ```bash
 python3 docs/diagrams/diagrams.py
 ```
+
+## Brand
+
+The nullrpc identity (logo, color, type, voice and design tokens) is in [brand/README.md](brand/README.md).

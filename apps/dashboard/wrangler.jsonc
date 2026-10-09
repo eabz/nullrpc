@@ -1,0 +1,17 @@
+// The nullrpc status page: live pipeline status, history and RPC analytics.
+//
+// Analytics need a secret once: bunx wrangler secret put CF_ANALYTICS_TOKEN
+// (an API token with "Account Analytics: Read").
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "nullrpc-status",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-06",
+  "workers_dev": false,
+  "preview_urls": false,
+  // Worker logs only; no per-request invocation logs, which would record client IP addresses.
+  "observability": { "enabled": true, "logs": { "enabled": true, "invocation_logs": false } },
+  "routes": [{ "pattern": "status.nullrpc.dev", "custom_domain": true }],
+  // public/ is served before the Worker for every path except /api/*.
+  "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": ["/api/*"], "not_found_handling": "404-page" }
+}
