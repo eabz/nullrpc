@@ -71,6 +71,7 @@ bin/backfill status
 | `--datadir` | from the running `erigon` process | Erigon's datadir |
 | `--rpc` | `http://127.0.0.1:8545` | the archive node's JSON-RPC |
 | `--stream` | off | upload the state layer, each segment and each witness range as soon as they are written, and remove the local copies. Needed when the disk cannot hold the whole archive. Sticky per work directory. |
+| `--witnesses-alongside` | on | run the witness stage alongside stages 2–5 instead of after them; `=false` on a machine without the memory for both |
 | `--exec-workers` | one per core | runs of blocks executed in parallel by the witness stage. Each worker carries state across its run and may hold up to about 100 MB of it; more workers than cores keeps the cores busy while others wait on the disk |
 | `--concurrency` | 48 | parallel RPC calls (`--block-source rpc` and its fallbacks) |
 | `--pre-byzantium-receipts` | `fail` | `status` for Ethereum mainnet: Erigon keeps no post-state roots for receipts before Byzantium |
@@ -89,7 +90,7 @@ bin/backfill status
 | 4 | root check | `root-check.json`: the state root at `B` matches its header |
 | – | state upload (streaming) | `state-upload.done` |
 | 5 | block bundles | segments, `bundles.json`, hash entries in `hashes/` |
-| 6 | witnesses | witness ranges, `witnesses.json`: every block executed in process, gas and receipts root checked against its header; one block in 128 re-executed without carried state, one in 997 cross-checked against state history |
+| 6 | witnesses | witness ranges, `witnesses.json`: every block executed in process, gas and receipts root checked against its header; one block in 128 re-executed without carried state, one in 997 cross-checked against state history. Starts right after stage 1 and runs alongside stages 2–5; stage 6 itself only finishes the last segment and the cross-checks |
 | 7 | hash index | `hash-index.json` |
 | 8 | log index | `log-index.json` |
 | 9 | publish | `archive/{chain-id}-{genesis-hash}/HEAD.json` and the manifest |

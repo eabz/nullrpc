@@ -49,10 +49,11 @@ writes and needs before it can run.
 | B13 Manifest | B12 | object list | `manifests/` | |
 | B14 HEAD | B13 | | `HEAD.json`, create-if-absent | `HEAD.json` already exists (stop) |
 
-B6 needs only the block range and is the longest step; B11 runs inside it, on the blocks it
-samples. The backfill service (`services/backfill`) runs the steps one after another, in
-the order B1, B2, B3, B5, B9, B10, B4, B6 with B11, B7, B8, B12–B14; the graph shows which
-steps could overlap.
+B6 needs only the block boundaries and the node's database, and is the longest step, so the
+backfill (`backfill`) starts it right after B3 and runs it alongside B5, B9, B10 and B4.
+Before B9 exists, B6 builds every full segment up to the blocks the state files cover; once
+B9 exists it finishes the last segment and B11 cross-checks the segments built before B9, by
+executing the sampled blocks again. Then B7, B8 and B12–B14 follow.
 
 ## Handoff
 

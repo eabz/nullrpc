@@ -32,6 +32,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"github.com/erigontech/erigon/common"
@@ -98,6 +99,47 @@ func datadirChain(ctx context.Context, path string) (uint64, string, error) {
 		return nil
 	})
 	return id, hash, err
+}
+
+// One open per datadir per process (MDBX refuses a second open of the same environment in
+// one process), shared by the stages that run at the same time and closed with the last
+// release.
+var sharedDBs struct {
+	sync.Mutex
+	open map[string]*sharedDB
+}
+
+type sharedDB struct {
+	db   *erigonDB
+	refs int
+}
+
+func sharedErigonDB(ctx context.Context, datadir string) (*erigonDB, func(), error) {
+	sharedDBs.Lock()
+	defer sharedDBs.Unlock()
+	if sharedDBs.open == nil {
+		sharedDBs.open = map[string]*sharedDB{}
+	}
+	key := filepath.Clean(datadir)
+	s := sharedDBs.open[key]
+	if s == nil {
+		db, err := openErigonDB(ctx, datadir)
+		if err != nil {
+			return nil, nil, err
+		}
+		s = &sharedDB{db: db}
+		sharedDBs.open[key] = s
+	}
+	s.refs++
+	release := func() {
+		sharedDBs.Lock()
+		defer sharedDBs.Unlock()
+		if s.refs--; s.refs == 0 {
+			s.db.close()
+			delete(sharedDBs.open, key)
+		}
+	}
+	return s.db, release, nil
 }
 
 // openErigonDB opens datadir next to the running node, read-only.
@@ -427,7 +469,7 @@ func (s *dbBlockSource) fetchRange(ctx context.Context, first, last uint64) ([]*
 }
 
 func newDBBlockSource(ctx context.Context, opts blockSourceOptions, rpc *rpcClient, blocks []blockTx, blobs recordRules) (blockSource, func(), error) {
-	db, err := openErigonDB(ctx, opts.datadir)
+	db, release, err := sharedErigonDB(ctx, opts.datadir)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -440,5 +482,5 @@ func newDBBlockSource(ctx context.Context, opts blockSourceOptions, rpc *rpcClie
 				fmt.Fprintf(os.Stderr, "{\"rpc_fallback\":%d,\"count\":%d,\"reason\":%q}\n", n, c, reason.Error())
 			}
 		}}
-	return src, db.close, nil
+	return src, release, nil
 }

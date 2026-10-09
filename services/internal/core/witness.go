@@ -63,7 +63,10 @@ type witnessState struct {
 	Ranges     []WitnessRange `json:"ranges"`
 	// Uploaded: streaming mode only; ranges whose objects are in the bucket and removed locally.
 	Uploaded map[uint64]bool `json:"uploaded,omitempty"`
-	Checked  uint64          `json:"checked_blocks"`
+	// Unchecked: first blocks of ranges built before the state layer existed, whose
+	// cross-check witnessCheckStage still owes.
+	Unchecked []uint64 `json:"unchecked,omitempty"`
+	Checked   uint64   `json:"checked_blocks"`
 }
 
 type witnessAccount struct {
@@ -397,29 +400,81 @@ func runWitnessJobs(exec *witnessExecutor, jobs []witnessJob, workers int,
 	return firstErr
 }
 
-// witnessStage executes every block of every segment, resuming after the ranges
-// WORK/witnesses.json already lists. Segments are written in order as they complete.
+// witnessPlan is the segment list the witness stage builds: the state layer's blocks when
+// the layer exists (exact), else every full segment up to a bound no later than the layer
+// will reach (what the state files cover, capped at the node's finalized block), so the
+// stage can run before and alongside the state dump.
+type witnessPlan struct {
+	bound    uint64
+	exact    bool
+	segments [][2]uint64
+}
+
+func (w *workDir) witnessPlan() (witnessPlan, error) {
+	chunk := w.opts.chunkBlocks
+	if layer, _ := w.layerAndBundles(); layer != nil {
+		p := witnessPlan{bound: layer.LastBlock, exact: true}
+		for n := uint64(0); n <= p.bound; n += chunk {
+			p.segments = append(p.segments, [2]uint64{n, min(n+chunk-1, p.bound)})
+		}
+		return p, nil
+	}
+	blocks, err := loadBlocks(w.at("blocks.bin"))
+	if err != nil {
+		return witnessPlan{}, err
+	}
+	finalized, err := rpcAnchor(w.rpc, "finalized")
+	if err != nil {
+		return witnessPlan{}, fmt.Errorf("read finalized block: %w", err)
+	}
+	bound := min(uint64(len(blocks))-1, finalized.Number)
+	if through, err := w.stateFilesThrough(blocks); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: cannot read the state files' extent (%v); witnesses bounded by the finalized block\n", err)
+	} else {
+		bound = min(bound, through)
+	}
+	p := witnessPlan{bound: bound}
+	for n := uint64(0); n+chunk-1 <= bound; n += chunk {
+		p.segments = append(p.segments, [2]uint64{n, n + chunk - 1})
+	}
+	return p, nil
+}
+
+// stateFilesThrough is the last block the datadir's frozen state files fully cover, the
+// bound the state layer will use (statebuild.go, buildStateLayer).
+func (w *workDir) stateFilesThrough(blocks []blockTx) (uint64, error) {
+	stepSize, err := erigonStepSize(w.datadir)
+	if err != nil {
+		return 0, err
+	}
+	var end uint64
+	for _, d := range []string{"accounts", "storage", "code"} {
+		rs, err := coverRanges(filepath.Join(w.datadir, "snapshots"), d)
+		if err != nil {
+			return 0, err
+		}
+		var domainEnd uint64
+		for _, r := range rs {
+			domainEnd = max(domainEnd, r.toStep*stepSize)
+		}
+		if end == 0 || domainEnd < end {
+			end = domainEnd
+		}
+	}
+	return stateThroughBlock(blocks, end)
+}
+
+// witnessStage executes every block of every segment of the plan, resuming after the ranges
+// WORK/witnesses.json already lists. Segments are written in order as they complete. Ranges
+// built before the state layer existed are cross-checked later by witnessCheckStage.
 func witnessStage(w *workDir) error {
-	layerRef, bundles := w.layerAndBundles()
-	if layerRef == nil || len(bundles) == 0 {
-		return errors.New("block bundles missing")
+	plan, err := w.witnessPlan()
+	if err != nil {
+		return err
 	}
 	var st witnessState
 	if err := readJSONFile(w.at(witnessStateFile), &st); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
-	}
-	src := layeredSource{local: localSource{w.archive()}}
-	var target *streamTarget
-	if w.opts.stream {
-		var err error
-		if target, err = w.streamTarget(); err != nil {
-			return err
-		}
-		src.remote = s3Source{target.client, target.bucket}
-	}
-	layer, err := openLayerFrom(src, layerRef.Descriptor, newFrameCache(1<<30))
-	if err != nil {
-		return fmt.Errorf("open state layer: %w", err)
 	}
 	save := func() error {
 		data, _ := json.MarshalIndent(st, "", "  ")
@@ -428,16 +483,50 @@ func witnessStage(w *workDir) error {
 		}
 		return os.Rename(w.at(witnessStateFile+".tmp"), w.at(witnessStateFile))
 	}
+	// Ranges that do not match the plan (a provisional bound past the layer's end) are dropped.
+	keep := 0
+	for keep < len(st.Ranges) && keep < len(plan.segments) &&
+		st.Ranges[keep].First == plan.segments[keep][0] && st.Ranges[keep].Last == plan.segments[keep][1] {
+		keep++
+	}
+	if keep < len(st.Ranges) {
+		for _, r := range st.Ranges[keep:] {
+			fmt.Fprintf(os.Stderr, "{\"witnesses\":\"%d-%d\",\"dropped\":\"past the state layer's end\"}\n", r.First, r.Last)
+			os.RemoveAll(filepath.Dir(w.archive().path(r.Offsets.Key)))
+			delete(st.Uploaded, r.First)
+		}
+		st.Ranges = st.Ranges[:keep]
+		if err := save(); err != nil {
+			return err
+		}
+	}
+	if len(st.Ranges) == len(plan.segments) {
+		return nil
+	}
+	var target *streamTarget
+	if w.opts.stream {
+		if target, err = w.streamTarget(); err != nil {
+			return err
+		}
+	}
+	// The state layer, for the inline cross-check, once it exists.
+	var layer *layerReader
+	if plan.exact {
+		src := layeredSource{local: localSource{w.archive()}}
+		if target != nil {
+			src.remote = s3Source{target.client, target.bucket}
+		}
+		layerRef, _ := w.layerAndBundles()
+		if layer, err = openLayerFrom(src, layerRef.Descriptor, newFrameCache(1<<30)); err != nil {
+			return fmt.Errorf("open state layer: %w", err)
+		}
+	}
 	exec, closeExec, err := newWitnessExecutor(context.Background(), w.datadir)
 	if err != nil {
 		return err
 	}
 	defer closeExec()
-	pending := bundles[len(st.Ranges):]
-	segments := make([][2]uint64, len(pending))
-	for i, b := range pending {
-		segments[i] = [2]uint64{b.FirstBlock, b.LastBlock}
-	}
+	segments := plan.segments[len(st.Ranges):]
 	started := time.Now()
 	var executed, checked atomic.Uint64
 	// Frames of the segments in flight, by segment. A writer goroutine writes completed
@@ -470,7 +559,10 @@ func witnessStage(w *workDir) error {
 				}
 				if err == nil {
 					st.Ranges = append(st.Ranges, rng)
-					st.Checked = checked.Load()
+					if layer == nil {
+						st.Unchecked = append(st.Unchecked, rng.First)
+					}
+					st.Checked += checked.Swap(0)
 					err = save()
 				}
 				mu.Lock()
@@ -481,13 +573,13 @@ func witnessStage(w *workDir) error {
 				}
 				rate := float64(executed.Load()) / time.Since(started).Seconds()
 				fmt.Fprintf(os.Stderr, "{\"witnesses\":\"%d-%d\",\"blocks_per_s\":%.0f,\"eta_s\":%.0f,\"cross_checked_values\":%d}\n",
-					rng.First, rng.Last, rate, float64(layerRef.LastBlock-rng.Last)/max(rate, 1e-9), st.Checked)
+					rng.First, rng.Last, rate, float64(plan.bound-rng.Last)/max(rate, 1e-9), st.Checked)
 				next++
 			}
 		}
 	}()
 	onWitness := func(job witnessJob, n uint64, wit *blockWitness) error {
-		if n%witnessCheckEvery == 0 {
+		if layer != nil && n%witnessCheckEvery == 0 {
 			c, err := checkWitness(layer, n, wit)
 			if err != nil {
 				return err
@@ -520,6 +612,83 @@ func witnessStage(w *workDir) error {
 		return err
 	}
 	return writeErr
+}
+
+// witnessCheckStage cross-checks the ranges built before the state layer existed: one block
+// in witnessCheckEvery of each is executed again and compared with the layer.
+func witnessCheckStage(w *workDir) error {
+	var st witnessState
+	if err := readJSONFile(w.at(witnessStateFile), &st); err != nil {
+		return err
+	}
+	if len(st.Unchecked) == 0 {
+		return nil
+	}
+	layerRef, _ := w.layerAndBundles()
+	if layerRef == nil {
+		return errors.New("state layer missing")
+	}
+	src := layeredSource{local: localSource{w.archive()}}
+	if w.opts.stream {
+		target, err := w.streamTarget()
+		if err != nil {
+			return err
+		}
+		src.remote = s3Source{target.client, target.bucket}
+	}
+	layer, err := openLayerFrom(src, layerRef.Descriptor, newFrameCache(1<<30))
+	if err != nil {
+		return fmt.Errorf("open state layer: %w", err)
+	}
+	exec, closeExec, err := newWitnessExecutor(context.Background(), w.datadir)
+	if err != nil {
+		return err
+	}
+	defer closeExec()
+	pending := map[uint64]bool{}
+	for _, first := range st.Unchecked {
+		pending[first] = true
+	}
+	var blocks []uint64
+	for _, r := range st.Ranges {
+		if !pending[r.First] {
+			continue
+		}
+		for n := (r.First + witnessCheckEvery - 1) / witnessCheckEvery * witnessCheckEvery; n <= r.Last; n += witnessCheckEvery {
+			if n > 0 {
+				blocks = append(blocks, n)
+			}
+		}
+	}
+	var checked atomic.Uint64
+	err = parallelEach(blocks, max(1, w.opts.execWorkers), func(n uint64) error {
+		tx, err := exec.readTx(context.Background())
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+		wit, err := exec.execute(context.Background(), tx, n, nil)
+		if err != nil {
+			return err
+		}
+		c, err := checkWitness(layer, n, wit)
+		checked.Add(uint64(c))
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	st.Checked += checked.Load()
+	st.Unchecked = nil
+	data, _ := json.MarshalIndent(st, "", "  ")
+	if err := os.WriteFile(w.at(witnessStateFile+".tmp"), data, 0o644); err != nil {
+		return err
+	}
+	if err := os.Rename(w.at(witnessStateFile+".tmp"), w.at(witnessStateFile)); err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "{\"witness_check\":%d,\"cross_checked_values\":%d}\n", len(blocks), st.Checked)
+	return nil
 }
 
 // runWitnessTest executes a block range like the witness stage and reports its speed,

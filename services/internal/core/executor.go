@@ -68,7 +68,7 @@ type witnessExecutor struct {
 }
 
 func newWitnessExecutor(ctx context.Context, datadir string) (*witnessExecutor, func(), error) {
-	db, err := openErigonDB(ctx, datadir)
+	db, release, err := sharedErigonDB(ctx, datadir)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -78,7 +78,7 @@ func newWitnessExecutor(ctx context.Context, datadir string) (*witnessExecutor, 
 	x := &witnessExecutor{db: db, engine: rulesconfig.CreateRulesEngineBareBones(ctx, db.chain, logger), codes: codes, logger: logger}
 	// Execution allocates heavily and keeps little: collect less often.
 	debug.SetGCPercent(400)
-	return x, func() { x.engine.Close(); db.close() }, nil
+	return x, func() { x.engine.Close(); release() }, nil
 }
 
 // readTx opens a read transaction for a batch of blocks. Batches stay short so the node's

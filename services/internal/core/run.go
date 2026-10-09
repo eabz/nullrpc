@@ -39,16 +39,17 @@ type workDir struct {
 const envFileName = "backfill.env"
 
 type runOptions struct {
-	concurrency  int
-	execWorkers  int // blocks executed in parallel for witnesses
-	chunkBlocks  uint64
-	upload       bool
-	files        int
-	deleteAfter  bool
-	source       blockSourceOptions // datadir filled in by blockSource
-	preByzantium string             // --pre-byzantium-receipts
-	stream       bool               // upload in pieces and remove local data (see stream.go)
-	tmp          string             // parent directory for the trie sort runs ("" = WORK/trie.tmp)
+	concurrency        int
+	execWorkers        int  // blocks executed in parallel for witnesses
+	witnessesAlongside bool // run the witness stage alongside the stages before it
+	chunkBlocks        uint64
+	upload             bool
+	files              int
+	deleteAfter        bool
+	source             blockSourceOptions // datadir filled in by blockSource
+	preByzantium       string             // --pre-byzantium-receipts
+	stream             bool               // upload in pieces and remove local data (see stream.go)
+	tmp                string             // parent directory for the trie sort runs ("" = WORK/trie.tmp)
 }
 
 func (o runOptions) blockSource(datadir string) blockSourceOptions {
@@ -183,12 +184,20 @@ func stages(stream bool) []stage {
 			return buildBundles(w.rpc, w.opts.blockSource(w.datadir), blocks, w.archive(), w.namespace, 0, layer.LastBlock,
 				w.opts.chunkBlocks, done, w.at("bundles.json"), blobs, target)
 		}},
-		// One witness range per segment, executed in process against the archive node's database.
+		// One witness range per segment, executed in process against the archive node's
+		// database. Started right after the block boundaries and run alongside the stages
+		// above (runPipeline); here it finishes the segments the provisional bound left out
+		// and cross-checks the ranges built before the state layer existed.
 		{"witnesses", func(w *workDir) bool {
 			_, bundles := w.layerAndBundles()
 			var st witnessState
-			return readJSONFile(w.at(witnessStateFile), &st) == nil && len(bundles) > 0 && len(st.Ranges) == len(bundles)
-		}, func(w *workDir) error { return witnessStage(w) }},
+			return readJSONFile(w.at(witnessStateFile), &st) == nil && len(bundles) > 0 && len(st.Ranges) == len(bundles) && len(st.Unchecked) == 0
+		}, func(w *workDir) error {
+			if err := witnessStage(w); err != nil {
+				return err
+			}
+			return witnessCheckStage(w)
+		}},
 		{"hash index", func(w *workDir) bool { return w.exists(hashIndexStateFile) }, func(w *workDir) error { return hashIndexStage(w) }},
 		{"log index", func(w *workDir) bool { return w.exists(logIndexStateFile) }, func(w *workDir) error { return logIndexStage(w) }},
 		// Generation 1: manifest and HEAD.json in the local tree.
@@ -403,6 +412,7 @@ func runPipeline(args []string) {
 	genesis := fs.String("genesis", "", "full genesis JSON (default: bundled for known chains)")
 	concurrency := fs.Int("concurrency", 48, "parallel RPC calls (--block-source rpc, RPC fallbacks)")
 	execWorkers := fs.Int("exec-workers", runtime.NumCPU(), "blocks executed in parallel for witnesses")
+	alongside := fs.Bool("witnesses-alongside", true, "run the witness stage alongside the state and bundle stages instead of after them")
 	source := blockSourceFlags(fs)
 	preByzantium := preByzantiumFlag(fs)
 	chunkBlocks := fs.Uint64("chunk-blocks", 8192, "blocks per segment")
@@ -424,7 +434,7 @@ func runPipeline(args []string) {
 	if err != nil {
 		fail(err)
 	}
-	w.opts = runOptions{concurrency: *concurrency, execWorkers: *execWorkers, chunkBlocks: *chunkBlocks, upload: *doUpload, files: *files,
+	w.opts = runOptions{concurrency: *concurrency, execWorkers: *execWorkers, witnessesAlongside: *alongside, chunkBlocks: *chunkBlocks, upload: *doUpload, files: *files,
 		deleteAfter: *deleteAfter, source: source.options("", *concurrency), preByzantium: *preByzantium, stream: *stream, tmp: *tmp}
 	if isStreamWork(w.root) && !w.opts.stream {
 		fmt.Fprintf(os.Stderr, "%s was started in streaming mode; continuing with --stream\n", w.root)
@@ -448,24 +458,53 @@ func runPipeline(args []string) {
 		fmt.Fprintf(os.Stderr, "streaming to bucket %s; root check sort runs in %s\n", os.Getenv("NULLRPC_R2_BUCKET"), trieTmpDir(w.root, w.opts.tmp))
 	}
 	all := stages(w.opts.stream)
+	// The witness stage needs only blocks.bin and the node's database, and is the longest:
+	// it runs in the background from the block boundaries on, while the other stages run.
+	var witnessBg chan error
 	for i, s := range all {
 		label := fmt.Sprintf("[%d/%d] %s", i+1, len(all), s.name)
+		if s.name == "witnesses" && witnessBg != nil {
+			if err := <-witnessBg; err != nil {
+				fail(fmt.Errorf("%s: %w", s.name, err))
+			}
+			witnessBg = nil
+		}
 		if s.done(w) {
 			fmt.Fprintf(os.Stderr, "%s: done\n", label)
-			continue
-		}
-		fmt.Fprintf(os.Stderr, "%s: running\n", label)
-		started := time.Now()
-		if err := s.run(w); err != nil {
-			if errors.Is(err, errSkip) {
-				fmt.Fprintf(os.Stderr, "%s: skipped\n", label)
-				continue
+		} else {
+			fmt.Fprintf(os.Stderr, "%s: running\n", label)
+			started := time.Now()
+			if err := s.run(w); err != nil {
+				if errors.Is(err, errSkip) {
+					fmt.Fprintf(os.Stderr, "%s: skipped\n", label)
+					continue
+				}
+				fail(fmt.Errorf("%s: %w", s.name, err))
 			}
-			fail(fmt.Errorf("%s: %w", s.name, err))
+			fmt.Fprintf(os.Stderr, "%s: done in %s\n", label, time.Since(started).Round(time.Second))
 		}
-		fmt.Fprintf(os.Stderr, "%s: done in %s\n", label, time.Since(started).Round(time.Second))
+		if s.name == "block boundaries" && w.opts.witnessesAlongside && !stageByName(all, "witnesses").done(w) {
+			fmt.Fprintf(os.Stderr, "witnesses: running alongside the next stages\n")
+			witnessBg = make(chan error, 1)
+			go func() {
+				err := witnessStage(w)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "witnesses: failed: %v (the other stages continue; fix and rerun)\n", err)
+				}
+				witnessBg <- err
+			}()
+		}
 	}
 	fmt.Fprintf(os.Stderr, "archive %s is complete\n", w.namespace)
+}
+
+func stageByName(all []stage, name string) stage {
+	for _, s := range all {
+		if s.name == name {
+			return s
+		}
+	}
+	panic("unknown stage " + name)
 }
 
 func mustMkdir(dir string) string {
@@ -525,8 +564,15 @@ func runStatus(args []string) {
 		}
 		if s.name == "witnesses" {
 			var st witnessState
-			if _, bundles := w.layerAndBundles(); readJSONFile(w.at(witnessStateFile), &st) == nil && len(bundles) > 0 {
-				detail = fmt.Sprintf(" (%d/%d ranges, %d values cross-checked)", len(st.Ranges), len(bundles), st.Checked)
+			if readJSONFile(w.at(witnessStateFile), &st) == nil {
+				detail = fmt.Sprintf(" (%d ranges, %d values cross-checked", len(st.Ranges), st.Checked)
+				if len(st.Unchecked) > 0 {
+					detail += fmt.Sprintf(", %d ranges awaiting the cross-check", len(st.Unchecked))
+				}
+				detail += ")"
+				if state == "pending" && len(st.Ranges) > 0 {
+					state = "in progress alongside"
+				}
 			}
 		}
 		if w.opts.stream && state == "done" {

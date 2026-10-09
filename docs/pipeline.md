@@ -37,16 +37,21 @@ consensus client.
    checks that `B` is still canonical.
 3. **Find block boundaries**: for each block, its range of transaction numbers in the client's
    files.
-4. Three independent branches run in parallel:
+4. Three independent branches run at the same time on the backfill machine. The witness
+   branch starts as soon as the block boundaries exist and fills the cores the other two
+   leave idle:
    - **Block bundles**: each block's record (block, senders, receipts, blob gas price). Every
      block's receipts must hash to its header's `receiptsRoot`. From the bundles: the **hash
      index** and the **log index**.
    - **State**: every account, storage and code change from the client's history files, sorted
      into **state history** layers. The **root check** builds the state trie at `B` from the
      same data and compares its root with block `B`'s `stateRoot`; the trie is then discarded.
-   - **Witnesses**: each block's pre-state, from executing the block in process (see below). The
+   - **Witnesses**: each block's pre-state, from executing the block in process (see below).
+     Before the state history exists, this branch builds every full segment up to the blocks
+     the client's state files cover; it finishes the last segment once `B` is known. The
      **witness check** compares one block in 997 with the state history at its parent block:
-     two independent extractions of the same state must agree.
+     two independent extractions of the same state must agree. For segments built before the
+     state history existed, the sampled blocks are executed again once it does.
 5. **Upload** every object to R2 with multipart uploads. Each object's SHA-256 is checked.
 6. **Write the manifest** for generation 1, then **`HEAD.json`** with a create-if-absent write.
 
