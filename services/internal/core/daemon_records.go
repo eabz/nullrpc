@@ -1,11 +1,13 @@
 package core
 
-// Live block records and the live index in R2 (docs/storage.md, "Live records"): every block
+// Live block records and the live indexes in R2 (docs/storage.md, "Live records"): every block
 // written to the live window also goes to `live/records/{number}-{hash}.bin` (the record bytes
 // LiveReads.block would answer), so the RPC Worker reads blocks above P from R2 and its edge
 // cache instead of ChainDO. `live/HEAD.json` lists the window's hashes (number to hash) and
 // names `live/index/{first}-{last}-{hash}.bin`, the transaction hash index of the same blocks,
-// so lookups by hash need no Durable Object either.
+// so lookups by hash need no Durable Object either, and `live/blooms/{first}-{last}-{hash}.bin`,
+// the header logs blooms of the same blocks, so eth_getLogs over the window reads only the
+// records whose bloom admits the filter.
 //
 // Records and index objects are immutable: a key names a block hash (or a head hash), and the
 // chain of hashes fixes the bytes. Reorgs and promotions never rewrite them; a reorg stops
@@ -19,6 +21,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -41,6 +44,10 @@ const (
 	// liveIndexEntry is the size of one entry: 8 bytes of the transaction hash, uint32 block offset.
 	liveIndexEntry  = 12
 	liveIndexHeader = 32
+	// liveBloomsMagic starts every blooms object; liveBloomBytes is one block's header logs bloom.
+	liveBloomsMagic  = "NRPCLBLM"
+	liveBloomsHeader = 32
+	liveBloomBytes   = 256
 	// recordWriters is how many records are written to R2 at once.
 	recordWriters = 8
 )
@@ -55,10 +62,17 @@ func liveIndexKey(ns string, first uint64, last BlockID) string {
 	return fmt.Sprintf("%s/live/index/%020d-%020d-%s.bin", ns, first, last.Number, strings.ToLower(strings.TrimPrefix(last.Hash, "0x")))
 }
 
+// liveBloomsKey is the blooms object's key for blocks first..last ending at last's hash.
+func liveBloomsKey(ns string, first uint64, last BlockID) string {
+	return fmt.Sprintf("%s/live/blooms/%020d-%020d-%s.bin", ns, first, last.Number, strings.ToLower(strings.TrimPrefix(last.Hash, "0x")))
+}
+
 // windowBlock is what the daemon keeps per block of the live window for the pointers.
 type windowBlock struct {
 	hash string
 	txs  []string
+	// bloom is the header's logs bloom (256 bytes), or nil when the record did not yield one.
+	bloom []byte
 }
 
 // liveWindow mirrors the live Worker's window: every block written to it, by number. The
@@ -66,8 +80,32 @@ type windowBlock struct {
 type liveWindow struct {
 	mu     sync.Mutex
 	blocks map[uint64]windowBlock
-	// lastIndex is the key of the index object live/HEAD.json names, to skip rewriting it.
-	lastIndex string
+	// lastIndex and lastBlooms are the keys of the objects live/HEAD.json names, to skip
+	// rewriting them.
+	lastIndex  string
+	lastBlooms string
+}
+
+// recordLogsBloom is the header's logs bloom of a block record (the RLP list [raw_block, …];
+// the raw block's header field 6).
+func recordLogsBloom(record []byte) ([]byte, error) {
+	items, err := rlpListItems(record)
+	if err != nil || len(items) < 1 {
+		return nil, errors.New("block record is not an RLP list")
+	}
+	raw, list, _, _, err := rlpItem(items[0])
+	if err != nil || list {
+		return nil, errors.New("block record: raw block is not a byte string")
+	}
+	fields, err := rlpListItems(raw)
+	if err != nil || len(fields) < 1 {
+		return nil, errors.New("block record: raw block is not an RLP block")
+	}
+	h, err := parseRawHeader(fields[0])
+	if err != nil {
+		return nil, fmt.Errorf("block record: %w", err)
+	}
+	return h.logsBloom, nil
 }
 
 func (w *liveWindow) add(blocks []*liveBlock) {
@@ -77,7 +115,11 @@ func (w *liveWindow) add(blocks []*liveBlock) {
 		w.blocks = map[uint64]windowBlock{}
 	}
 	for _, b := range blocks {
-		w.blocks[b.Number] = windowBlock{hash: strings.ToLower(b.Hash), txs: b.TxHashes}
+		bloom, err := recordLogsBloom(b.Record)
+		if err != nil && len(b.Record) > 0 {
+			fmt.Fprintf(os.Stderr, "{\"live_bloom_error\":%q,\"block\":%d}\n", err.Error(), b.Number)
+		}
+		w.blocks[b.Number] = windowBlock{hash: strings.ToLower(b.Hash), txs: b.TxHashes, bloom: bloom}
 	}
 }
 
@@ -105,10 +147,12 @@ func (w *liveWindow) remove(gone func(uint64) bool) []BlockID {
 	return out
 }
 
-// liveBlocks is the `blocks` member of live/HEAD.json: the hashes of first..head, in order.
+// liveBlocks is the `blocks` member of live/HEAD.json: the hashes of first..head, in order,
+// and (not in the document) the same blocks' logs blooms for the blooms object.
 type liveBlocks struct {
 	First  uint64   `json:"first"`
 	Hashes []string `json:"hashes"`
+	blooms [][]byte
 }
 
 type liveIndexEntryT struct {
@@ -147,6 +191,7 @@ func (w *liveWindow) snapshot(head BlockID, promoted uint64) (liveBlocks, []live
 	for n := first; n <= head.Number; n++ {
 		b := w.blocks[n]
 		out.Hashes = append(out.Hashes, b.hash)
+		out.blooms = append(out.blooms, b.bloom)
 		for _, tx := range b.txs {
 			raw, err := hex.DecodeString(strings.TrimPrefix(tx, "0x"))
 			if err != nil || len(raw) != 32 {
@@ -186,6 +231,27 @@ func encodeLiveIndex(first, last uint64, entries []liveIndexEntryT) []byte {
 	return out
 }
 
+// encodeLiveBlooms is the blooms object (docs/storage.md, "Live records"): a 32-byte header
+// (magic, version 1, first, last, block count) and one 256-byte header logs bloom per block of
+// first..last, in order. A block whose bloom is unknown gets every bit set, so a reader never
+// skips it.
+func encodeLiveBlooms(first, last uint64, blooms [][]byte) []byte {
+	out := make([]byte, 0, liveBloomsHeader+len(blooms)*liveBloomBytes)
+	out = append(out, liveBloomsMagic...)
+	out = binary.LittleEndian.AppendUint16(out, 1)
+	out = binary.LittleEndian.AppendUint16(out, 0)
+	out = binary.LittleEndian.AppendUint64(out, first)
+	out = binary.LittleEndian.AppendUint64(out, last)
+	out = binary.LittleEndian.AppendUint32(out, uint32(len(blooms)))
+	for _, b := range blooms {
+		if len(b) != liveBloomBytes {
+			b = bytes.Repeat([]byte{0xff}, liveBloomBytes)
+		}
+		out = append(out, b...)
+	}
+	return out
+}
+
 // putRecords writes the blocks' records to R2 (recordWriters at a time) and adds the blocks to
 // the window. A failed write is logged: the block is still listed, and the Worker falls back
 // to the live Worker for it until its record is deleted after promotion.
@@ -219,11 +285,25 @@ func (d *daemon) publishIndex(blocks liveBlocks, head BlockID, entries []liveInd
 	if len(blocks.Hashes) == 0 {
 		return nil
 	}
-	data := encodeLiveIndex(blocks.First, head.Number, entries)
-	key := liveIndexKey(d.r2.ns, blocks.First, head)
+	return d.publishLiveObject(liveIndexKey(d.r2.ns, blocks.First, head), encodeLiveIndex(blocks.First, head.Number, entries), &d.window.lastIndex, head, "live_index_error")
+}
+
+// publishBlooms likewise writes the blooms object for the snapshot. Without a reference the
+// Worker reads every live block's record, as it does for an older daemon.
+func (d *daemon) publishBlooms(blocks liveBlocks, head BlockID) *ObjectRef {
+	if len(blocks.Hashes) == 0 {
+		return nil
+	}
+	return d.publishLiveObject(liveBloomsKey(d.r2.ns, blocks.First, head), encodeLiveBlooms(blocks.First, head.Number, blocks.blooms), &d.window.lastBlooms, head, "live_blooms_error")
+}
+
+// publishLiveObject writes an immutable per-head object unless `last` (under the window's lock)
+// already names it, schedules the one it replaces for deletion after liveIndexGrace, and returns
+// the object's reference, or nil when the write failed (logged as `event`).
+func (d *daemon) publishLiveObject(key string, data []byte, last *string, head BlockID, event string) *ObjectRef {
 	ref := &ObjectRef{Key: key, Bytes: uint64(len(data)), Sha256: sha256Hex(data)}
 	d.window.mu.Lock()
-	previous := d.window.lastIndex
+	previous := *last
 	d.window.mu.Unlock()
 	if previous == key {
 		return ref
@@ -231,11 +311,11 @@ func (d *daemon) publishIndex(blocks liveBlocks, head BlockID, entries []liveInd
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	if err := d.r2.putImmutable(ctx, key, data); err != nil {
-		fmt.Fprintf(os.Stderr, "{\"live_index_error\":%q,\"head\":%d}\n", err.Error(), head.Number)
+		fmt.Fprintf(os.Stderr, "{%q:%q,\"head\":%d}\n", event, err.Error(), head.Number)
 		return nil
 	}
 	d.window.mu.Lock()
-	d.window.lastIndex = key
+	*last = key
 	d.window.mu.Unlock()
 	if previous != "" {
 		d.scheduleLiveDelete([]string{previous}, liveIndexGrace)

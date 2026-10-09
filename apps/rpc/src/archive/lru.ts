@@ -22,6 +22,14 @@ export class Lru<K, V> {
   delete(key: K): void {
     this.map.delete(key);
   }
+
+  get size(): number {
+    return this.map.size;
+  }
+
+  clear(): void {
+    this.map.clear();
+  }
 }
 
 /** A least-recently-used map bounded by the total size of its values (bytes, as given per entry). */

@@ -1,0 +1,3469 @@
+{
+ "target": {
+  "url": "https://hoodi.nullrpc.dev",
+  "chainId": 560048,
+  "keyed": false
+ },
+ "head": 3785466,
+ "archived_through": 3785298,
+ "generation": 205,
+ "windows": {
+  "calls": {
+   "started": "2026-10-09T22:11:33.707Z",
+   "ended": "2026-10-09T22:12:02.253Z"
+  }
+ },
+ "cases": [
+  {
+   "cls": "normal",
+   "label": "eth_chainId"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_blockNumber"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_gasPrice"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_maxPriorityFeePerGas"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_feeHistory 4"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getBlockByNumber latest hashes"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getBlockByNumber recent hashes"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getBlockByHash recent"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getBlockTransactionCountByNumber"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getBalance latest"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getTransactionCount latest"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getCode latest"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getStorageAt latest"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getTransactionByHash recent"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getTransactionReceipt recent"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getTransactionByBlockNumberAndIndex"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getLogs 10 blocks, token"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_call balanceOf"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_estimateGas transfer"
+  },
+  {
+   "cls": "normal",
+   "label": "web3_clientVersion"
+  },
+  {
+   "cls": "normal",
+   "label": "net_version"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_getBlockByNumber recent full"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_getBlockReceipts recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_getLogs 1000 blocks, no filter"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_getLogs 10000 blocks, token"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_getLogs 1000 blocks, Transfer topic"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_call real calldata latest"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_estimateGas real calldata"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_createAccessList"
+  },
+  {
+   "cls": "heavy",
+   "label": "debug_traceCall callTracer"
+  },
+  {
+   "cls": "heavy",
+   "label": "trace_call"
+  },
+  {
+   "cls": "heavy",
+   "label": "debug_traceTransaction recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "trace_transaction recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "trace_replayTransaction recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "debug_traceBlockByNumber recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "debug_traceBlockByHash recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "trace_block recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "trace_replayBlockTransactions recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "debug_getRawBlock recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "debug_getRawReceipts recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "batch of 10 mixed"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getBlockByNumber deep hashes"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getBlockByHash deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getBalance deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getTransactionCount deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getCode deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getStorageAt deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getTransactionByHash deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getTransactionReceipt deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getLogs 10 blocks deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_feeHistory 4 deep"
+  },
+  {
+   "cls": "deep",
+   "label": "debug_getRawHeader deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "eth_getBlockByNumber deep full"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "eth_getBlockReceipts deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "eth_getLogs 1000 blocks deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "eth_getLogs 10000 blocks deep, Transfer"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "eth_call replay at n-1"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "eth_estimateGas replay at n-1"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "debug_traceCall replay at n-1"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "debug_traceTransaction deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "trace_transaction deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "trace_replayTransaction deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "debug_traceBlockByNumber deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "trace_block deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "trace_replayBlockTransactions deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "debug_getRawBlock deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "debug_getRawReceipts deep"
+  }
+ ],
+ "samples": {
+  "calls": [
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getLogs 1000 blocks deep",
+    "method": "eth_getLogs",
+    "ms": 614.4302079999998,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query returns more than 10000 logs; narrow the range to 0x243436-0x243514",
+    "credits": 50,
+    "archive": "hit=12 miss=0",
+    "response": "bypass",
+    "exec": null,
+    "params": [
+     {
+      "fromBlock": "0x243436",
+      "toBlock": "0x24381d"
+     }
+    ]
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_block deep",
+    "method": "trace_block",
+    "ms": 1583.2579999999998,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=13 miss=8",
+    "response": "bypass",
+    "exec": "rounds=2 keys=6 hints=0 live=0 archive=6"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBlockByNumber deep hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 355.2777500000002,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=3 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionCount deep",
+    "method": "eth_getTransactionCount",
+    "ms": 944.7186249999995,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=10 miss=2",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceBlockByNumber deep",
+    "method": "debug_traceBlockByNumber",
+    "ms": 976.5285829999993,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=69 miss=13",
+    "response": "bypass",
+    "exec": "rounds=3 keys=22 hints=0 live=0 archive=20"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionCount deep",
+    "method": "eth_getTransactionCount",
+    "ms": 297.1433340000003,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=10 miss=1",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getCode deep",
+    "method": "eth_getCode",
+    "ms": 794.6457909999999,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=12 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBlockByNumber deep hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 221.43666699999994,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=3 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionReceipt deep",
+    "method": "eth_getTransactionReceipt",
+    "ms": 569.6787079999995,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=5 miss=13",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionCount deep",
+    "method": "eth_getTransactionCount",
+    "ms": 739.703125,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=2 miss=1",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionByHash deep",
+    "method": "eth_getTransactionByHash",
+    "ms": 506.9349170000005,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=8 miss=10",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBalance deep",
+    "method": "eth_getBalance",
+    "ms": 200.9859580000002,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=2 miss=1",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getBlockReceipts deep",
+    "method": "eth_getBlockReceipts",
+    "ms": 155.90362499999992,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getBlockReceipts recent",
+    "method": "eth_getBlockReceipts",
+    "ms": 124.0555000000004,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_traceBlockByHash recent",
+    "method": "debug_traceBlockByHash",
+    "ms": 1100.2107920000008,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=64 miss=5",
+    "response": "bypass",
+    "exec": "rounds=2 keys=18 hints=0 live=4 archive=14"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionByHash recent",
+    "method": "eth_getTransactionByHash",
+    "ms": 108.12970800000039,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_getRawBlock deep",
+    "method": "debug_getRawBlock",
+    "ms": 170.56204199999956,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=3 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getLogs 10 blocks deep",
+    "method": "eth_getLogs",
+    "ms": 106.08758300000045,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getLogs 1000 blocks deep",
+    "method": "eth_getLogs",
+    "ms": 632.2474579999998,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query returns more than 10000 logs; narrow the range to 0x37ead7-0x37eb56",
+    "credits": 50,
+    "archive": "hit=5 miss=6",
+    "response": "bypass",
+    "exec": null,
+    "params": [
+     {
+      "fromBlock": "0x37ead7",
+      "toBlock": "0x37eebe"
+     }
+    ]
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBlockByHash deep",
+    "method": "eth_getBlockByHash",
+    "ms": 531.8740000000016,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=9 miss=6",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_transaction deep",
+    "method": "trace_transaction",
+    "ms": 1957.581166,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=133 miss=21",
+    "response": "bypass",
+    "exec": "rounds=3 keys=52 hints=0 live=0 archive=51"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getBlockByNumber deep full",
+    "method": "eth_getBlockByNumber",
+    "ms": 112.33083299999998,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionCount deep",
+    "method": "eth_getTransactionCount",
+    "ms": 143.1141659999994,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=3 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_feeHistory 4 deep",
+    "method": "eth_feeHistory",
+    "ms": 215.79066600000078,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=3 miss=4",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getCode deep",
+    "method": "eth_getCode",
+    "ms": 115.61229099999946,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=3 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_getRawBlock deep",
+    "method": "debug_getRawBlock",
+    "ms": 136.54941700000018,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=3 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByHash recent",
+    "method": "eth_getBlockByHash",
+    "ms": 137.16541699999834,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBlockByHash deep",
+    "method": "eth_getBlockByHash",
+    "ms": 275.17425000000003,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=15 miss=2",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "debug_getRawHeader deep",
+    "method": "debug_getRawHeader",
+    "ms": 147.35775000000103,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=3 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByHash recent",
+    "method": "eth_getBlockByHash",
+    "ms": 87.81125000000065,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBlockByHash deep",
+    "method": "eth_getBlockByHash",
+    "ms": 275.2635829999999,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=15 miss=2",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceTransaction deep",
+    "method": "debug_traceTransaction",
+    "ms": 1334.7549159999999,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=67 miss=25",
+    "response": "bypass",
+    "exec": "rounds=2 keys=22 hints=0 live=0 archive=22"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_replayTransaction deep",
+    "method": "trace_replayTransaction",
+    "ms": 818.3723329999993,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 80,
+    "archive": "hit=165 miss=11",
+    "response": "bypass",
+    "exec": "rounds=3 keys=61 hints=0 live=0 archive=60"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_getRawBlock deep",
+    "method": "debug_getRawBlock",
+    "ms": 160.94825000000128,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=3 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_replayBlockTransactions deep",
+    "method": "trace_replayBlockTransactions",
+    "ms": 1094.5491669999992,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 80,
+    "archive": "hit=98 miss=13",
+    "response": "bypass",
+    "exec": "rounds=1 keys=40 hints=0 live=0 archive=40"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getBlockByNumber deep full",
+    "method": "eth_getBlockByNumber",
+    "ms": 116.1942080000008,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionByHash recent",
+    "method": "eth_getTransactionByHash",
+    "ms": 112.98308300000099,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceBlockByNumber deep",
+    "method": "debug_traceBlockByNumber",
+    "ms": 844.0221249999995,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=38 miss=1",
+    "response": "bypass",
+    "exec": "rounds=1 keys=15 hints=0 live=0 archive=15"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_replayBlockTransactions deep",
+    "method": "trace_replayBlockTransactions",
+    "ms": 982.9595410000002,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 80,
+    "archive": "hit=5 miss=8",
+    "response": "bypass",
+    "exec": "rounds=1 keys=6 hints=0 live=0 archive=6"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_getRawReceipts deep",
+    "method": "debug_getRawReceipts",
+    "ms": 242.9656249999989,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=3 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBalance deep",
+    "method": "eth_getBalance",
+    "ms": 351.940208,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=2 miss=1",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBalance deep",
+    "method": "eth_getBalance",
+    "ms": 287.387999999999,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=2 miss=1",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_feeHistory 4 deep",
+    "method": "eth_feeHistory",
+    "ms": 432.4945000000007,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=1 miss=4",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getCode deep",
+    "method": "eth_getCode",
+    "ms": 335.4796669999996,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=13 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_transaction deep",
+    "method": "trace_transaction",
+    "ms": 1112.3159159999996,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=121 miss=11",
+    "response": "bypass",
+    "exec": "rounds=1 keys=45 hints=0 live=0 archive=45"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBlockByNumber deep hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 101.07341700000143,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getLogs 1000 blocks deep",
+    "method": "eth_getLogs",
+    "ms": 539.3404999999984,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query returns more than 10000 logs; narrow the range to 0x299d3c-0x299ebd",
+    "credits": 50,
+    "archive": "hit=5 miss=6",
+    "response": "bypass",
+    "exec": null,
+    "params": [
+     {
+      "fromBlock": "0x299d3c",
+      "toBlock": "0x29a123"
+     }
+    ]
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBlockByHash deep",
+    "method": "eth_getBlockByHash",
+    "ms": 337.757791,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=15 miss=2",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionReceipt recent",
+    "method": "eth_getTransactionReceipt",
+    "ms": 105.46624999999949,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getLogs 1000 blocks deep",
+    "method": "eth_getLogs",
+    "ms": 370.57879200000025,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query returns more than 10000 logs; narrow the range to 0x299d3c-0x299ebd",
+    "credits": 50,
+    "archive": "hit=7 miss=4",
+    "response": "bypass",
+    "exec": null,
+    "params": [
+     {
+      "fromBlock": "0x299d3c",
+      "toBlock": "0x29a123"
+     }
+    ]
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionCount deep",
+    "method": "eth_getTransactionCount",
+    "ms": 346.455915999999,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=2 miss=1",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_getRawReceipts deep",
+    "method": "debug_getRawReceipts",
+    "ms": 102.72354199999972,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceBlockByNumber deep",
+    "method": "debug_traceBlockByNumber",
+    "ms": 1852.4322090000005,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=35 miss=62",
+    "response": "bypass",
+    "exec": "rounds=2 keys=46 hints=0 live=0 archive=44"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByHash recent",
+    "method": "eth_getBlockByHash",
+    "ms": 110.46983399999954,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceTransaction deep",
+    "method": "debug_traceTransaction",
+    "ms": 1527.2281670000011,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=41 miss=70",
+    "response": "bypass",
+    "exec": "rounds=2 keys=46 hints=0 live=0 archive=44"
+   },
+   {
+    "cls": "deep",
+    "label": "debug_getRawHeader deep",
+    "method": "debug_getRawHeader",
+    "ms": 193.785249999999,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_feeHistory 4 deep",
+    "method": "eth_feeHistory",
+    "ms": 573.0589170000003,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getLogs 10 blocks deep",
+    "method": "eth_getLogs",
+    "ms": 245.82250000000022,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=0 miss=1",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionByHash deep",
+    "method": "eth_getTransactionByHash",
+    "ms": 430.6094580000008,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=3 miss=12",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getCode deep",
+    "method": "eth_getCode",
+    "ms": 117.6472079999985,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=3 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getBlockByNumber deep full",
+    "method": "eth_getBlockByNumber",
+    "ms": 116.40316600000006,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_block deep",
+    "method": "trace_block",
+    "ms": 292.43875000000116,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=3 miss=2",
+    "response": "bypass",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionCount deep",
+    "method": "eth_getTransactionCount",
+    "ms": 276.99424999999974,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=2 miss=1",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getStorageAt deep",
+    "method": "eth_getStorageAt",
+    "ms": 123.76687500000116,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=2 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionByHash recent",
+    "method": "eth_getTransactionByHash",
+    "ms": 112.18083400000069,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBalance deep",
+    "method": "eth_getBalance",
+    "ms": 305.3071250000012,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=2 miss=1",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_getRawBlock deep",
+    "method": "debug_getRawBlock",
+    "ms": 146.62054200000057,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=3 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_traceBlockByHash recent",
+    "method": "debug_traceBlockByHash",
+    "ms": 531.1744999999992,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=21 miss=4",
+    "response": "bypass",
+    "exec": "rounds=1 keys=9 hints=0 live=2 archive=7"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_replayBlockTransactions deep",
+    "method": "trace_replayBlockTransactions",
+    "ms": 620.1302080000005,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 80,
+    "archive": "hit=43 miss=0",
+    "response": "bypass",
+    "exec": "rounds=1 keys=18 hints=0 live=0 archive=18"
+   },
+   {
+    "cls": "deep",
+    "label": "debug_getRawHeader deep",
+    "method": "debug_getRawHeader",
+    "ms": 100.89279100000022,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getLogs 1000 blocks deep",
+    "method": "eth_getLogs",
+    "ms": 468.42304200000035,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query returns more than 10000 logs; narrow the range to 0x38a63b-0x38a6b7",
+    "credits": 50,
+    "archive": "hit=9 miss=0",
+    "response": "bypass",
+    "exec": null,
+    "params": [
+     {
+      "fromBlock": "0x38a63b",
+      "toBlock": "0x38aa22"
+     }
+    ]
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getBlockByNumber deep full",
+    "method": "eth_getBlockByNumber",
+    "ms": 102.5557090000002,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getLogs 10 blocks deep",
+    "method": "eth_getLogs",
+    "ms": 98.09283399999913,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getBlockReceipts deep",
+    "method": "eth_getBlockReceipts",
+    "ms": 97.72225000000071,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getCode deep",
+    "method": "eth_getCode",
+    "ms": 118.21220900000117,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=3 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionByHash deep",
+    "method": "eth_getTransactionByHash",
+    "ms": 399.59291699999994,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=13 miss=4",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionReceipt deep",
+    "method": "eth_getTransactionReceipt",
+    "ms": 364.76437500000065,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=15 miss=2",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByHash recent",
+    "method": "eth_getBlockByHash",
+    "ms": 124.04204200000095,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceBlockByNumber deep",
+    "method": "debug_traceBlockByNumber",
+    "ms": 776.9681249999994,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=11 miss=12",
+    "response": "bypass",
+    "exec": "rounds=2 keys=11 hints=0 live=0 archive=11"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_block deep",
+    "method": "trace_block",
+    "ms": 154.19641600000068,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=3 miss=0",
+    "response": "bypass",
+    "exec": "rounds=1 keys=2 hints=0 live=0 archive=0"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getLogs 10 blocks deep",
+    "method": "eth_getLogs",
+    "ms": 140.5706250000003,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByHash recent",
+    "method": "eth_getBlockByHash",
+    "ms": 112.22650000000067,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getLogs 10000 blocks deep, Transfer",
+    "method": "eth_getLogs",
+    "ms": 128.02404100000058,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query matches more than 1000 blocks; narrow the range to 0x233e92-0x2342c0",
+    "credits": 95,
+    "archive": "hit=2 miss=0",
+    "response": "bypass",
+    "exec": null,
+    "params": [
+     {
+      "fromBlock": "0x233e92",
+      "toBlock": "0x2365a1",
+      "topics": [
+       "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getLogs 10000 blocks deep, Transfer",
+    "method": "eth_getLogs",
+    "ms": 154.45487500000127,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 95,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_replayTransaction deep",
+    "method": "trace_replayTransaction",
+    "ms": 507.9417910000011,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 80,
+    "archive": "hit=36 miss=2",
+    "response": "bypass",
+    "exec": "rounds=2 keys=11 hints=0 live=0 archive=11"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionReceipt deep",
+    "method": "eth_getTransactionReceipt",
+    "ms": 399.72620800000186,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=7 miss=9",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceBlockByNumber deep",
+    "method": "debug_traceBlockByNumber",
+    "ms": 997.1219169999986,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=27 miss=0",
+    "response": "bypass",
+    "exec": "rounds=1 keys=12 hints=0 live=0 archive=12"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBlockByHash deep",
+    "method": "eth_getBlockByHash",
+    "ms": 97.56520900000032,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_traceBlockByHash recent",
+    "method": "debug_traceBlockByHash",
+    "ms": 517.6464589999996,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=15 miss=9",
+    "response": "bypass",
+    "exec": "rounds=1 keys=16 hints=0 live=2 archive=14"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_replayBlockTransactions deep",
+    "method": "trace_replayBlockTransactions",
+    "ms": 508.93862499999886,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 80,
+    "archive": "hit=1 miss=0",
+    "response": "bypass",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getBlockReceipts deep",
+    "method": "eth_getBlockReceipts",
+    "ms": 286.807249999998,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_getRawBlock deep",
+    "method": "debug_getRawBlock",
+    "ms": 122.93170800000007,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getBlockByNumber deep full",
+    "method": "eth_getBlockByNumber",
+    "ms": 112.75799999999799,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionByHash recent",
+    "method": "eth_getTransactionByHash",
+    "ms": 111.21929199999795,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "debug_getRawHeader deep",
+    "method": "debug_getRawHeader",
+    "ms": 96.18287500000224,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_traceBlockByHash recent",
+    "method": "debug_traceBlockByHash",
+    "ms": 1155.6052920000002,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=33 miss=0",
+    "response": "bypass",
+    "exec": "rounds=1 keys=9 hints=0 live=2 archive=7"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_replayTransaction deep",
+    "method": "trace_replayTransaction",
+    "ms": 394.708125000001,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 80,
+    "archive": "hit=29 miss=6",
+    "response": "bypass",
+    "exec": "rounds=1 keys=10 hints=0 live=0 archive=10"
+   },
+   {
+    "cls": "deep",
+    "label": "debug_getRawHeader deep",
+    "method": "debug_getRawHeader",
+    "ms": 103.08333300000231,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_transaction deep",
+    "method": "trace_transaction",
+    "ms": 402.80966700000135,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=10 miss=6",
+    "response": "bypass",
+    "exec": "rounds=1 keys=1 hints=0 live=0 archive=0"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_getRawReceipts deep",
+    "method": "debug_getRawReceipts",
+    "ms": 140.0171670000018,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_replayBlockTransactions deep",
+    "method": "trace_replayBlockTransactions",
+    "ms": 184.29533300000185,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 80,
+    "archive": "hit=24 miss=0",
+    "response": "bypass",
+    "exec": "rounds=2 keys=11 hints=0 live=0 archive=11"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getBlockReceipts deep",
+    "method": "eth_getBlockReceipts",
+    "ms": 110.10316699999748,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=3 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_getRawReceipts deep",
+    "method": "debug_getRawReceipts",
+    "ms": 98.68104200000016,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getLogs 10000 blocks deep, Transfer",
+    "method": "eth_getLogs",
+    "ms": 95.02695900000253,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 95,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getBlockReceipts deep",
+    "method": "eth_getBlockReceipts",
+    "ms": 210.6702499999992,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_traceBlockByHash recent",
+    "method": "debug_traceBlockByHash",
+    "ms": 541.3989160000019,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=5 miss=0",
+    "response": "bypass",
+    "exec": "rounds=1 keys=7 hints=0 live=2 archive=5"
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_getRawReceipts recent",
+    "method": "debug_getRawReceipts",
+    "ms": 126.23966699999801,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_replayTransaction deep",
+    "method": "trace_replayTransaction",
+    "ms": 503.94854099999793,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 80,
+    "archive": "hit=5 miss=10",
+    "response": "bypass",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getBlockByNumber deep full",
+    "method": "eth_getBlockByNumber",
+    "ms": 101.21770900000047,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBalance deep",
+    "method": "eth_getBalance",
+    "ms": 477.6628750000018,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=2 miss=1",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceBlockByNumber deep",
+    "method": "debug_traceBlockByNumber",
+    "ms": 170.2455000000009,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=21 miss=0",
+    "response": "bypass",
+    "exec": "rounds=2 keys=11 hints=0 live=0 archive=9"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionByHash deep",
+    "method": "eth_getTransactionByHash",
+    "ms": 360.9265830000004,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=10 miss=6",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_getRawReceipts deep",
+    "method": "debug_getRawReceipts",
+    "ms": 108.55495800000062,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionByHash deep",
+    "method": "eth_getTransactionByHash",
+    "ms": 448.43233300000065,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=13 miss=2",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_traceBlockByHash recent",
+    "method": "debug_traceBlockByHash",
+    "ms": 1088.581209,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=22 miss=5",
+    "response": "bypass",
+    "exec": "rounds=2 keys=16 hints=0 live=4 archive=12"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBlockByHash deep",
+    "method": "eth_getBlockByHash",
+    "ms": 91.97358299999905,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_getRawReceipts recent",
+    "method": "debug_getRawReceipts",
+    "ms": 106.00370900000053,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getBlockReceipts deep",
+    "method": "eth_getBlockReceipts",
+    "ms": 86.38187499999913,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_feeHistory 4 deep",
+    "method": "eth_feeHistory",
+    "ms": 214.84549999999945,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=3 miss=3",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getBlockReceipts recent",
+    "method": "eth_getBlockReceipts",
+    "ms": 106.2756670000017,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getStorageAt deep",
+    "method": "eth_getStorageAt",
+    "ms": 203.93245799999931,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=3 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionByHash deep",
+    "method": "eth_getTransactionByHash",
+    "ms": 430.3627079999969,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=13 miss=2",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_transaction deep",
+    "method": "trace_transaction",
+    "ms": 501.61016700000255,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=16 miss=0",
+    "response": "bypass",
+    "exec": "rounds=1 keys=1 hints=0 live=0 archive=0"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_block deep",
+    "method": "trace_block",
+    "ms": 947.0332079999971,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=10 miss=0",
+    "response": "bypass",
+    "exec": "rounds=1 keys=6 hints=0 live=0 archive=6"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionByHash recent",
+    "method": "eth_getTransactionByHash",
+    "ms": 179.65237499999785,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionReceipt deep",
+    "method": "eth_getTransactionReceipt",
+    "ms": 697.5101250000007,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=11 miss=4",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getStorageAt deep",
+    "method": "eth_getStorageAt",
+    "ms": 215.55495800000062,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceTransaction deep",
+    "method": "debug_traceTransaction",
+    "ms": 1959.2380420000009,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=189 miss=10",
+    "response": "bypass",
+    "exec": "rounds=3 keys=59 hints=0 live=0 archive=58"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_replayTransaction deep",
+    "method": "trace_replayTransaction",
+    "ms": 321.5864169999986,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 80,
+    "archive": "hit=13 miss=2",
+    "response": "bypass",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByHash recent",
+    "method": "eth_getBlockByHash",
+    "ms": 177.79841600000145,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionReceipt recent",
+    "method": "eth_getTransactionReceipt",
+    "ms": 176.7284159999981,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByHash recent",
+    "method": "eth_getBlockByHash",
+    "ms": 303.26624999999694,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_replayTransaction deep",
+    "method": "trace_replayTransaction",
+    "ms": 710.2184159999997,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 80,
+    "archive": "hit=14 miss=2",
+    "response": "bypass",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getLogs 1000 blocks deep",
+    "method": "eth_getLogs",
+    "ms": 405.5428329999995,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query returns more than 10000 logs; narrow the range to 0x3971de-0x39725f",
+    "credits": 50,
+    "archive": "hit=9 miss=0",
+    "response": "bypass",
+    "exec": null,
+    "params": [
+     {
+      "fromBlock": "0x3971de",
+      "toBlock": "0x3975c5"
+     }
+    ]
+   },
+   {
+    "cls": "deep",
+    "label": "debug_getRawHeader deep",
+    "method": "debug_getRawHeader",
+    "ms": 286.3473330000015,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_traceBlockByHash recent",
+    "method": "debug_traceBlockByHash",
+    "ms": 790.4129590000011,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=8 miss=8",
+    "response": "bypass",
+    "exec": "rounds=1 keys=13 hints=0 live=3 archive=10"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionReceipt deep",
+    "method": "eth_getTransactionReceipt",
+    "ms": 420.67504199999894,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=13 miss=2",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getBlockReceipts recent",
+    "method": "eth_getBlockReceipts",
+    "ms": 179.98916699999972,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionCount deep",
+    "method": "eth_getTransactionCount",
+    "ms": 421.84462500000154,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=2 miss=1",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBalance deep",
+    "method": "eth_getBalance",
+    "ms": 352.3288750000029,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=2 miss=1",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionReceipt recent",
+    "method": "eth_getTransactionReceipt",
+    "ms": 1008.7696250000008,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=3 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_getRawReceipts deep",
+    "method": "debug_getRawReceipts",
+    "ms": 976.432208000002,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionByHash deep",
+    "method": "eth_getTransactionByHash",
+    "ms": 524.9667919999993,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=9 miss=6",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_getRawReceipts recent",
+    "method": "debug_getRawReceipts",
+    "ms": 219.43666699999812,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceBlockByNumber deep",
+    "method": "debug_traceBlockByNumber",
+    "ms": 574.7438330000004,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=29 miss=0",
+    "response": "bypass",
+    "exec": "rounds=1 keys=14 hints=0 live=0 archive=14"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_transaction deep",
+    "method": "trace_transaction",
+    "ms": 533.2352500000015,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=9 miss=6",
+    "response": "bypass",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionReceipt recent",
+    "method": "eth_getTransactionReceipt",
+    "ms": 78.81283299999996,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBlockByNumber deep hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 85.03179100000125,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_block deep",
+    "method": "trace_block",
+    "ms": 296.5261250000003,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=16 miss=1",
+    "response": "bypass",
+    "exec": "rounds=2 keys=10 hints=0 live=0 archive=9"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionByHash deep",
+    "method": "eth_getTransactionByHash",
+    "ms": 324.03045900000143,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=15 miss=2",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionReceipt recent",
+    "method": "eth_getTransactionReceipt",
+    "ms": 72.91112500000236,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_replayBlockTransactions deep",
+    "method": "trace_replayBlockTransactions",
+    "ms": 728.6206249999996,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 80,
+    "archive": "hit=60 miss=0",
+    "response": "bypass",
+    "exec": "rounds=3 keys=24 hints=0 live=0 archive=23"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_replayTransaction deep",
+    "method": "trace_replayTransaction",
+    "ms": 528.5214169999999,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 80,
+    "archive": "hit=11 miss=6",
+    "response": "bypass",
+    "exec": "rounds=1 keys=2 hints=0 live=0 archive=0"
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_getRawReceipts recent",
+    "method": "debug_getRawReceipts",
+    "ms": 107.99191599999904,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceBlockByNumber deep",
+    "method": "debug_traceBlockByNumber",
+    "ms": 613.6231670000016,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=1 miss=0",
+    "response": "bypass",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_getRawBlock deep",
+    "method": "debug_getRawBlock",
+    "ms": 94.83270799999809,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "debug_getRawHeader deep",
+    "method": "debug_getRawHeader",
+    "ms": 102.17937499999971,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_transaction deep",
+    "method": "trace_transaction",
+    "ms": 519.859207999998,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=10 miss=6",
+    "response": "bypass",
+    "exec": "rounds=1 keys=1 hints=0 live=0 archive=0"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionByHash recent",
+    "method": "eth_getTransactionByHash",
+    "ms": 94.39154200000121,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getCode deep",
+    "method": "eth_getCode",
+    "ms": 385.04695899999933,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=4 miss=1",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getCode deep",
+    "method": "eth_getCode",
+    "ms": 112.40595899999971,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=2 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionReceipt deep",
+    "method": "eth_getTransactionReceipt",
+    "ms": 261.6481669999994,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=11 miss=4",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_transaction deep",
+    "method": "trace_transaction",
+    "ms": 653.6642079999983,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=12 miss=4",
+    "response": "bypass",
+    "exec": "rounds=2 keys=3 hints=0 live=0 archive=2"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_block deep",
+    "method": "trace_block",
+    "ms": 148.38162499999817,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=3 miss=0",
+    "response": "bypass",
+    "exec": "rounds=1 keys=2 hints=0 live=0 archive=0"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionReceipt recent",
+    "method": "eth_getTransactionReceipt",
+    "ms": 106.22029200000179,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBalance deep",
+    "method": "eth_getBalance",
+    "ms": 206.91908399999738,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=2 miss=1",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getBlockReceipts recent",
+    "method": "eth_getBlockReceipts",
+    "ms": 191.5602080000026,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getLogs 10000 blocks deep, Transfer",
+    "method": "eth_getLogs",
+    "ms": 463.75987499999974,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query matches more than 1000 blocks; narrow the range to 0x297a14-0x297e15",
+    "credits": 95,
+    "archive": "hit=0 miss=2",
+    "response": "bypass",
+    "exec": null,
+    "params": [
+     {
+      "fromBlock": "0x297a14",
+      "toBlock": "0x29a123",
+      "topics": [
+       "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionReceipt recent",
+    "method": "eth_getTransactionReceipt",
+    "ms": 119.12358400000085,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getLogs 10000 blocks deep, Transfer",
+    "method": "eth_getLogs",
+    "ms": 122.37129199999981,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query matches more than 1000 blocks; narrow the range to 0x24110e-0x241524",
+    "credits": 95,
+    "archive": "hit=2 miss=0",
+    "response": "bypass",
+    "exec": null,
+    "params": [
+     {
+      "fromBlock": "0x24110e",
+      "toBlock": "0x24381d",
+      "topics": [
+       "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getLogs 10 blocks deep",
+    "method": "eth_getLogs",
+    "ms": 364.4803329999995,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getBlockReceipts recent",
+    "method": "eth_getBlockReceipts",
+    "ms": 194.61466700000165,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_feeHistory 4 deep",
+    "method": "eth_feeHistory",
+    "ms": 197.00662499999817,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=1 miss=4",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getLogs 10000 blocks deep, Transfer",
+    "method": "eth_getLogs",
+    "ms": 283.286709,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query matches more than 1000 blocks; narrow the range to 0x1870e9-0x1874d7",
+    "credits": 95,
+    "archive": "hit=0 miss=2",
+    "response": "bypass",
+    "exec": null,
+    "params": [
+     {
+      "fromBlock": "0x1870e9",
+      "toBlock": "0x1897f8",
+      "topics": [
+       "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getStorageAt deep",
+    "method": "eth_getStorageAt",
+    "ms": 98.74125000000276,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_block deep",
+    "method": "trace_block",
+    "ms": 299.0898750000015,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=1 miss=0",
+    "response": "bypass",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBlockByNumber deep hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 103.51137500000186,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getLogs 1000 blocks deep",
+    "method": "eth_getLogs",
+    "ms": 439.593958999998,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query returns more than 10000 logs; narrow the range to 0x103895-0x103965",
+    "credits": 50,
+    "archive": "hit=6 miss=3",
+    "response": "bypass",
+    "exec": null,
+    "params": [
+     {
+      "fromBlock": "0x103895",
+      "toBlock": "0x103c7c"
+     }
+    ]
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByHash recent",
+    "method": "eth_getBlockByHash",
+    "ms": 87.40262500000244,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionReceipt recent",
+    "method": "eth_getTransactionReceipt",
+    "ms": 101.80095900000015,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceTransaction deep",
+    "method": "debug_traceTransaction",
+    "ms": 481.03441600000224,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=17 miss=1",
+    "response": "bypass",
+    "exec": "rounds=1 keys=2 hints=0 live=0 archive=0"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_replayBlockTransactions deep",
+    "method": "trace_replayBlockTransactions",
+    "ms": 252.37325000000055,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 80,
+    "archive": "hit=21 miss=0",
+    "response": "bypass",
+    "exec": "rounds=2 keys=11 hints=0 live=0 archive=9"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceTransaction deep",
+    "method": "debug_traceTransaction",
+    "ms": 743.8103750000009,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=8 miss=8",
+    "response": "bypass",
+    "exec": "rounds=1 keys=1 hints=0 live=0 archive=0"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_feeHistory 4 deep",
+    "method": "eth_feeHistory",
+    "ms": 205.96754099999816,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=4 miss=1",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceTransaction deep",
+    "method": "debug_traceTransaction",
+    "ms": 792.6521659999999,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=15 miss=2",
+    "response": "bypass",
+    "exec": "rounds=1 keys=1 hints=0 live=0 archive=0"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_transaction deep",
+    "method": "trace_transaction",
+    "ms": 365.5406670000011,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=12 miss=4",
+    "response": "bypass",
+    "exec": "rounds=1 keys=1 hints=0 live=0 archive=0"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_feeHistory 4 deep",
+    "method": "eth_feeHistory",
+    "ms": 173.94558300000062,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_getRawReceipts deep",
+    "method": "debug_getRawReceipts",
+    "ms": 113.11787499999991,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionCount deep",
+    "method": "eth_getTransactionCount",
+    "ms": 161.48566700000083,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=1",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getBlockByNumber deep full",
+    "method": "eth_getBlockByNumber",
+    "ms": 113.11554199999955,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_replayTransaction deep",
+    "method": "trace_replayTransaction",
+    "ms": 517.1797910000023,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 80,
+    "archive": "hit=13 miss=2",
+    "response": "bypass",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_getRawReceipts recent",
+    "method": "debug_getRawReceipts",
+    "ms": 115.44483300000138,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getLogs 10000 blocks deep, Transfer",
+    "method": "eth_getLogs",
+    "ms": 120.74604099999851,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query matches more than 1000 blocks; narrow the range to 0x394eb6-0x39537c",
+    "credits": 95,
+    "archive": "hit=2 miss=0",
+    "response": "bypass",
+    "exec": null,
+    "params": [
+     {
+      "fromBlock": "0x394eb6",
+      "toBlock": "0x3975c5",
+      "topics": [
+       "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "deep",
+    "label": "eth_feeHistory 4 deep",
+    "method": "eth_feeHistory",
+    "ms": 236.76991700000144,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=1 miss=4",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_getRawBlock deep",
+    "method": "debug_getRawBlock",
+    "ms": 121.61049999999886,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBlockByNumber deep hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 95.27291600000171,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getBlockReceipts recent",
+    "method": "eth_getBlockReceipts",
+    "ms": 152.17062499999884,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getLogs 10 blocks deep",
+    "method": "eth_getLogs",
+    "ms": 293.9858749999985,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=0 miss=1",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getBlockReceipts deep",
+    "method": "eth_getBlockReceipts",
+    "ms": 136.4529169999987,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getBlockReceipts recent",
+    "method": "eth_getBlockReceipts",
+    "ms": 111.89533400000073,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBlockByNumber deep hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 95.76620799999728,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getCode deep",
+    "method": "eth_getCode",
+    "ms": 103.95966600000247,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBalance deep",
+    "method": "eth_getBalance",
+    "ms": 116.87116599999717,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_getRawReceipts deep",
+    "method": "debug_getRawReceipts",
+    "ms": 107.66687499999898,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getLogs 1000 blocks deep",
+    "method": "eth_getLogs",
+    "ms": 350.1004589999975,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query returns more than 10000 logs; narrow the range to 0x1e7319-0x1e7342",
+    "credits": 50,
+    "archive": "hit=9 miss=0",
+    "response": "bypass",
+    "exec": null,
+    "params": [
+     {
+      "fromBlock": "0x1e7319",
+      "toBlock": "0x1e7700"
+     }
+    ]
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBlockByNumber deep hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 144.22441700000127,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=3 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_block deep",
+    "method": "trace_block",
+    "ms": 1459.8942080000015,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=43 miss=0",
+    "response": "bypass",
+    "exec": "rounds=2 keys=8 hints=0 live=0 archive=8"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "trace_replayBlockTransactions deep",
+    "method": "trace_replayBlockTransactions",
+    "ms": 809.0912089999983,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 80,
+    "archive": "hit=1 miss=0",
+    "response": "bypass",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getStorageAt deep",
+    "method": "eth_getStorageAt",
+    "ms": 108.00775000000067,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=3 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getBlockReceipts deep",
+    "method": "eth_getBlockReceipts",
+    "ms": 146.83495799999946,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_getRawReceipts recent",
+    "method": "debug_getRawReceipts",
+    "ms": 94.83599999999933,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getLogs 10000 blocks deep, Transfer",
+    "method": "eth_getLogs",
+    "ms": 131.79745899999762,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query matches more than 1000 blocks; narrow the range to 0x1e4ff1-0x1e53e7",
+    "credits": 95,
+    "archive": "hit=2 miss=0",
+    "response": "bypass",
+    "exec": null,
+    "params": [
+     {
+      "fromBlock": "0x1e4ff1",
+      "toBlock": "0x1e7700",
+      "topics": [
+       "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getLogs 10 blocks deep",
+    "method": "eth_getLogs",
+    "ms": 270.73258299999725,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=0 miss=1",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getBlockByNumber deep full",
+    "method": "eth_getBlockByNumber",
+    "ms": 90.96608399999968,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_getRawReceipts recent",
+    "method": "debug_getRawReceipts",
+    "ms": 194.93962499999907,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_getRawBlock deep",
+    "method": "debug_getRawBlock",
+    "ms": 181.44624999999724,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceTransaction deep",
+    "method": "debug_traceTransaction",
+    "ms": 402.4383340000022,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=13 miss=2",
+    "response": "bypass",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "debug_getRawHeader deep",
+    "method": "debug_getRawHeader",
+    "ms": 107.62020900000061,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getStorageAt deep",
+    "method": "eth_getStorageAt",
+    "ms": 146.20537499999773,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=1",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionByHash recent",
+    "method": "eth_getTransactionByHash",
+    "ms": 102.82012499999837,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_getRawReceipts recent",
+    "method": "debug_getRawReceipts",
+    "ms": 114.42987500000163,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBlockByHash deep",
+    "method": "eth_getBlockByHash",
+    "ms": 331.60041700000147,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=13 miss=2",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceTransaction deep",
+    "method": "debug_traceTransaction",
+    "ms": 346.61675000000105,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=10 miss=6",
+    "response": "bypass",
+    "exec": "rounds=1 keys=1 hints=0 live=0 archive=0"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getStorageAt deep",
+    "method": "eth_getStorageAt",
+    "ms": 123.96479199999885,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionByHash recent",
+    "method": "eth_getTransactionByHash",
+    "ms": 96.93004099999962,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionReceipt deep",
+    "method": "eth_getTransactionReceipt",
+    "ms": 348.62533400000393,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=13 miss=2",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_traceBlockByHash recent",
+    "method": "debug_traceBlockByHash",
+    "ms": 127.68620799999917,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=0 miss=0",
+    "response": "bypass",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBlockByHash deep",
+    "method": "eth_getBlockByHash",
+    "ms": 301.718832999999,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=13 miss=2",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getStorageAt deep",
+    "method": "eth_getStorageAt",
+    "ms": 105.93645899999683,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss immutable",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getBlockReceipts recent",
+    "method": "eth_getBlockReceipts",
+    "ms": 92.80279200000223,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getLogs 10 blocks deep",
+    "method": "eth_getLogs",
+    "ms": 205.48533300000418,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionReceipt deep",
+    "method": "eth_getTransactionReceipt",
+    "ms": 430.4067500000019,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=7 miss=8",
+    "response": "miss immutable",
+    "exec": null
+   }
+  ],
+  "user": [],
+  "stress": {}
+ },
+ "stress": [],
+ "economics": {
+  "mixCredits": 20,
+  "plans": {
+   "public": {
+    "price": 0,
+    "included": 10000000,
+    "rps": 10
+   },
+   "free": {
+    "price": 0,
+    "included": 20000000,
+    "rps": 20
+   },
+   "builder": {
+    "price": 19,
+    "included": 600000000,
+    "rps": 250
+   },
+   "growth": {
+    "price": 89,
+    "included": 3000000000,
+    "rps": 1000
+   },
+   "scale": {
+    "price": 599,
+    "included": 20000000000,
+    "rps": 3000
+   }
+  }
+ }
+}

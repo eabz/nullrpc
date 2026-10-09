@@ -36,10 +36,12 @@ type livePointers struct {
 	Generation uint64   `json:"generation"`
 	WrittenAt  string   `json:"written_at"`
 	// Blocks lists the window's newest blocks (first..head, hashes in order), whose records are
-	// live/records/{number}-{hash}.bin; TxIndex names their transaction index (daemon_records.go).
-	// Both are left out when the window is unknown (a daemon without one, as in tests).
-	Blocks  *liveBlocks `json:"blocks,omitempty"`
-	TxIndex *ObjectRef  `json:"tx_index,omitempty"`
+	// live/records/{number}-{hash}.bin; TxIndex names their transaction index and LogBlooms
+	// their header logs blooms (daemon_records.go). All are left out when the window is unknown
+	// (a daemon without one, as in tests).
+	Blocks    *liveBlocks `json:"blocks,omitempty"`
+	TxIndex   *ObjectRef  `json:"tx_index,omitempty"`
+	LogBlooms *ObjectRef  `json:"log_blooms,omitempty"`
 }
 
 // pointers snapshots the live window's pointers as the daemon knows them.
@@ -63,11 +65,12 @@ func (d *daemon) publishPointers() {
 	if doc.Head == nil || doc.Promoted == nil {
 		return
 	}
-	// The records were written before their blocks reached the live Worker; the index goes
-	// before the pointers that name it.
+	// The records were written before their blocks reached the live Worker; the index and the
+	// blooms go before the pointers that name them.
 	blocks, entries := d.window.snapshot(*doc.Head, doc.Promoted.Number)
 	doc.Blocks = &blocks
 	doc.TxIndex = d.publishIndex(blocks, *doc.Head, entries)
+	doc.LogBlooms = d.publishBlooms(blocks, *doc.Head)
 	data, err := json.Marshal(doc)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "{\"live_pointers_error\":%q}\n", err.Error())

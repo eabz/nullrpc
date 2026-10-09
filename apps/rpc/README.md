@@ -49,15 +49,20 @@ at the head reaches the state shards once per data center per block ([docs/stora
 
 ## eth_getLogs
 
-The log index (`src/archive/logindex.ts`) narrows an archived range to candidate blocks; every
-candidate is read and filtered exactly, and live-window blocks are read directly. A query runs
+The log index (`src/archive/logindex.ts`) narrows an archived range to candidate blocks, and the
+header logs blooms the daemon publishes with the live window (`log_blooms` in `live/HEAD.json`,
+docs/storage.md "Live records") narrow the live-window range the same way, one object read per
+isolate and head; every candidate is read and filtered exactly. A query runs
 under fixed limits (`src/methods/logs.ts`): a span of at most 10,000 blocks (`MAX_RANGE`),
-at most 1,000 blocks read after narrowing (`MAX_BLOCKS`, candidates and live-window blocks
+at most 1,000 blocks read after narrowing (`MAX_BLOCKS`, archived and live-window candidates
 together), at most 10,000 logs (`MAX_LOGS`) and a budget of 256 archive reads (`READ_BUDGET`:
 index records and frames, offsets pages and block runs, each one range read). The budget keeps a
 request well inside the Worker's per-request Cache API limit, so a wide query is refused rather
-than cut off with an HTTP 503. Live-window blocks are one live call each (no Cache API), 16 in
-flight, bounded by `MAX_BLOCKS`.
+than cut off with an HTTP 503. Live-window candidates are one record read each (R2 through the
+edge cache when the pin came from `live/HEAD.json`, else the live Worker; no Cache API), 16 in
+flight, bounded by `MAX_BLOCKS`; their raw records go through the same frame extraction as
+archived blocks, so nothing of a record is decoded beyond its accepted logs. Without blooms (an
+older daemon, or a pin taken from the live Worker after a reorg) every live block is a candidate.
 
 Reads are planned before they are issued: the index cost follows from the manifest (a small index
 object is read whole, two reads whatever the filter; a large one costs two reads per field value
@@ -125,7 +130,7 @@ reports them in two headers (exposed to browsers through `access-control-expose-
 
 | Header | Values | Meaning |
 |---|---|---|
-| `x-nullrpc-archive-cache` | `hit=N miss=M` | Archive object reads this request sent to the edge cache (`src/archive/cached.ts`). Every archive object except `HEAD.json` is immutable and content-addressed, so each range read (`key`, `offset`, `length`) and whole-object read is stored for a day under a synthetic URL `/_cache/archive/v1/<key>?o=<offset>&l=<length>`. `HEAD.json` always goes to R2 and is not counted. Reads answered by the isolate's own memory (parsed manifests, offsets pages) never reach this cache and are not counted either. |
+| `x-nullrpc-archive-cache` | `hit=N miss=M` | Archive object reads this request sent to the edge cache (`src/archive/cached.ts`). Every archive object except `HEAD.json` is immutable and content-addressed, so each range read (`key`, `offset`, `length`) and whole-object read is stored for a day under a synthetic URL `/_cache/archive/v1/<key>?o=<offset>&l=<length>`. `HEAD.json` always goes to R2 and is not counted. Reads answered by the isolate's own memory (parsed manifests, offsets pages, hash index directory pages, and the verified locations of hashes looked up before, which skip the live window and the index) never reach this cache and are not counted either. Methods that need no receipts (blocks, headers, transactions, raw blocks) read a layout-2 block's frame alone; receipts read both frames. |
 | `x-nullrpc-exec` | `rounds=N keys=K hints=H live=L archive=A` | Present when the request executed something: read rounds (calls of the executor's state source), the keys they asked for, keys answered ahead of the first round from witnesses, and of all keys read how many the live window answered and how many the state history did (counting the isolate's value cache). |
 | `x-nullrpc-response-cache` | `hit immutable`, `hit head`, `miss immutable`, `miss head`, `miss` or `bypass`; for a batch `hit=N miss=M bypass=K immutable=I head=H` | The per-item answer cache (`src/response-cache.ts`), in two tiers, each kept in the isolate (8 MiB, answers up to 128 KiB) and at the edge. **immutable**: a successful result whose every block is at or below the pinned archive tip P, stored for a day under the chain id, method and canonical parameters. **head**: a successful result that depends on blocks above P up to the pinned head, stored for 60 s under the pinned head's number and hash as well: tags resolve to numbers first, so `latest` is a head entry above P and an immutable one at P. The tier after `miss` is where the fresh answer was stored; a bare `miss` was not stored (a `null` answer to a lookup by hash, a block above the head, or a reorg that re-pinned the head during the call). `bypass` is everything else: blocks below the archive's first block, errors, `eth_getLogs` with `blockHash`, `eth_call` with state overrides, and methods outside the table (`eth_chainId`, `eth_sendRawTransaction`, tracing, `debug_codeByHash`, …). |
 

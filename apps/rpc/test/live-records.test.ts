@@ -5,10 +5,10 @@
 // isolate caches start empty here; the first test reads block 23,000,001 from the bucket, and
 // the second has block 23,000,000, which no earlier test touched, missing from it.
 
-import { describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test } from "vitest";
 import { Archive, sha256 } from "../src/archive/archive";
 import { MemorySource } from "../src/archive/source";
-import { Chain } from "../src/chain";
+import { Chain, hashLocations } from "../src/chain";
 import type { BlockId, LiveApi, LiveState } from "../src/live";
 import { Live, liveRecordKey, POINTERS_KEY, TxTable } from "../src/live";
 import { METHODS } from "../src/methods";
@@ -146,6 +146,10 @@ async function open(api: LiveApi, opts: DocOptions = {}) {
 }
 const recordReads = (source: MemorySource) => source.reads.filter((r) => r.key.includes("/live/records/")).map((r) => r.key);
 const liveTx = (f: Fixture, i: number) => f.block.transactions[i] as { hash: string };
+
+// These tests count the binding's calls for archived hashes, which the isolate's verified
+// locations (src/chain.ts) would otherwise answer after the first test.
+beforeEach(() => hashLocations.clear());
 
 describe("live records in R2", () => {
   test("blocks by number and by hash come from the records, not from the live Worker", async () => {

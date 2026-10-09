@@ -148,6 +148,8 @@ export interface ArchiveOptions {
   extra?: (b: Builder) => Record<string, unknown>;
   /** Segment layout (storage.md, "Block bundles"): 2 (the default, what the daemon writes) or 1 (older generations). */
   layout?: 1 | 2;
+  /** The generation number (default 1). */
+  generation?: number;
 }
 
 export function buildArchive(fixtures: Fixture[], opts: ArchiveOptions = {}): Map<string, Uint8Array> {
@@ -194,10 +196,11 @@ export function buildArchive(fixtures: Fixture[], opts: ArchiveOptions = {}): Ma
   ];
   const tip = fixtures.at(-1)!.block;
   const config = b.putJson("config/genesis.json", { config: MAINNET_CONFIG, alloc: {} });
-  const manifest = b.putJson("manifests/00000000000000000001-test.json", {
+  const generation = opts.generation ?? 1;
+  const manifest = b.putJson(`manifests/${String(generation).padStart(20, "0")}-test.json`, {
     format: "nullrpc-archive",
     version: 1,
-    generation: 1,
+    generation,
     chain: { id: 1, network_id: "1", genesis_hash: "0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3" },
     config,
     first_block: 0,
@@ -212,7 +215,7 @@ export function buildArchive(fixtures: Fixture[], opts: ArchiveOptions = {}): Ma
     created_at: "2026-10-08T00:00:00Z",
     ...(opts.extra ? opts.extra(b) : {}),
   });
-  b.putJson("HEAD.json", { version: 1, generation: 1, manifest });
+  b.putJson("HEAD.json", { version: 1, generation, manifest });
   return b.objects;
 }
 
