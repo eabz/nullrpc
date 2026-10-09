@@ -1,0 +1,112 @@
+{
+ "debug_traceCall callTracer": {
+  "n": 7,
+  "cpuP50": 64,
+  "cpuP95": 1022,
+  "cpuMean": 347.57142857142856,
+  "cpuTotal": 2433,
+  "wallP50": 1876,
+  "outcomes": {
+   "ok": 7
+  }
+ },
+ "eth_call real calldata latest": {
+  "n": 8,
+  "cpuP50": 76,
+  "cpuP95": 429,
+  "cpuMean": 188.125,
+  "cpuTotal": 1505,
+  "wallP50": 979,
+  "outcomes": {
+   "ok": 8
+  }
+ },
+ "eth_estimateGas real calldata": {
+  "n": 10,
+  "cpuP50": 63,
+  "cpuP95": 337,
+  "cpuMean": 122.3,
+  "cpuTotal": 1223,
+  "wallP50": 1317,
+  "outcomes": {
+   "ok": 10
+  }
+ },
+ "trace_call": {
+  "n": 7,
+  "cpuP50": 86,
+  "cpuP95": 240,
+  "cpuMean": 103,
+  "cpuTotal": 721,
+  "wallP50": 1265,
+  "outcomes": {
+   "ok": 7
+  }
+ },
+ "debug_traceCall replay at n-1": {
+  "n": 5,
+  "cpuP50": 147,
+  "cpuP95": 362,
+  "cpuMean": 135.8,
+  "cpuTotal": 679,
+  "wallP50": 358,
+  "outcomes": {
+   "ok": 5
+  }
+ },
+ "eth_estimateGas transfer": {
+  "n": 7,
+  "cpuP50": 27,
+  "cpuP95": 295,
+  "cpuMean": 94.57142857142857,
+  "cpuTotal": 662,
+  "wallP50": 355,
+  "outcomes": {
+   "ok": 7
+  }
+ },
+ "eth_call replay at n-1": {
+  "n": 3,
+  "cpuP50": 215,
+  "cpuP95": 230,
+  "cpuMean": 200.66666666666666,
+  "cpuTotal": 602,
+  "wallP50": 780,
+  "outcomes": {
+   "ok": 3
+  }
+ },
+ "eth_estimateGas replay at n-1": {
+  "n": 5,
+  "cpuP50": 42,
+  "cpuP95": 239,
+  "cpuMean": 103.8,
+  "cpuTotal": 519,
+  "wallP50": 396,
+  "outcomes": {
+   "ok": 5
+  }
+ },
+ "(untagged)": {
+  "n": 56,
+  "cpuP50": 7,
+  "cpuP95": 19,
+  "cpuMean": 8.303571428571429,
+  "cpuTotal": 465,
+  "wallP50": 307,
+  "outcomes": {
+   "ok": 56
+  }
+ },
+ "eth_call balanceOf": {
+  "n": 5,
+  "cpuP50": 38,
+  "cpuP95": 76,
+  "cpuMean": 31.6,
+  "cpuTotal": 158,
+  "wallP50": 554,
+  "outcomes": {
+   "ok": 5
+  }
+ }
+}

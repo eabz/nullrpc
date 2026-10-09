@@ -1,0 +1,9 @@
+call eth_call [{"to":"0x352aee9651e30b5fb0f770d7f4a0000c4a80e7fd","data":"0x70a082310000000000…; 6 blocks
+block | cold ms | warm ms | cold exec | cold archive-cache | error
+3785386 | 781 | 3 | rounds=1 keys=4 hints=168 live=4 archive=12 | hit=3 miss=4 | 
+3785387 | 1203 | 5 | rounds=2 keys=5 hints=100 live=4 archive=6 | hit=4 miss=2 | 
+3785388 | 1131 | 4 | rounds=1 keys=4 hints=995 live=4 archive=17 | hit=0 miss=5 | 
+3785389 | 2181 | 222 | rounds=1 keys=4 hints=1021 live=4 archive=19 | hit=1 miss=11 | 
+3785390 | 1334 | 129 | rounds=1 keys=4 hints=213 live=4 archive=22 | hit=2 miss=10 | 
+3785391 | 1511 | 4 | rounds=2 keys=5 hints=137 live=4 archive=15 | hit=0 miss=1 | 
+cold: p50 1203ms mean 1357ms; warm: p50 4ms mean 61ms
