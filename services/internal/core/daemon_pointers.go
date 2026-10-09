@@ -48,8 +48,8 @@ type livePointers struct {
 func (d *daemon) pointers(now time.Time) livePointers {
 	doc := livePointers{Version: 1, Head: d.liveHead.Load(), Promoted: d.promoted.Load(), Generation: d.generation.Load(), WrittenAt: now.UTC().Format(time.RFC3339Nano)}
 	if doc.Head != nil {
-		doc.Safe = capAt(d.safe.Load(), doc.Head.Number)
-		doc.Finalized = capAt(d.finalized.Load(), doc.Head.Number)
+		doc.Safe = capAt(d.safe.Load(), doc.Head)
+		doc.Finalized = capAt(d.finalized.Load(), doc.Head)
 	}
 	return doc
 }

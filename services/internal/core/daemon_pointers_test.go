@@ -30,7 +30,8 @@ func TestLivePointersDocument(t *testing.T) {
 		"version":    float64(1),
 		"head":       map[string]any{"number": float64(120), "hash": "0xaa"},
 		"safe":       map[string]any{"number": float64(100), "hash": "0xbb"},
-		"finalized":  nil,
+		// Finalized past the head (the daemon catching up): reported as the head.
+		"finalized":  map[string]any{"number": float64(120), "hash": "0xaa"},
 		"promoted":   map[string]any{"number": float64(64), "hash": "0xdd"},
 		"generation": float64(7),
 		"written_at": "2026-10-09T12:00:00.5Z",
@@ -45,7 +46,7 @@ func TestLivePointersDocument(t *testing.T) {
 	}
 	// The pointers go through as the Worker's LiveState reads them.
 	var back livePointers
-	if err := json.Unmarshal(data, &back); err != nil || *back.Head != head || back.Finalized != nil || *back.Promoted != p {
+	if err := json.Unmarshal(data, &back); err != nil || *back.Head != head || back.Finalized == nil || *back.Finalized != head || *back.Promoted != p {
 		t.Fatalf("round trip: %+v, %v", back, err)
 	}
 }

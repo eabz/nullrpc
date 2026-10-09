@@ -504,7 +504,8 @@ func (d *daemon) flush(all bool) error {
 		}
 		// Records first: live/HEAD.json names a block only once its record is in R2.
 		d.putRecords(blocks)
-		if err := d.live.writeGroups(batch, d.shards, capAt(safe, head.Number), capAt(fin, head.Number), d.network.Load()); err != nil {
+		headID := head.id()
+		if err := d.live.writeGroups(batch, d.shards, capAt(safe, &headID), capAt(fin, &headID), d.network.Load()); err != nil {
 			return err
 		}
 		for _, g := range batch {
@@ -522,9 +523,18 @@ func (d *daemon) flush(all bool) error {
 	return nil
 }
 
-func capAt(b *BlockID, head uint64) *BlockID {
-	if b == nil || b.Number > head {
+// capAt is a chain pointer (safe, finalized) as the live window may hold it: the pointer itself
+// when it is at or below the head, else the head. A node finalized past the daemon's head (the
+// daemon catching up) has finalized the head too, so the head is finalized; dropping the
+// pointer instead would leave the live window without one for the whole catch-up (no finalized
+// block in /status.json, no promotion schedule on the status page).
+func capAt(b *BlockID, head *BlockID) *BlockID {
+	if b == nil || head == nil {
 		return nil
+	}
+	if b.Number > head.Number {
+		h := *head
+		return &h
 	}
 	return b
 }
