@@ -602,10 +602,28 @@ func witnessStage(w *workDir) error {
 		executed.Add(1)
 		return nil
 	}
+	// Segments complete in bursts; a progress line every 30 s shows the stage is alive.
+	stopProgress := make(chan struct{})
+	go func() {
+		t := time.NewTicker(30 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-stopProgress:
+				return
+			case <-t.C:
+				done := executed.Load()
+				rate := float64(done) / time.Since(started).Seconds()
+				fmt.Fprintf(os.Stderr, "{\"witness_progress\":%d,\"blocks_per_s\":%.0f,\"eta_s\":%.0f}\n",
+					done, rate, float64(plan.bound+1-segments[0][0]-done)/max(rate, 1e-9))
+			}
+		}
+	}()
 	err = runWitnessJobs(exec, witnessJobs(segments, witnessRun), w.opts.execWorkers, onWitness, func(seg int) error {
 		ready <- seg
 		return nil
 	})
+	close(stopProgress)
 	close(ready)
 	<-writerDone
 	if err != nil {
