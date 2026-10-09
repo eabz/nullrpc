@@ -310,6 +310,13 @@ func openWork(work, datadir, rpcURL, genesisPath string, concurrency int) (*work
 	if err != nil {
 		return nil, err
 	}
+	// The datadir and the RPC must be the same chain: stages read both.
+	if id, genesis, err := datadirChain(context.Background(), w.datadir); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: cannot read the chain of %s (%v); not checked against the RPC\n", w.datadir, err)
+	} else if id != chainID || "0x"+namespace[len(namespace)-64:] != genesis {
+		return nil, fmt.Errorf("the datadir %s is chain %d (genesis %s), but the RPC at %s is chain %d (genesis 0x%s); pass --rpc for the node that owns the datadir",
+			w.datadir, id, genesis, w.rpc.url, chainID, namespace[len(namespace)-64:])
+	}
 	w.namespace = namespace
 	if genesisPath != "" {
 		w.genesis, err = os.ReadFile(genesisPath)

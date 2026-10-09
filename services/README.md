@@ -35,7 +35,7 @@ JSON-RPC on localhost.
 ### Build
 
 ```bash
-cd services && go build -trimpath -o backfill ./cmd/backfill
+cd services && go build -trimpath -o bin/ ./cmd/backfill
 ```
 
 ### Credentials
@@ -56,14 +56,14 @@ mkdir -p /mnt/nullrpc/work && cd /mnt/nullrpc/work
 ```
 
 ```bash
-/path/to/backfill --datadir /mnt/erigon --pre-byzantium-receipts=status --stream
+bin/backfill --datadir /mnt/erigon --pre-byzantium-receipts=status --stream
 ```
 
 The run is resumable: every stage writes its output to the work directory, and a rerun starts
 at the first unfinished stage. Check progress from another shell:
 
 ```bash
-/path/to/backfill status
+bin/backfill status
 ```
 
 | Flag | Default | Use |
@@ -114,7 +114,7 @@ R2, while the node still holds block `B+1` and the state at `B`.
 ### Build
 
 ```bash
-cd services && go build -trimpath -o daemon ./cmd/daemon
+cd services && go build -trimpath -o bin/ ./cmd/daemon
 ```
 
 ### Credentials

@@ -66,6 +66,40 @@ type erigonDB struct {
 	chain  *chain.Config
 }
 
+// datadirChain reads the chain ID and genesis hash recorded in a datadir's chaindata,
+// read-only, so a run can check that the datadir and the RPC belong to the same chain.
+func datadirChain(ctx context.Context, path string) (uint64, string, error) {
+	logger := log.New()
+	logger.SetHandler(log.LvlFilterHandler(log.LvlWarn, log.StderrHandler))
+	dirs := datadir.Open(path)
+	if _, err := os.Stat(filepath.Join(dirs.Chaindata, "mdbx.dat")); err != nil {
+		return 0, "", err
+	}
+	db, err := kvmdbx.New(dbcfg.ChainDB, logger).Path(dirs.Chaindata).Accede(true).Readonly(true).Open(ctx)
+	if err != nil {
+		return 0, "", fmt.Errorf("open chaindata read-only: %w", err)
+	}
+	defer db.Close()
+	var id uint64
+	var hash string
+	err = db.View(ctx, func(tx ekv.Tx) error {
+		genesis, err := rawdb.ReadCanonicalHash(tx, 0)
+		if err != nil {
+			return err
+		}
+		cfg, err := rawdb.ReadChainConfig(tx, genesis)
+		if err != nil {
+			return err
+		}
+		if cfg == nil || cfg.ChainID == nil {
+			return errors.New("chain config not found in chaindata")
+		}
+		id, hash = cfg.ChainID.Uint64(), strings.ToLower(genesis.Hex())
+		return nil
+	})
+	return id, hash, err
+}
+
 // openErigonDB opens datadir next to the running node, read-only.
 func openErigonDB(ctx context.Context, path string) (*erigonDB, error) {
 	logger := log.New()

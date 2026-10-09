@@ -3,5 +3,4 @@ node_modules/
 .dev.vars
 .DS_Store
 .secrets/
-services/backfill
-services/daemon
+services/bin/
