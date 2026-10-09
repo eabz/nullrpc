@@ -244,11 +244,12 @@ filter, so results equal a full scan.
 
 ### Index tiers
 
-Promotion adds one hash index object and one log index object per batch. When four contiguous
-objects are of the same level, they merge into one object of the next level ("Compaction"
-below says which four). An object's level follows from its span: level ℓ covers at least
-`batch × 4^ℓ` blocks. The backfill's object is a base below all levels. The index therefore
-has a few objects per level, and a lookup reads every object in parallel.
+Promotion adds one hash index object and one log index object per batch. Compaction merges
+adjacent objects two at a time so that at most `max_objects` (6) sit above the backfill's base
+object, with spans that stay roughly geometric ("Compaction" below). An object's level is
+informational and follows from its span: level ℓ covers at least `batch × 4^ℓ` blocks; the base
+is below all levels. A lookup reads every object in parallel, so it costs about one round of
+range reads.
 
 ### State history
 
@@ -316,14 +317,13 @@ same round.
 before `n`, in parallel. Search the layers whose filter accepts the key, newest first; the first
 layer with an entry at or before `n` answers. If none does, the key was absent or zero at `n`.
 
-**Tiers.** Promotion writes one level-0 layer per batch. When four contiguous layers of one
-level exist, they merge into one layer of the next level ("Compaction" below says which four).
-A level-ℓ layer covers `batch × 4^ℓ` blocks, there
-is no top level, and the backfill's layer is a base below all levels. At 256 blocks per batch,
-the history reaches level 9 (67 million blocks, about 25 years) with at most 3 layers per level:
-a lookup reads at most about 28 filter blocks in one round and two pages after it. The daemon
-runs merges one at a time between promotions; each publishes its own generation, which replaces
-the merged layers and keeps every block.
+**Tiers.** Promotion writes one level-0 layer per batch. Compaction merges adjacent layers two
+at a time so that at most `max_objects` (6) sit above the backfill's base layer, with spans that
+stay roughly geometric ("Compaction" below). A layer's level is informational and follows from
+its span (level ℓ covers at least `batch × 4^ℓ` blocks); the base is below all levels. A lookup
+therefore reads at most 7 filter blocks in one round and two pages after it, however long the
+chain runs. The daemon runs merges one at a time between promotions; each publishes its own
+generation, which replaces the merged layers and keeps every block.
 
 ### Witnesses
 
@@ -544,18 +544,28 @@ blocks' diffs, the manifest and `HEAD.json`. That is tens of objects an hour.
 Between promotions the daemon compacts, one step at a time, each step publishing its own
 generation:
 
-1. four contiguous state layers of one level, none the base, into one layer of the next level;
-2. four contiguous hash index objects, then log index objects, likewise;
+1. two adjacent state layers, neither the base, into one;
+2. two adjacent hash index objects, then log index objects, likewise;
 3. a chunk that is complete and has more than one segment: its segments into one, and its
    witness ranges into one.
 
-**Which four.** Any run of four qualifies, not only the newest: the daemon takes the run of the
-lowest level, and the oldest such run. The merged object replaces the four in place, so the
-manifest's lists stay ordered by first block. Promotions smaller than a batch (`max_age`)
-multiply level-0 objects, and a merged object in the middle of the list must not strand the
-objects around it; while the daemon idles, the backlog folds from the oldest end until no four
-contiguous objects share a level. What remains is a few objects per level, plus any object
-whose level-mates are not adjacent to it (the daemon merges objects of one level only).
+**Which two.** The Worker reads every layer and index object in parallel and runs about six
+subrequests at a time, so the count above the base is what a lookup costs. The daemon picks:
+
+- the adjacent pair with the smallest combined span, when that is at most a batch: the small
+  objects that `max_age` promotions write (32 to 64 blocks against a batch of 256) fold into
+  their neighbour at once, before they count;
+- otherwise, while more than `max_objects` (6, `--max-objects`) objects sit above the base, the
+  adjacent pair whose spans are closest (the lowest larger/smaller ratio); ties go to the
+  smaller pair.
+
+The merged object replaces the pair in place, so the lists stay ordered by first block and
+contiguous. The spans then stay roughly geometric: a promotion leaves at most `max_objects + 1`
+objects, and the merge that follows brings the count back to the cap, usually by folding the
+two newest. Each block is rewritten about log2 of the history above the base, in blocks, over
+batch times: 10 to 25 times over the life of a chain. The oldest object above the base holds
+most of that history and is rewritten once each time it doubles; that is the largest merge and
+it never touches the base, which is never rewritten.
 
 Merges read the objects they replace from R2 (no egress fees). The replaced objects are deleted 7
 days after the generation that dropped them; manifests are kept.
