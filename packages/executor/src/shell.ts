@@ -44,16 +44,16 @@ export const MAX_ROUNDS = 300;
 /** Wall-clock budget of one request: a hard stop, every wait of the loop races it. */
 export const TIMEOUT_MS = 25_000;
 const TIMED_OUT = Symbol("timed out");
-/** A round that ran this long is followed by a turn of the event loop before the next one. */
-const YIELD_AFTER_MS = 10;
 /** Methods that run a call on a block's post-state, where the source's hints apply. */
 const CALL_METHODS = new Set(["eth_call", "eth_estimateGas", "eth_createAccessList", "debug_traceCall", "trace_call"]);
 
 /**
  * A turn of the event loop. A round is synchronous: nothing else in the isolate runs during it.
  * Between rounds the state reads are awaited (I/O, so other requests proceed), except when the
- * caches answer every key; a long round is then followed by an explicit turn, so one slow
- * request with warm caches still lets the isolate's other requests make progress.
+ * caches answer every key; such a round is followed by an explicit turn, so one request with
+ * warm caches and many rounds still lets the isolate's other requests make progress. (The
+ * turn is decided by whether the round read anything, not by the clock: a Worker's clock does
+ * not move during synchronous code, so a round never looks slow from inside.)
  */
 const yieldNow = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
@@ -100,9 +100,17 @@ const stateCache = new Lru<StateValue>(16 * 1024 * 1024);
 const profileCache = new Lru<StateKey[]>(8 * 1024 * 1024);
 /** Keys a profile keeps (the executor reads at most 1024 per call). */
 const MAX_PROFILE_KEYS = 1024;
-/** A call with this many read rounds (after the hints round) teaches its profile; a call that ran
- *  on what it was handed does not, and keeps the profile that made it so. */
-const PROFILE_AFTER_ROUNDS = 3;
+/** A call with this many read rounds teaches its profile; a call that ran on what it was handed
+ *  (a seeded one) does not, and keeps the profile that made it so. */
+const PROFILE_AFTER_ROUNDS = 1;
+/**
+ * A call whose profile holds this many keys or fewer is cheap: its profile is its targeted
+ * hints, read with its first round, and the source's broad hints (the witnesses around the
+ * block, about a thousand keys at a busy head) are neither read nor waited for. A larger
+ * profile still has them read, but its first round does not wait for them: they join the
+ * round in which they arrive, if the call needs one.
+ */
+const CHEAP_PROFILE_KEYS = 32;
 
 /** The RLP item at `at` of `b`: where its payload starts and ends, and whether it is a list. */
 function rlpItem(b: Uint8Array, at: number): { list: boolean; start: number; end: number } {
@@ -226,7 +234,7 @@ async function readAll(state: StateSource, keys: StateKey[], at: number): Promis
 /** Answers `missing`: code from the isolate cache, accounts and storage from it too when
  *  `scope` (chain, block hash and block) is known, everything else from `state` in one read;
  *  code of accounts read here comes with them (from the cache, else one more read). */
-async function answer(state: StateSource, missing: StateKey[], at: number, scope: string | null): Promise<Hints> {
+async function answer(state: StateSource, missing: StateKey[], at: number, scope: string | null): Promise<Answered> {
   const keys: StateKey[] = [];
   const values: StateValue[] = [];
   const toRead: StateKey[] = [];
@@ -285,7 +293,12 @@ async function answer(state: StateSource, missing: StateKey[], at: number, scope
       values.push(value);
     });
   }
-  return { keys, values };
+  return { keys, values, read: toRead.length > 0 || codes.length > 0 };
+}
+
+/** A round's answers, and whether any came from the source (I/O) rather than the isolate's caches. */
+interface Answered extends Hints {
+  read: boolean;
 }
 
 function witnessSize(w: Witness | null): number {
@@ -302,18 +315,23 @@ function hintsSize(h: Hints | null): number {
   return n;
 }
 
+/** Hint reads in flight, by scope: simultaneous requests at one block share the one read. */
+const pendingHints = new Map<string, Promise<Hints | null>>();
+
 /** The source's hints for the block of a call, shared per isolate by the block's hash. */
 function hintsFor(state: StateSource, scope: string | null, at: number): Promise<Hints | null> | null {
   if (!state.hints || scope === null) return null;
   const cached = hintCache.get(scope);
   if (cached !== undefined) return Promise.resolve(cached);
+  const pending = pendingHints.get(scope);
+  if (pending) return pending;
   let p: Promise<Hints | null>;
   try {
     p = Promise.resolve(state.hints(at));
   } catch {
     return null;
   }
-  return p.then(
+  const shared = p.then(
     (h) => {
       if (h && (!Array.isArray(h.keys) || !Array.isArray(h.values) || h.keys.length !== h.values.length)) h = null;
       hintCache.set(scope, h, hintsSize(h));
@@ -321,6 +339,32 @@ function hintsFor(state: StateSource, scope: string | null, at: number): Promise
     },
     () => null,
   );
+  pendingHints.set(scope, shared);
+  shared.finally(() => pendingHints.get(scope) === shared && pendingHints.delete(scope)).catch(() => {});
+  return shared;
+}
+
+/** `hints` without the keys in `ids` (what earlier rounds answered exactly: those stand). */
+function withoutIds(hints: Hints | null, ids: Set<string>): Hints | null {
+  if (!hints || ids.size === 0) return hints;
+  const keys: StateKey[] = [];
+  const values: StateValue[] = [];
+  hints.keys.forEach((key, i) => {
+    if (ids.has(keyId(key))) return;
+    keys.push(key);
+    values.push(hints.values[i]!);
+  });
+  return { keys, values };
+}
+
+/** A promise's value once it has settled, read without waiting (a rejection reads as null). */
+function settled<T>(p: Promise<T>): { get: () => { value: T | null } | null } {
+  let state: { value: T | null } | null = null;
+  p.then(
+    (value) => (state = { value }),
+    () => (state = { value: null }),
+  );
+  return { get: () => state };
 }
 
 /**
@@ -434,11 +478,20 @@ export async function execute(
   const isCall = CALL_METHODS.has(request.method);
   // A block the module has a state snapshot of needs no hints or profile: it starts from it.
   const seeded = !!(blockHash && isCall && session.has?.("known", blockHash));
-  // The hints and the profile are read while the executor's first round is: all one wave.
-  const hinting = block && isCall && !seeded ? hintsFor(state, `${chainId}:${blockHash}:${block.number}`, block.number) : null;
   const profile = block ? profileOf(request, chainId) : null;
   const known = profile && !seeded ? profileCache.get(profile) : undefined;
-  const prefetching = known?.length ? answer(state, known, block!.number, `${chainId}:${blockHash}:${block!.number}`).catch(() => null) : null;
+  // A call whose profile the isolate knows has its targeted hints (read with its first round);
+  // a cheap one does without the source's broad wave altogether.
+  const cheap = !!known && known.length > 0 && known.length <= CHEAP_PROFILE_KEYS;
+  // The source's hints are read while the executor's first round is: one wave. A call without
+  // a profile waits for them (its first round would otherwise miss most of what it needs); a
+  // profiled call does not wait, and takes them in whichever round they have arrived for.
+  const hinting = block && isCall && !seeded && !cheap ? hintsFor(state, `${chainId}:${blockHash}:${block.number}`, block.number) : null;
+  const arrived = hinting ? settled(hinting) : null;
+  const waitForHints = !!hinting && !known?.length;
+  let hintsTaken = !hinting;
+  /** Keys earlier rounds answered exactly: hints arriving later do not restate them. */
+  const answeredIds = new Set<string>();
   const asked: StateKey[] = [];
   let reads = 0;
   // The record goes as hex, and only when the module does not hold the block already.
@@ -452,13 +505,12 @@ export async function execute(
   const wasm = session(JSON.stringify(wire));
   try {
     let input = "";
-    let slow = false;
+    let turn = false;
     let first = true;
     for (let round = 0; round < MAX_ROUNDS; round++) {
-      if (slow && (await within(yieldNow())) === TIMED_OUT) return timedOut();
-      const ran = now();
+      if (turn && (await within(yieldNow())) === TIMED_OUT) return timedOut();
+      turn = false;
       const out = JSON.parse(wasm.run(input)) as Round;
-      slow = now() - ran >= YIELD_AFTER_MS;
       if ("done" in out) return out.response;
       if (now() - started > budgetMs) return timedOut();
       if ("witness" in out) {
@@ -475,15 +527,37 @@ export async function execute(
         const scope = blockHash && `${chainId}:${blockHash}:${out.at}`;
         if (profile) asked.push(...out.missing);
         reads++;
+        const atBlock = !!block && out.at === block.number;
         const answered = answer(state, out.missing, out.at, scope);
-        const atBlock = first && block && out.at === block.number;
-        const wave = await within(Promise.all([answered, atBlock && hinting ? hinting : null, atBlock && prefetching ? prefetching : null]));
+        // The profile's keys the first round did not ask for, read with it.
+        let prefetching: Promise<Answered | null> | null = null;
+        if (first && atBlock && known?.length) {
+          const missing = new Set(out.missing.map(keyId));
+          const want = known.filter((k) => !missing.has(keyId(k)));
+          if (want.length) prefetching = answer(state, want, out.at, scope).catch(() => null);
+        }
+        const wave = await within(Promise.all([answered, prefetching, first && atBlock && waitForHints ? hinting : null]));
         if (wave === TIMED_OUT) return timedOut();
-        const [round, hints, prefetched] = wave;
-        // A call's first wave is the state at the end of its block: the module keeps it for
-        // the next request there (unless it started from such a snapshot already).
-        const snapshot = first && atBlock && isCall && !seeded && session.has ? { snapshot: blockHash } : {};
-        input = JSON.stringify(first ? { ...withHints(hints, prefetched, round), ...snapshot } : round);
+        const [round, prefetched, waited] = wave;
+        // The source's hints join the first round they have arrived for (at once when waited for).
+        let hints: Hints | null | undefined;
+        if (!hintsTaken && atBlock) {
+          const got = first && waitForHints ? { value: waited } : arrived!.get();
+          if (got) {
+            hints = withoutIds(got.value, answeredIds);
+            hintsTaken = true;
+          }
+        }
+        for (const key of round.keys) answeredIds.add(keyId(key));
+        for (const key of prefetched?.keys ?? []) answeredIds.add(keyId(key));
+        // What a call has been handed once the hints are in (or when the source has none) is the
+        // state at the end of its block: the module keeps it for the next request there (unless
+        // it started from such a snapshot already). A cheap call's own few keys are not that.
+        const snapshot = atBlock && isCall && !seeded && session.has && (hints !== undefined || (first && !hinting && !cheap)) ? { snapshot: blockHash } : {};
+        const merged = withHints(hints ?? null, first ? prefetched : null, round);
+        input = JSON.stringify({ keys: merged.keys, values: merged.values, ...snapshot });
+        // A round the caches answered awaited no I/O: give the isolate's other requests a turn.
+        turn = !round.read && !prefetched?.read;
         first = false;
       }
     }

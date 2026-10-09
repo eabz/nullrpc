@@ -670,7 +670,8 @@ on its own, so the answers are also shared per data center through the edge cach
 (`caches.default`, the cache the pointers use): a batch of 32 keys or more (the hints wave,
 the same thousand keys for every call at one head) is stored whole under the digest of its
 key list, pin hash and block, and each witness under pin hash and block, for an hour (an entry
-goes unused once the head moves). The hints wave of every call at one head is then read from
+goes unused once the head moves). The isolate's own cache is tried first; the edge is asked
+only for a batch it cannot answer in full. The hints wave of every call at one head is then read from
 the shards once per data center per block, not once per call or per isolate; a batch under 32
 keys (the executor's dependent rounds, mostly keys of one call) goes to the isolate cache and
 the shards only. The shards are asked under a new pin after a `stale` answer, since the pin

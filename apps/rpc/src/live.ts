@@ -443,20 +443,6 @@ export class Live {
     const remember = (i: number, value: Uint8Array | null) => {
       if (value === null || value.length <= STATE_CACHE_MAX_VALUE) caches.values.set(ids[i]!, value);
     };
-    // A large batch (the hints wave) is shared per data center under the digest of its keys.
-    const cache = this.pointers?.cache;
-    const edgeUrl = cache && keys.length >= STATE_EDGE_BATCH_MIN ? `${EDGE_ORIGIN}/${this.pointers!.prefix}/state/${pin.hash}/${n}/${await digest(ids)}` : null;
-    if (edgeUrl) {
-      const shared = await this.edgeGet(cache!, edgeUrl);
-      if (shared) {
-        const values = shared.map((v) => (v === null ? null : fromHex(v)));
-        if (values.length === keys.length) {
-          values.forEach((v, i) => remember(i, v));
-          caches.hits += keys.length;
-          return values;
-        }
-      }
-    }
     const out: (Uint8Array | null)[] = new Array(keys.length);
     // The keys the isolate's cache lacks (a key asked twice in one call is read once).
     const missing: { domain: number; key: string; at: number[] }[] = [];
@@ -473,10 +459,30 @@ export class Live {
         missing[j]!.at.push(i);
         return;
       }
-      caches.misses++;
       byId.set(ids[i]!, missing.length);
       missing.push({ domain: k.domain, key: hexes[i]!, at: [i] });
     });
+    if (missing.length === 0) return out;
+    // A large batch (the hints wave) the isolate lacks is shared per data center under the digest
+    // of its keys: asked after the isolate's own cache, never instead of it.
+    const cache = this.pointers?.cache;
+    const edgeUrl = cache && keys.length >= STATE_EDGE_BATCH_MIN ? `${EDGE_ORIGIN}/${this.pointers!.prefix}/state/${pin.hash}/${n}/${await digest(ids)}` : null;
+    if (edgeUrl) {
+      const shared = await this.edgeGet(cache!, edgeUrl);
+      if (shared && shared.length === keys.length) {
+        for (const m of missing) {
+          const stored = shared[m.at[0]!];
+          const value = stored == null ? null : fromHex(stored);
+          for (const at of m.at) {
+            out[at] = value;
+            remember(at, value);
+          }
+        }
+        caches.hits += missing.length;
+        return out;
+      }
+    }
+    caches.misses += missing.length;
     const batches: Promise<void>[] = [];
     for (let i = 0; i < missing.length; i += LIVE_BATCH) {
       const slice = missing.slice(i, i + LIVE_BATCH);

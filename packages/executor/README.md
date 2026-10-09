@@ -19,13 +19,20 @@ Worker of its own. `src/contract.ts` is the contract (`StateSource`, `ExecReques
   (batches of at most 256, code fetched with its account), the witness for mined-transaction
   traces, and caches per isolate (bounded LRUs): bytecode by hash, witnesses and hints by block
   hash, account and storage values by (chain, block hash, block, key), and a profile per (chain,
-  callee, selector): the keys calls to that function asked for, learnt from any call that took
-  three read rounds or more. For a call-style request the first wave reads, together, the
-  executor's first round (its own hints: sender, callee, calldata addresses, coinbase), the
-  profile's keys, and the source's optional `hints(at)` (apps/rpc: the witnesses around the
-  block); everything is handed to the executor before it executes. A round is synchronous; a
-  round that took 10 ms or more is followed by a turn of the event loop, so a slow request with
-  warm caches does not hold the isolate's other requests between rounds. A source may refuse a
+  callee, selector): the keys calls to that function asked for, learnt from any call that read.
+  For a call-style request the first wave reads, together, the executor's first round (its own
+  hints: sender, callee, calldata addresses, coinbase), the profile's keys the round did not
+  ask for, and, when the isolate has no profile for the callee, the source's optional
+  `hints(at)` (apps/rpc: the witnesses around the block, about a thousand keys at a busy head),
+  which the first round waits for; simultaneous requests at one block share one such read. A
+  call whose profile holds 32 keys or fewer is cheap and does without the source's hints: its
+  profile is its targeted hints. A larger profile has them read but not waited for: they join
+  the first round they have arrived for, less the keys earlier rounds answered, and that round
+  carries the snapshot mark. A round is synchronous; a round the isolate's caches answered
+  (no read awaited) is followed by a turn of the event loop, so a request with warm caches and
+  many rounds does not hold the isolate's other requests between rounds (a Worker's clock does
+  not move during synchronous code, so the turn cannot be decided by timing the round). A
+  single round is still uninterruptible: the executed-gas budget bounds it. A source may refuse a
   request with an error carrying `rpcCode` (apps/rpc's read budget): that becomes the answer.
 - `src/index.ts`: `execute(request, state)` for Workers code. Imports the WebAssembly through
   wrangler's `CompiledWasm` rule (`crate/pkg/executor_bg.wasm`) and instantiates it on the first
