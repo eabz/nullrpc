@@ -44,8 +44,11 @@ const (
 	witnessFlagCode   = 2
 	witnessCheckEvery = 997 // cross-check one block in this many against the state layer
 	witnessStateFile  = "witnesses.json"
-	witnessBatch      = 16   // consecutive blocks per read transaction
-	witnessRun        = 1024 // consecutive blocks a worker executes on carried state
+	witnessBatch      = 64   // consecutive blocks per read transaction
+	witnessRun        = 4096 // consecutive blocks a worker executes on carried state
+	// witnessOverlayEntries is the default bound on a worker's carried state (accounts plus
+	// storage slots, about 150 bytes each); --exec-cache sets it.
+	witnessOverlayEntries = 2_000_000
 	// witnessOverlayCheckEvery: one block in this many is executed again from the history
 	// alone, and its witness must match the one built on carried state.
 	witnessOverlayCheckEvery = 128
@@ -530,6 +533,7 @@ func witnessStage(w *workDir) error {
 		return err
 	}
 	defer closeExec()
+	exec.overlayEntries = w.opts.execCache
 	segments := plan.segments[len(st.Ranges):]
 	started := time.Now()
 	var executed, checked atomic.Uint64
@@ -748,6 +752,7 @@ func runWitnessTest(args []string) {
 	to := fs.Uint64("to", 10000, "last block")
 	workers := fs.Int("exec-workers", runtime.NumCPU(), "blocks executed in parallel")
 	run := fs.Uint64("run-blocks", witnessRun, "consecutive blocks per carried-state run, 1-8192 (fixed across worker counts)")
+	cache := fs.Int("exec-cache", witnessOverlayEntries, "carried-state entries per worker")
 	fs.Parse(args)
 	jobs, err := witnessBenchmarkJobs(*from, *to, *run, *workers)
 	if err != nil {
@@ -767,6 +772,7 @@ func runWitnessTest(args []string) {
 		fail(err)
 	}
 	defer closeExec()
+	exec.overlayEntries = *cache
 	started := time.Now()
 	var blocks, accounts, slots, size atomic.Uint64
 	err = runWitnessJobs(exec, jobs, activeWorkers, func(_ witnessJob, _ uint64, wit *blockWitness) error {

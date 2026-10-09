@@ -85,7 +85,8 @@ bin/backfill status
 | `--rpc` | `http://127.0.0.1:8545` | the archive node's JSON-RPC |
 | `--stream` | off | upload the state layer, each segment and each witness range as soon as they are written, and remove the local copies. Needed when the disk cannot hold the whole archive. Sticky per work directory. |
 | `--witnesses-alongside` | on | run the witness stage alongside stages 2–5 instead of after them; `=false` on a machine without the memory for both |
-| `--exec-workers` | one per logical CPU | runs of blocks executed in parallel by the witness stage. Each worker carries state across its run and may hold up to about 100 MB of it. Extra workers can hide disk latency, but also increase memory use and contention; measure before increasing this value |
+| `--exec-workers` | one per logical CPU | runs of blocks executed in parallel by the witness stage. Extra workers can hide disk latency, but also increase memory use and contention; measure before increasing this value |
+| `--exec-cache` | 2,000,000 | carried-state entries each witness worker keeps, about 150 bytes each (300 MB per worker at the default; 128 workers need about 40 GB). When a worker passes it, the storage slots are dropped first, then the accounts, and are read from the history again. Lower it on a small machine |
 | `--concurrency` | 48 | parallel RPC calls (`--block-source rpc` and its fallbacks) |
 | `--pre-byzantium-receipts` | `fail` | `status` for Ethereum mainnet: Erigon keeps no post-state roots for receipts before Byzantium |
 | `--tmp` | `WORK/trie.tmp` | sort runs of the root check, e.g. on another disk |
@@ -119,7 +120,7 @@ full pipeline's throughput:
 bin/backfill witness-test --datadir /data/hoodi --from 1000000 --to 1524287 --exec-workers 32
 ```
 
-The benchmark uses the production run length of 1,024 consecutive blocks, independent of
+The benchmark uses the production run length of 4,096 consecutive blocks, independent of
 worker count. `--run-blocks` overrides this for experiments only; it does not change the
 backfill stage. Its startup line reports the run length, number of jobs and maximum active
 workers. A short interval may have too few jobs to occupy all requested workers.

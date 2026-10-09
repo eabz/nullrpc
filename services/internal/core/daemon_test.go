@@ -276,12 +276,12 @@ func TestSpool(t *testing.T) {
 
 func TestWitnessJobs(t *testing.T) {
 	jobs := witnessJobs([][2]uint64{{0, 8191}, {8192, 9000}}, witnessRun)
-	if len(jobs) != 9 || jobs[7].seg != 0 || jobs[7].first != 7168 || jobs[7].last != 8191 ||
-		jobs[8].seg != 1 || jobs[8].first != 8192 || jobs[8].last != 9000 {
+	if len(jobs) != 3 || jobs[1].seg != 0 || jobs[1].first != 4096 || jobs[1].last != 8191 ||
+		jobs[2].seg != 1 || jobs[2].first != 8192 || jobs[2].last != 9000 {
 		t.Fatalf("jobs %+v", jobs)
 	}
 	batches := batchRanges(8192, 9000)
-	if len(batches) != 51 || batches[50] != [2]uint64{8992, 9000} {
+	if len(batches) != 13 || batches[12] != [2]uint64{8960, 9000} {
 		t.Fatalf("batches %v", batches)
 	}
 }

@@ -41,6 +41,7 @@ const envFileName = "backfill.env"
 type runOptions struct {
 	concurrency        int
 	execWorkers        int  // blocks executed in parallel for witnesses
+	execCache          int  // carried-state entries per witness worker
 	witnessesAlongside bool // run the witness stage alongside the stages before it
 	chunkBlocks        uint64
 	upload             bool
@@ -412,6 +413,7 @@ func runPipeline(args []string) {
 	genesis := fs.String("genesis", "", "full genesis JSON (default: bundled for known chains)")
 	concurrency := fs.Int("concurrency", 48, "parallel RPC calls (--block-source rpc, RPC fallbacks)")
 	execWorkers := fs.Int("exec-workers", runtime.NumCPU(), "blocks executed in parallel for witnesses")
+	execCache := fs.Int("exec-cache", witnessOverlayEntries, "carried-state entries each witness worker keeps (about 150 bytes each)")
 	alongside := fs.Bool("witnesses-alongside", true, "run the witness stage alongside the state and bundle stages instead of after them")
 	source := blockSourceFlags(fs)
 	preByzantium := preByzantiumFlag(fs)
@@ -434,7 +436,7 @@ func runPipeline(args []string) {
 	if err != nil {
 		fail(err)
 	}
-	w.opts = runOptions{concurrency: *concurrency, execWorkers: *execWorkers, witnessesAlongside: *alongside, chunkBlocks: *chunkBlocks, upload: *doUpload, files: *files,
+	w.opts = runOptions{concurrency: *concurrency, execWorkers: *execWorkers, execCache: *execCache, witnessesAlongside: *alongside, chunkBlocks: *chunkBlocks, upload: *doUpload, files: *files,
 		deleteAfter: *deleteAfter, source: source.options("", *concurrency), preByzantium: *preByzantium, stream: *stream, tmp: *tmp}
 	if isStreamWork(w.root) && !w.opts.stream {
 		fmt.Fprintf(os.Stderr, "%s was started in streaming mode; continuing with --stream\n", w.root)

@@ -8,7 +8,7 @@ import (
 )
 
 // Witnesses execute blocks against Erigon's database, which needs cgo.
-type witnessExecutor struct{}
+type witnessExecutor struct{ overlayEntries int }
 
 type stateOverlay struct{}
 

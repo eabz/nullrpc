@@ -78,7 +78,7 @@ effect is already in it. Post-transaction work (withdrawals, EIP-7002 and EIP-72
 does not affect any transaction.
 
 **Carried state.** Reads from the history files are the slow part of execution, and
-consecutive blocks touch many of the same keys. Each worker therefore executes a run of 1,024
+consecutive blocks touch many of the same keys. Each worker therefore executes a run of 4,096
 consecutive blocks and carries state from one block to the next: the value after each block
 of every key it touched, kept in memory. The next block reads those keys from memory and only
 the others from the history. To keep the carried state exact, every block runs the way the
@@ -98,7 +98,7 @@ Execution is checked on every block, not sampled:
 A block that fails any check stops the run.
 
 Runs are independent, so the witness stage executes many of them in parallel
-(`--exec-workers`, one per core by default), 16 blocks per short read transaction. It is the
+(`--exec-workers`, one per core by default), 64 blocks per short read transaction. It is the
 longest stage of the backfill, and it must finish before the archive is deleted: a pruned
 node cannot produce witnesses for old blocks.
 

@@ -32,6 +32,7 @@ package core
 
 import (
 	"bufio"
+	"cmp"
 	"context"
 	"fmt"
 	"os"
@@ -60,8 +61,6 @@ const (
 	// witnessCodeCache is how many bytecodes the executor keeps, by code hash, across blocks
 	// and workers. A code hash names one immutable bytecode, so a cached code is never stale.
 	witnessCodeCache = 200_000
-	// witnessOverlayEntries bounds a worker's carried state; past it the overlay is cleared.
-	witnessOverlayEntries = 500_000
 )
 
 type witnessExecutor struct {
@@ -69,6 +68,8 @@ type witnessExecutor struct {
 	engine rules.Engine
 	codes  *lru.Cache[[32]byte, []byte]
 	logger log.Logger
+	// overlayEntries bounds each worker's carried state (0: witnessOverlayEntries).
+	overlayEntries int
 }
 
 func newWitnessExecutor(ctx context.Context, datadir string) (*witnessExecutor, func(), error) {
@@ -155,6 +156,21 @@ func (o *stateOverlay) putSlot(a [20]byte, s [32]byte, v uint256.Int, present bo
 		o.entries++
 	}
 	slots[s] = overlaySlot{value: v, present: present}
+}
+
+// trim keeps the overlay under limit entries: the storage slots go first (the larger and
+// colder part), the accounts only if that is not enough. Anything dropped is read from the
+// history again.
+func (o *stateOverlay) trim(limit int) {
+	if o.entries <= limit {
+		return
+	}
+	for a := range o.storage {
+		o.dropStorage(a)
+	}
+	if o.entries > limit {
+		o.reset()
+	}
 }
 
 func (o *stateOverlay) dropStorage(a [20]byte) {
@@ -421,9 +437,7 @@ func (x *witnessExecutor) execute(ctx context.Context, tx ekv.TemporalTx, n uint
 			receipts, block.Withdrawals(), chainReader, false, x.logger, nil); err != nil {
 			return nil, fmt.Errorf("block %d: block end: %w", n, err)
 		}
-		if ov.entries > witnessOverlayEntries {
-			ov.reset()
-		}
+		ov.trim(cmp.Or(x.overlayEntries, witnessOverlayEntries))
 	}
 	return w, nil
 }
