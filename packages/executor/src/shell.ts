@@ -137,9 +137,9 @@ const toHex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2,
  * [header, …], the hash keccak256 of the header's RLP, and the number the header's ninth
  * field. Null for a record the executor will reject anyway (the request then runs uncached).
  */
-export function blockOf(record: string): { hash: string; number: number } | null {
+export function blockOf(record: string | Uint8Array): { hash: string; number: number } | null {
   try {
-    const b = unhex(record);
+    const b = typeof record === "string" ? unhex(record) : record;
     const top = rlpItem(b, 0);
     const raw = rlpItem(b, top.start);
     if (!top.list || raw.list) return null;
@@ -164,7 +164,7 @@ export function blockOf(record: string): { hash: string; number: number } | null
 }
 
 /** The hash of the block of a request (see `blockOf`). */
-export function blockHashOf(record: string): string | null {
+export function blockHashOf(record: string | Uint8Array): string | null {
   return blockOf(record)?.hash ?? null;
 }
 
@@ -413,7 +413,7 @@ export async function execute(
   const block =
     typeof request.blockHash === "string" && Number.isSafeInteger(request.blockNumber) && request.blockNumber! >= 0
       ? { hash: request.blockHash.toLowerCase(), number: request.blockNumber! }
-      : typeof request.block === "string"
+      : typeof request.block === "string" || request.block instanceof Uint8Array
         ? blockOf(request.block)
         : null;
   const blockHash = block?.hash ?? null;
@@ -427,12 +427,13 @@ export async function execute(
   const prefetching = known?.length ? answer(state, known, block!.number, `${chainId}:${blockHash}:${block!.number}`).catch(() => null) : null;
   const asked: StateKey[] = [];
   let reads = 0;
-  const wire: WireRequest = { ...request };
+  // The record goes as hex, and only when the module does not hold the block already.
+  const wire: WireRequest = { ...request, block: undefined };
   if (blockHash) {
     wire.blockHash = blockHash;
-    if (session.has?.("block", blockHash)) delete wire.block;
     if (seeded) wire.seed = blockHash;
   }
+  if (!blockHash || !session.has?.("block", blockHash)) wire.block = request.block instanceof Uint8Array ? "0x" + toHex(request.block) : request.block;
   const wasm = session(JSON.stringify(wire));
   try {
     let input = "";

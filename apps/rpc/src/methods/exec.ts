@@ -25,7 +25,7 @@ async function blockFor(chain: Chain, param: unknown): Promise<BlockRecord> {
 
 async function run(chain: Chain, env: MethodEnv, method: string, params: unknown[], rec: BlockRecord, txIndex?: number): Promise<unknown> {
   if (!env.executor) throw new RpcError(-32601, `the method ${method} does not exist/is not available`);
-  const request: ExecRequest = { method, params, chain: await chain.config(), block: data(rec.frame), blockHash: data(rec.block.header.hash), blockNumber: rec.block.header.number, txIndex };
+  const request: ExecRequest = { method, params, chain: await chain.config(), block: rec.frame, blockHash: data(rec.block.header.hash), blockNumber: rec.block.header.number, txIndex };
   let response;
   try {
     response = await env.executor.execute(request, new ChainStateSource(chain));

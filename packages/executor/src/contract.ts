@@ -65,8 +65,9 @@ export interface ExecRequest {
   /** The chain config object from the archive (geth genesis "config" plus blob schedule). */
   chain: Record<string, unknown>;
   /** The block the request runs at: for calls, state at its end and its header as the context;
-   *  for traces, the block containing the transaction(s). Block record, RLP hex. */
-  block: string;
+   *  for traces, the block containing the transaction(s). Block record, RLP: hex, or the bytes
+   *  (hex-encoded by the shell only when the module does not hold the block already). */
+  block: string | Uint8Array;
   /** The block's hash and number when the caller has them decoded (apps/rpc does): the shell
    *  then skips decoding the record itself. */
   blockHash?: string;

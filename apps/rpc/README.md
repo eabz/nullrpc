@@ -77,6 +77,11 @@ and 300-round limit live in the package; a round is synchronous, and a round tha
 took 10 ms or more is followed by a turn of the event loop so the isolate's other requests
 proceed.
 
+The module keeps the newest decoded blocks and a state snapshot per block hash (what a call's
+first wave handed it), so a call at a block it has seen sends neither the record nor the hints:
+a warm token `balanceOf` costs the Worker about 4 ms of CPU instead of 13 (measured with
+`bench/profile-worker.mjs` over `wrangler dev --config wrangler.profile.jsonc`).
+
 Most calls never enter a dependent round. Before the first execution, one wave reads the
 executor's own hints (sender, callee, the addresses in the calldata), the keys earlier calls to
 the same contract and function needed (the shell's profile), and the **witness hints**
