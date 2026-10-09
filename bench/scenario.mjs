@@ -225,7 +225,8 @@ async function runCase(c) {
     }
   }
   const r = await call(method, params);
-  return { cls: c.cls, label: c.label, method, ms: r.ms, ok: r.ok, refused: !r.ok && isRefusal(r), http: r.http, code: r.code, message: r.message, credits: credits(method, params, r.code), archive: r.archive, response: r.response };
+  // Failed calls keep their parameters so a failure can be replayed by hand.
+  return { cls: c.cls, label: c.label, method, ms: r.ms, ok: r.ok, refused: !r.ok && isRefusal(r), http: r.http, code: r.code, message: r.message, credits: credits(method, params, r.code), archive: r.archive, response: r.response, ...(r.ok ? {} : { params }) };
 }
 
 function cacheTally(rows) {
@@ -416,7 +417,7 @@ if (samples.calls.length) {
     const errs = {};
     for (const s of failures) errs[`${s.label}: HTTP ${s.http}, code ${s.code}, ${(s.message ?? "").slice(0, 90)}`] = (errs[`${s.label}: HTTP ${s.http}, code ${s.code}, ${(s.message ?? "").slice(0, 90)}`] ?? 0) + 1;
     for (const [k, n] of Object.entries(errs)) md.push(`- ${n}× ${k}`);
-    md.push("");
+    md.push("", "Parameters of each failed call are in report.json (`samples.calls[].params` where `ok` is false).", "");
   }
 }
 if (samples.user.length) {
