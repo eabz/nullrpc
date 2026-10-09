@@ -3,7 +3,7 @@
 // is reached through manifest references; every reference and frame is checked (size and
 // SHA-256) before it is used.
 
-import { decompress } from "fzstd";
+import { decompress } from "@nullrpc/zstd";
 import { equal } from "../eth/hex";
 import { Lru } from "./lru";
 import type { Source } from "./source";
