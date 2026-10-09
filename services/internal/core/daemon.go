@@ -37,6 +37,7 @@ type daemonConfig struct {
 	batch      uint64
 	maxAge     time.Duration
 	maxBatches uint64
+	maxObjects uint64
 	group      uint64
 	window     int
 	genesis    string
@@ -75,6 +76,7 @@ func DaemonMain(args []string) {
 	fs.Uint64Var(&cfg.batch, "batch", 256, "blocks per promotion (docs/storage.md, \"Parameters\")")
 	fs.DurationVar(&cfg.maxAge, "max-age", 2*time.Hour, "promote a smaller batch once the oldest unpromoted finalized block is this old")
 	fs.Uint64Var(&cfg.maxBatches, "max-batches", 8, "batches promoted at most at once")
+	fs.Uint64Var(&cfg.maxObjects, "max-objects", 6, "state layers, hash index objects and log index objects kept above the base; compaction merges beyond it (docs/storage.md, \"Compaction\")")
 	fs.Uint64Var(&cfg.group, "group", 1, "blocks per live window row")
 	fs.IntVar(&cfg.window, "window", 16, "blocks extracted in parallel while catching up")
 	fs.StringVar(&cfg.genesis, "genesis", "", "full genesis JSON (default: bundled for known chains)")
