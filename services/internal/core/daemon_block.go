@@ -245,18 +245,19 @@ func blockDiff(rpc *rpcClient, n, timestamp uint64, h *blockHeaderJSON, wit *blo
 				if !inPost {
 					acc := base(a)
 					if acc.existed {
-						// EIP-6780: selfdestruct removes only an account created in the same
-						// transaction. EIP-161: a transaction that touches an empty account (no
-						// nonce, balance or code) removes it; the diff cannot list its storage, so
-						// that must be empty too.
-						if wa := wit.accounts[a]; !emptyAccount(wa) {
+						// An account that existed before the block is removed only if it had no
+						// nonce and no code: a contract created at its address and selfdestructed in
+						// the same transaction (EIP-6780; the address may hold a balance sent ahead
+						// of the deployment), or an empty account a transaction touched (EIP-161).
+						// The diff cannot list storage it never saw, so that must be empty too.
+						if wa := wit.accounts[a]; !undeployed(wa) {
 							if wa == nil {
 								return nil, fmt.Errorf("account %x that existed before the block was removed; the witness lacks it", a)
 							}
-							return nil, fmt.Errorf("account %x that existed before the block was removed, not empty before it (nonce %d, balance 0x%x, code %v)", a, wa.nonce, wa.balance, wa.hasCode)
+							return nil, fmt.Errorf("account %x that existed before the block was removed, deployed before it (nonce %d, balance 0x%x, code %v)", a, wa.nonce, wa.balance, wa.hasCode)
 						}
 						if err := checkNoStorage(rpc, h.Hash, a); err != nil {
-							return nil, fmt.Errorf("empty account %x removed: %w", a, err)
+							return nil, fmt.Errorf("account %x removed: %w", a, err)
 						}
 					}
 					*acc = diffAccount{}
@@ -367,9 +368,10 @@ func blockDiff(rpc *rpcClient, n, timestamp uint64, h *blockHeaderJSON, wit *blo
 	return out, nil
 }
 
-// emptyAccount tells whether an account is empty in the EIP-161 sense: no nonce, balance or code.
-func emptyAccount(wa *witnessAccount) bool {
-	return wa != nil && wa.nonce == 0 && len(trimLeadingZeros(wa.balance)) == 0 && !wa.hasCode
+// undeployed tells whether an account has no nonce and no code, whatever its balance: a
+// contract can still be created at its address.
+func undeployed(wa *witnessAccount) bool {
+	return wa != nil && wa.nonce == 0 && !wa.hasCode
 }
 
 // checkNoStorage fails unless account a holds no storage at the start of the block blockHash.
