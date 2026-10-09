@@ -19,6 +19,26 @@ Every request pins one archive generation (`HEAD.json`, cached 10 s per isolate)
 head; reorgs (stale pins) and promotions (blocks leaving the live window) are retried
 transparently (`src/chain.ts`).
 
+## Edge caches
+
+Two caches in the data center's Cache API (`caches.default`) sit between a request and R2. Both
+need a custom domain (the Cache API is inert on `workers.dev`) and both are filled after the
+response is sent (`ctx.waitUntil`), so a miss never waits for the fill. Every JSON-RPC response
+reports them in two headers (exposed to browsers through `access-control-expose-headers`):
+
+| Header | Values | Meaning |
+|---|---|---|
+| `x-nullrpc-archive-cache` | `hit=N miss=M` | Archive object reads this request sent to the edge cache (`src/archive/cached.ts`). Every archive object except `HEAD.json` is immutable and content-addressed, so each range read (`key`, `offset`, `length`) and whole-object read is stored for a day under a synthetic URL `/_cache/archive/v1/<key>?o=<offset>&l=<length>`. `HEAD.json` always goes to R2 and is not counted. Reads answered by the isolate's own memory (parsed manifests, offsets pages) never reach this cache and are not counted either. |
+| `x-nullrpc-response-cache` | `hit`, `miss` or `bypass`; for a batch `hit=N miss=M bypass=K` | The per-item answer cache (`src/response-cache.ts`). A successful result of a block, transaction, receipt, raw-encoding, log or state method is stored for a day when every block it depends on is at or below the pinned archive tip P, keyed by chain id, method and the canonical parameters. `bypass` is everything else: tags (`latest`, `pending`, `safe`, `finalized`), blocks above P or below the archive's first block, errors, `null` answers to lookups by hash, `eth_getLogs` with `blockHash`, and methods that read the head or execute (`eth_call`, `eth_feeHistory`, fees, …). |
+
+Lookups by hash (`eth_getBlockByHash`, `eth_getTransactionByHash`, `eth_getTransactionReceipt`,
+`eth_getTransactionByBlockHashAndIndex`) are looked up before the answer is known and stored
+only when the fresh answer places itself at or below P. The archive generation is not part of
+the response key: an answer at or below P is identical in every later generation, and
+generations advance on every promotion and compaction merge. Bump `VERSION` in
+`src/response-cache.ts` when a method's JSON changes, and in `src/archive/cached.ts` when the
+stored byte representation changes.
+
 ## Develop
 
 ```sh
