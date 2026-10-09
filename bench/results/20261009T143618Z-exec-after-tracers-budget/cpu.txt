@@ -1,0 +1,23 @@
+# CPU per case from a wrangler tail capture during this run (bench/cpu.mjs); version c2918d6f (6bdfaed, hard time budget)
+
+56 requests in the capture; CPU mean 267ms, p50 202ms, p95 728ms
+
+case                                   n  cpu p50  cpu p95  cpu mean  cpu total  wall p50  outcomes
+------------------------------------  --  -------  -------  --------  ---------  --------  --------
+debug_traceBlockByNumber deep          4    357ms    782ms     445ms      1.78s     696ms      ok=4
+trace_block recent                     3    451ms    728ms     529ms      1.59s     1.05s      ok=3
+debug_traceBlockByNumber recent        2    615ms    948ms     782ms      1.56s     928ms      ok=2
+debug_traceTransaction deep            3    395ms    494ms     406ms      1.22s     707ms      ok=3
+trace_transaction deep                 2    482ms    680ms     581ms      1.16s     866ms      ok=2
+trace_replayBlockTransactions deep     3    488ms    544ms     371ms      1.11s     647ms      ok=3
+trace_replayBlockTransactions recent   3    477ms    534ms     343ms      1.03s     564ms      ok=3
+debug_traceBlockByHash recent          2    291ms    689ms     490ms      980ms     794ms      ok=2
+(untagged)                            16      6ms    403ms      50ms      795ms      35ms     ok=16
+trace_block deep                       3     43ms    689ms     246ms      737ms     100ms      ok=3
+trace_call                             4    122ms    336ms     179ms      714ms     860ms      ok=4
+trace_replayTransaction deep           3    202ms    228ms     209ms      626ms     319ms      ok=3
+debug_traceCall replay at n-1          1    622ms    622ms     622ms      622ms     1.17s      ok=1
+trace_transaction recent               4     71ms    224ms     117ms      467ms     392ms      ok=4
+debug_traceCall callTracer             1    244ms    244ms     244ms      244ms     706ms      ok=1
+trace_replayTransaction recent         1    214ms    214ms     214ms      214ms     666ms      ok=1
+debug_traceTransaction recent          1    101ms    101ms     101ms      101ms     267ms      ok=1
