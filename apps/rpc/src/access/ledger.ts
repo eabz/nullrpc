@@ -11,7 +11,13 @@
 //
 // If the app is unreachable, the isolate serves a bounded amount (per line and per isolate per
 // minute) and reports it at the next successful renewal; beyond that requests are refused as
-// busy. A subject already refused stays refused.
+// busy. A subject already refused stays refused. A line keeps the entitlement of its last grant
+// through lease errors and backoff windows; a line never granted is served provisionally
+// (`granted: false`), and the caller applies no plan limit to it: the plan is not known yet,
+// and refusing on the fallback plan's limit would turn an outage of the app into 429s.
+//
+// Each line renews at most once at a time: a background renewal is shared by every request
+// that finds the line due while it is in flight, and by a request that needs a synchronous one.
 
 import type { Caller } from "./identity";
 
@@ -37,6 +43,9 @@ export interface Entitlement {
   limiter: boolean;
 }
 
+/** The outcome of `Ledger.admit`: a reservation on a line, or a refusal to cache. */
+export type Admission = { ok: true; line: Line; ent: Entitlement; granted: boolean } | { ok: false; status: Status };
+
 /** The app's `Access` entrypoint (service binding). */
 export interface AccessApi {
   fetch(request: Request): Promise<Response>;
@@ -50,6 +59,8 @@ const SYNC_TRIES = 3;
 const REFUSAL_TTL_MS = 60_000;
 const BUSY_TTL_MS = 5_000;
 const BACKOFF_MS = 10_000;
+/** A lease call that takes longer than this failed (requests waiting on it are served fail-soft). */
+const LEASE_TIMEOUT_MS = 8_000;
 const SOFT_LINE_PER_MIN = 20_000;
 const SOFT_ISOLATE_PER_MIN = 500_000;
 const MAX_LINES_PER_CALL = 100;
@@ -140,8 +151,11 @@ export class Ledger {
     return l.reserved - l.unreported - l.inflight;
   }
 
-  /** Reserves `estimate` credits for one request, renewing first if needed. */
-  async admit(c: Caller, estimate: number, now = Date.now()): Promise<{ ok: true; line: Line; ent: Entitlement } | { ok: false; status: Status }> {
+  /**
+   * Reserves `estimate` credits for one request, renewing first if needed. `granted` is false
+   * when the app never answered for this line (served fail-soft on the fallback entitlement).
+   */
+  async admit(c: Caller, estimate: number, now = Date.now()): Promise<Admission> {
     const l = this.line(c);
     for (let attempt = 0; ; attempt++) {
       if (l.refused && l.refused.until > now) return { ok: false, status: l.refused.status };
@@ -150,15 +164,16 @@ export class Ledger {
       const renewed = await this.renewSync(l, estimate);
       now = Date.now();
       if (!renewed) {
-        // The app is unreachable: serve a bounded amount, reported later.
+        // The app is unreachable: serve a bounded amount, reported later, on the last known
+        // entitlement (the fallback plan if the line was never granted).
         if (l.refused) return { ok: false, status: l.refused.status };
         if (!this.softSpend(l, estimate, now)) return { ok: false, status: "busy" };
         l.inflight += estimate;
-        return { ok: true, line: l, ent: l.ent };
+        return { ok: true, line: l, ent: l.ent, granted: l.known };
       }
     }
     l.inflight += estimate;
-    return { ok: true, line: l, ent: l.ent };
+    return { ok: true, line: l, ent: l.ent, granted: true };
   }
 
   private softSpend(l: Line, credits: number, now: number): boolean {
@@ -191,11 +206,20 @@ export class Ledger {
     return l.unreported > 0 && now >= l.expiresAt - EXPIRY_MARGIN_MS;
   }
 
-  /** Renews every due line in the background (call from ctx.waitUntil). */
+  /**
+   * Renews every due line in the background (call from ctx.waitUntil). A line already renewing
+   * is not due, so requests arriving while a renewal is in flight do not start another one.
+   */
   async renewDue(now = Date.now()): Promise<void> {
     if (now - this.failedAt < BACKOFF_MS) return;
-    const due = [...this.lines.values()].filter((l) => this.due(l, now)).slice(0, MAX_LINES_PER_CALL);
-    if (due.length) await this.renew(due, new Map());
+    // A paid key's line is in the map under its subject and under subject@net: once each.
+    const due = [...new Set(this.lines.values())].filter((l) => this.due(l, now)).slice(0, MAX_LINES_PER_CALL);
+    if (!due.length) return;
+    const renewal = this.renew(due, new Map()).finally(() => {
+      for (const l of due) if (l.renewing === renewal) l.renewing = null;
+    });
+    for (const l of due) l.renewing = renewal;
+    await renewal;
   }
 
   private renewSync(l: Line, need: number): Promise<boolean> {
@@ -233,7 +257,9 @@ export class Ledger {
     };
     let grants: Grant[];
     try {
-      const res = await this.app.fetch(new Request("https://app/lease", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }));
+      const res = await this.app.fetch(
+        new Request("https://app/lease", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(LEASE_TIMEOUT_MS) }),
+      );
       if (!res.ok) throw new Error(`lease HTTP ${res.status}`);
       const parsed = (await res.json()) as { lines?: Grant[] };
       if (!Array.isArray(parsed.lines) || parsed.lines.length !== lines.length) throw new Error("lease response shape");
@@ -267,7 +293,10 @@ export class Ledger {
       l.expiresAt = at + g.ttl_ms - EXPIRY_MARGIN_MS;
       l.ent = { plan: g.plan ?? l.ent.plan, account: g.account ?? null, rps: g.rps ?? l.ent.rps, limiter: g.limiter === true };
       // A paid key has one line for the whole account, whatever network it is used from.
-      if (l.caller.keyed && !PER_NETWORK.has(l.ent.plan)) this.lines.set(l.subject, l);
+      if (l.caller.keyed && !PER_NETWORK.has(l.ent.plan) && this.lines.get(l.subject) !== l) {
+        this.lines.set(l.subject, l);
+        this.lines.delete(`${l.subject}@${l.caller.net}`);
+      }
     });
   }
 }

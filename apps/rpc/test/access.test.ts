@@ -142,6 +142,60 @@ describe("ledger", () => {
     }
     expect(served).toBe(20_000);
   });
+
+  test("a granted line keeps its plan through lease errors and the backoff window", async () => {
+    // A small grant, so the second request needs a renewal, which fails.
+    const app = fakeApp(() => ({ status: "active", plan: "internal", account: "0xint", rps: 0, limiter: false, lease: null, reserved: 30, ttl_ms: 60_000 }));
+    const ledger = new Ledger(app);
+    const a = await ledger.admit(keyed, 20);
+    if (!a.ok) throw new Error("refused");
+    expect(a).toMatchObject({ granted: true, ent: { plan: "internal", account: "0xint" } });
+    ledger.settle(a.line, 20, 20);
+    app.fail(true);
+    const b = await ledger.admit(keyed, 20);
+    expect(b).toMatchObject({ ok: true, granted: true, ent: { plan: "internal", account: "0xint" } });
+    expect(app.calls).toHaveLength(1);
+    // In the backoff window no lease call is made and the plan is still the granted one.
+    const c = await ledger.admit(keyed, 20);
+    expect(c).toMatchObject({ ok: true, granted: true, ent: { plan: "internal" } });
+  });
+
+  test("a line never granted is served provisionally while the app is down", async () => {
+    const app = fakeApp(() => ({ status: "active", plan: "builder", lease: "L", reserved: 1000, ttl_ms: 60_000 }));
+    app.fail(true);
+    const ledger = new Ledger(app);
+    const a = await ledger.admit(keyed, 20);
+    expect(a).toMatchObject({ ok: true, granted: false, ent: { plan: "free", account: null } });
+    const b = await ledger.admit(anon, 20);
+    expect(b).toMatchObject({ ok: true, granted: false, ent: { plan: "public" } });
+  });
+
+  test("a due line renews once at a time: concurrent background renewals share one lease call", async () => {
+    const app = fakeApp((l) => ({ status: "active", plan: "builder", account: "0xabc", rps: 250, lease: "L1", reserved: 100_000, ttl_ms: 60_000, _echo: l }));
+    const inner = app.fetch.bind(app);
+    app.fetch = async (request: Request) => {
+      await new Promise((r) => setTimeout(r, 20));
+      return inner(request);
+    };
+    const ledger = new Ledger(app);
+    const a = await ledger.admit(keyed, 20);
+    if (!a.ok) throw new Error("refused");
+    ledger.settle(a.line, 20, 15);
+    // Ten requests settle while the renewal is in flight; before, each started its own.
+    const later = Date.now() + 31_000;
+    await Promise.all(Array.from({ length: 10 }, () => ledger.renewDue(later)));
+    expect(app.calls).toHaveLength(2);
+    // The paid line is in the map under its subject and its network: reported once, not twice.
+    expect(app.calls[1]).toHaveLength(1);
+    expect(app.calls[1]![0]).toMatchObject({ subject: `key:${ID}`, used: 15, requests: 1 });
+    // Nothing is left unreported, and nothing is reported twice.
+    const b = await ledger.admit(keyed, 20);
+    if (!b.ok) throw new Error("refused");
+    ledger.settle(b.line, 20, 10);
+    await ledger.renewDue(later + 31_000);
+    expect(app.calls).toHaveLength(3);
+    expect(app.calls[2]![0]).toMatchObject({ used: 10, requests: 1, total: 25, requests_total: 2 });
+  });
 });
 
 describe("worker with access", () => {
@@ -188,5 +242,24 @@ describe("worker with access", () => {
   test("an oversized body is 413", async () => {
     const res = await post("/", { jsonrpc: "2.0", id: 1, method: "eth_chainId", params: ["x".repeat(300_000)] }, "192.0.2.50");
     expect(res.status).toBe(413);
+  });
+
+  test("the plan's rate limit applies to a granted plan, not to a key the app never answered for", async () => {
+    // The Free plan's binding refuses everything: a granted Free key is 429, a key served
+    // fail-soft while the app is unreachable is not judged by the fallback plan's limit.
+    const refusing = { limit: async () => ({ success: false }) };
+    const grant = () => ({ status: "active", plan: "free", account: "0xfree", rps: 20, limiter: false, lease: "L", reserved: 100_000, ttl_ms: 60_000 });
+    const key = await deriveKey(SECRET, ID);
+    const body = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_chainId" });
+    const through = (app: AccessApi) =>
+      worker.fetch(new Request(`https://eth.nullrpc.dev/${key}`, { method: "POST", headers: { "cf-connecting-ip": "192.0.2.77" }, body }), { ...env, APP: app, RPC_RATE_LIMIT_FREE: refusing }, ctx);
+    const down = fakeApp(grant);
+    down.fail(true);
+    const served = await through(down);
+    expect(served.status).toBe(200);
+    expect(((await served.json()) as { result: string }).result).toBe("0x1");
+    const limited = await through(fakeApp(grant));
+    expect(limited.status).toBe(429);
+    expect(((await limited.json()) as { error: { message: string } }).error.message).toBe("Rate limit exceeded");
   });
 });

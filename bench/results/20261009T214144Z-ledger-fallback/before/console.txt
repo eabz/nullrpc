@@ -1,0 +1,17 @@
+tail lines so far: 0
+Fri Oct  9 21:41:44 UTC 2026
+== stress: free at 20 req/s for 20s
+achieved 21 req/s (client dropped 0); ok 414, refused 5, 429 0, errors 1 (0.24%); p50 153ms p95 949ms p99 1.67s; 20.8 credits/req
+  1× 500 0 non-JSON (500)
+== stress: builder at 250 req/s for 20s
+achieved 149 req/s (client dropped 0); ok 5221, refused 28, 429 0, errors 1 (0.02%); p50 60ms p95 1.76s p99 2.34s; 20.8 credits/req
+  1× 200 -32005 execution exceeded its time budget (timeout)
+== stress: growth at 1000 req/s for 20s
+achieved 417 req/s (client dropped 9765); ok 11177, refused 58, 429 0, errors 0 (0.00%); p50 50ms p95 9.83s p99 18.03s; 21.0 credits/req
+== stress: scale at 3000 req/s for 20s
+achieved 1163 req/s (client dropped 10552); ok 52067, refused 278, 429 90, errors 5 (0.01%); p50 52ms p95 758ms p99 3.12s; 21.0 credits/req
+  90× 429 -32005 Rate limit exceeded
+  5× 200 -32005 execution exceeded its time budget (timeout)
+Fri Oct  9 21:43:58 UTC 2026
+
+[exited with code 0]

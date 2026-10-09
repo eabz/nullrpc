@@ -378,9 +378,18 @@ async function applyTopUp(db: D1Database, leaseId: string, own: number, topUp: n
   return (results[0]?.meta.changes ?? 0) === 1;
 }
 
+/** The sweep of expired leases runs on a lease call at most this often per isolate (the cron runs it too). */
+const SWEEP_INTERVAL_MS = 10_000;
+let lastSweep = -Infinity;
+
 /** `POST /lease` on the Access entrypoint: renews each line in order. */
 export async function lease(db: D1Database, lines: LeaseLine[], now: number): Promise<LeaseGrant[]> {
-  await sweepLeases(db, now);
+  // Every D1 round trip here queues behind every other lease call's (D1 serializes a database's
+  // queries), so a lease call does only its own line's work; the sweep is amortized.
+  if (now - lastSweep >= SWEEP_INTERVAL_MS) {
+    lastSweep = now;
+    await sweepLeases(db, now);
+  }
   const out: LeaseGrant[] = [];
   for (const line of lines) {
     out.push(typeof line?.subject === "string" ? await leaseOne(db, line, now) : { status: "unknown", lease: null, reserved: 0, ttl_ms: LEASE_MS });
