@@ -1,7 +1,8 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  // EVM execution and tracing for every chain's RPC Worker (apps/rpc, src/executor.ts), reached
-  // only through service bindings to the `Executor` entrypoint: no workers.dev, no routes.
+  // EVM execution and tracing (packages/executor) as a Worker of its own, reached only through
+  // service bindings to the `Executor` entrypoint: no workers.dev, no routes. The RPC Workers
+  // run the package in-process and bind this Worker only when configured to (apps/rpc).
   "name": "nullrpc-executor",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-08",
@@ -9,6 +10,6 @@
   "preview_urls": false,
   // Request logs stay off (no request contents are logged); errors are logged.
   "observability": { "enabled": true, "logs": { "enabled": true, "invocation_logs": false }, "traces": { "enabled": false } },
-  // The WebAssembly is built from crate/ before bundling (crate/pkg is git-ignored).
-  "build": { "command": "sh scripts/build.sh", "watch_dir": ["crate/src"] }
+  // The WebAssembly is built from packages/executor/crate before bundling (crate/pkg is git-ignored).
+  "build": { "command": "bun run build", "watch_dir": ["../../packages/executor/crate/src"] }
 }

@@ -3,14 +3,16 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "bun run --cwd ../../packages/executor build",
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "deploy": "bun run build && wrangler deploy",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "fixtures": "node test/fixtures/fetch.mjs"
   },
   "dependencies": {
     "@noble/hashes": "^2.0.0",
+    "@nullrpc/executor": "workspace:*",
     "fzstd": "^0.1.1"
   },
   "devDependencies": {

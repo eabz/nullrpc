@@ -1,0 +1,27 @@
+{
+  "name": "@nullrpc/executor",
+  "private": true,
+  "type": "module",
+  "description": "EVM execution and tracing (revm in WebAssembly) behind the round loop, shared by the RPC Worker and the executor Worker",
+  "exports": {
+    ".": "./src/index.ts",
+    "./contract": "./src/contract.ts",
+    "./shell": "./src/shell.ts",
+    "./test/vitest-wasm": "./test/vitest-wasm.ts"
+  },
+  "scripts": {
+    "build": "sh scripts/build.sh",
+    "typecheck": "tsc --noEmit",
+    "test": "sh scripts/build.sh && cargo test --manifest-path crate/Cargo.toml && vitest run",
+    "fixtures": "node test/fixtures/fetch.mjs"
+  },
+  "dependencies": {
+    "@noble/hashes": "^2.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261007.1",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.0"
+  }
+}

@@ -1,16 +1,16 @@
-// Copy of apps/rpc/src/executor.ts (the contract between the RPC Worker and this Worker,
-// `nullrpc-executor`, entrypoint `Executor`): keep the two in sync.
+// The contract between the RPC Worker and the executor (this package, run in-process by
+// apps/rpc, or behind the `Executor` entrypoint of apps/executor over a service binding): EVM
+// execution and tracing with revm, compiled to WebAssembly.
 //
-// EVM execution and tracing with revm, compiled to WebAssembly.
+// The executor never reads storage itself. The RPC Worker passes a `StateSource` and the executor
+// asks it for what it needs, in batches: the executor runs, collects the keys it is missing,
+// reads them in one call, and runs again (rounds). Mined-transaction traces read the block's
+// witness instead, in one call.
 //
-// The executor never reads storage itself. The RPC Worker passes a `StateSource` (a Workers RPC
-// target, received by the executor as a stub) and the executor asks it for what it needs, in
-// batches: the executor runs, collects the keys it is missing, reads them in one call, and runs
-// again (rounds). Mined-transaction traces read the block's witness instead, in one call.
-//
-// Everything crossing the binding is structured-clonable: hex strings (0x-prefixed, lowercase),
-// numbers and plain objects. One executor serves every chain: the chain's rules come from the
-// archive's config object (docs/storage.md, "Chain config"), passed with every request.
+// Everything is structured-clonable, so the same objects cross a service binding (the StateSource
+// then travels as a Workers RPC stub): hex strings (0x-prefixed, lowercase), numbers and plain
+// objects. One executor serves every chain: the chain's rules come from the archive's config
+// object (docs/storage.md, "Chain config"), passed with every request.
 
 /** A key the executor reads. State keys are read at the end of block `at` of the request. */
 export type StateKey =
@@ -33,7 +33,7 @@ export interface Witness {
   storage: { address: string; slots: { slot: string; value: string }[] }[];
 }
 
-/** Provided by the RPC Worker (an RpcTarget); the executor receives it as a stub. */
+/** Provided by the RPC Worker (apps/rpc/src/state-source.ts, an RpcTarget so it can also cross a service binding). */
 export interface StateSource {
   /** State at the end of block `at` (one pinned view for the whole request). */
   read(keys: StateKey[], at: number): Promise<StateValue[]>;
@@ -61,7 +61,7 @@ export interface ExecRequest {
 
 export type ExecResponse = { result: unknown } | { error: { code: number; message: string; data?: unknown } };
 
-/** The executor entrypoint as the RPC Worker calls it. */
+/** The executor as the RPC Worker calls it: this package's `execute`, or the executor Worker's entrypoint. */
 export interface ExecutorApi {
   execute(request: ExecRequest, state: StateSource): Promise<ExecResponse>;
 }

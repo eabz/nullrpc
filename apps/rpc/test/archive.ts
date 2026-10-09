@@ -45,7 +45,7 @@ function packHeader(codec: number): Uint8Array {
   return h;
 }
 
-function uvarint(v: number): number[] {
+export function uvarint(v: number): number[] {
   const out: number[] = [];
   while (v >= 0x80) {
     out.push((v % 128) | 0x80);
@@ -307,6 +307,23 @@ function stateLayer(b: Builder, all: StateEntry[], first: number, last: number, 
   }
   const descriptor = b.putJson(`${dir}/layer.json`, { first, last, domains });
   return { first, last, level: n, descriptor };
+}
+
+/** A witness range (storage.md, "Witnesses"): one frame per block from `first` on, in order. */
+export function witnessRange(b: Builder, first: number, frames: Uint8Array[]) {
+  const p = pack(frames, 1);
+  const offsets = new Uint8Array(frames.length * 56);
+  const view = new DataView(offsets.buffer);
+  p.frames.forEach((fr, i) => {
+    view.setBigUint64(i * 56, BigInt(fr.offset), true);
+    view.setUint32(i * 56 + 8, fr.compressed, true);
+    view.setUint32(i * 56 + 12, fr.uncompressed, true);
+    view.setUint16(i * 56 + 16, 0, true);
+    offsets.set(fr.sha256, i * 56 + 24);
+  });
+  const last = first + frames.length - 1;
+  const dir = `witnesses/${String(first).padStart(20, "0")}-${String(last).padStart(20, "0")}`;
+  return { first, last, offsets: b.put(`${dir}/offsets.bin`, offsets), packs: [b.put(`${dir}/witness.0.pack`, p.bytes)] };
 }
 
 /** An `accounts` value: uvarint(nonce) uvarint(len) balance code_hash?. */

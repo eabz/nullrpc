@@ -3,7 +3,7 @@
 // by hash; nothing is shared across blocks.
 
 import { keccak_256 } from "@noble/hashes/sha3.js";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ExecRequest, StateKey, StateSource, StateValue } from "../src/contract";
 import { blockHashOf, execute, type WasmSession } from "../src/shell";
 
@@ -166,6 +166,24 @@ describe("state cache", () => {
       const state = new CountingState(TABLE);
       await execute(request, state, session({ missing: KEYS.slice(0, 3), at: 1 }).session);
       expect(flat(state.asked)).toEqual([`a:${A}`, `a:${B}`, "s:0x1"]);
+    }
+  });
+});
+
+describe("rounds and the event loop", () => {
+  const request = (): ExecRequest => ({ method: "eth_call", params: [], chain: chain(903), block: "0x00" });
+  const state = () => new CountingState(TABLE);
+  it("a round that ran 10 ms or more is followed by a turn of the event loop", async () => {
+    const timers = vi.spyOn(globalThis, "setTimeout");
+    try {
+      let t = 0;
+      await execute(request(), state(), session({ missing: KEYS.slice(0, 1), at: 1 }).session, () => (t += 20));
+      expect(timers).toHaveBeenCalledTimes(1);
+      timers.mockClear();
+      await execute(request(), state(), session({ missing: KEYS.slice(0, 1), at: 1 }).session, () => t);
+      expect(timers).not.toHaveBeenCalled();
+    } finally {
+      timers.mockRestore();
     }
   });
 });
