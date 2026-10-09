@@ -59,7 +59,8 @@ async function parseFilter(chain: Chain, raw: unknown): Promise<Filter> {
     if (f.fromBlock !== undefined || f.toBlock !== undefined) throw invalidParams("blockHash cannot be combined with fromBlock or toBlock");
     const hash = parseData(f.blockHash, 32);
     if (!hash) throw invalidParams("blockHash must be a 32-byte hex string");
-    const rec = await chain.blockByHash(hash);
+    // Only the block's number is needed here: its logs are read by number below.
+    const rec = await chain.blockByHash(hash, "block");
     if (!rec) throw new RpcError(-32000, "unknown block");
     return { from: rec.block.header.number, to: rec.block.header.number, addresses, topics };
   }

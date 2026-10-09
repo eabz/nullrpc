@@ -1,10 +1,11 @@
 // The JSON-RPC methods served from the archive: chain identity, blocks, transactions, receipts
 // and their raw encodings. Results follow the reference execution clients' JSON exactly.
 
+import type { BlockNeed } from "../archive/archive";
 import type { Chain } from "../chain";
 import { headerJson } from "../eth/block";
 import { concat, data, quantity } from "../eth/hex";
-import { blockResult, logsBloom, receiptResult, receiptsResult, txResult, type BlockRecord } from "../eth/record";
+import { blockResult, logsBloom, receiptResult, receiptsResult, txResult, type BlockPart, type BlockRecord } from "../eth/record";
 import { encodeBytes, encodeList, intBytes } from "../eth/rlp";
 import { blockRef, bool, hash32, index, type Handler } from "../rpc";
 import { EXEC_METHODS } from "./exec";
@@ -15,17 +16,24 @@ import { STATE_METHODS } from "./state";
 
 export const CLIENT_VERSION = "nullrpc/0.1.0";
 
-/** The block a block parameter names, or null when unknown. */
-async function resolve(chain: Chain, param: unknown): Promise<BlockRecord | null> {
+/**
+ * The block a block parameter names, or null when unknown: its whole record, or with `need`
+ * "block" the block without its receipts (a layout-2 segment then reads one frame, not two).
+ */
+function resolve(chain: Chain, param: unknown): Promise<BlockRecord | null>;
+function resolve(chain: Chain, param: unknown, need: "block"): Promise<BlockPart | null>;
+function resolve(chain: Chain, param: unknown, need: BlockNeed = "record"): Promise<BlockPart | null> {
   const ref = blockRef(chain, param);
-  return "number" in ref ? chain.block(ref.number) : chain.blockByHash(ref.hash);
+  return "number" in ref ? (need === "block" ? chain.part(ref.number) : chain.block(ref.number)) : chain.blockByHash(ref.hash, need);
 }
 
-async function byHash(chain: Chain, param: unknown): Promise<BlockRecord | null> {
-  return chain.blockByHash(hash32(param, "blockHash"));
+function byHash(chain: Chain, param: unknown): Promise<BlockRecord | null>;
+function byHash(chain: Chain, param: unknown, need: "block"): Promise<BlockPart | null>;
+function byHash(chain: Chain, param: unknown, need: BlockNeed = "record"): Promise<BlockPart | null> {
+  return chain.blockByHash(hash32(param, "blockHash"), need);
 }
 
-function uncleResult(rec: BlockRecord | null, i: number) {
+function uncleResult(rec: BlockPart | null, i: number) {
   const u = rec?.block.uncles[i];
   if (!u) return null;
   const out = headerJson(u);
@@ -43,8 +51,8 @@ function rawReceipt(rec: BlockRecord, i: number): Uint8Array {
   return r.type === 0 ? body : concat(Uint8Array.of(r.type), body);
 }
 
-const txCount = (rec: BlockRecord | null) => (rec ? quantity(rec.block.txs.length) : null);
-const uncleCount = (rec: BlockRecord | null) => (rec ? quantity(rec.block.uncles.length) : null);
+const txCount = (rec: BlockPart | null) => (rec ? quantity(rec.block.txs.length) : null);
+const uncleCount = (rec: BlockPart | null) => (rec ? quantity(rec.block.uncles.length) : null);
 
 const BLOCK_METHODS: Record<string, Handler> = {
   web3_clientVersion: async () => CLIENT_VERSION,
@@ -53,46 +61,49 @@ const BLOCK_METHODS: Record<string, Handler> = {
   eth_syncing: async () => false,
   eth_blockNumber: async (chain) => quantity(chain.pointers().latest),
 
+  // Blocks, headers and transactions need no receipts: these read the block alone.
   eth_getBlockByNumber: async (chain, [ref, full]) => {
-    const rec = await resolve(chain, ref);
+    const rec = await resolve(chain, ref, "block");
     return rec ? blockResult(rec, bool(full, "full")) : null;
   },
   eth_getBlockByHash: async (chain, [hash, full]) => {
-    const rec = await byHash(chain, hash);
+    const rec = await byHash(chain, hash, "block");
     return rec ? blockResult(rec, bool(full, "full")) : null;
   },
-  eth_getBlockTransactionCountByNumber: async (chain, [ref]) => txCount(await resolve(chain, ref)),
-  eth_getBlockTransactionCountByHash: async (chain, [hash]) => txCount(await byHash(chain, hash)),
-  eth_getUncleCountByBlockNumber: async (chain, [ref]) => uncleCount(await resolve(chain, ref)),
-  eth_getUncleCountByBlockHash: async (chain, [hash]) => uncleCount(await byHash(chain, hash)),
-  eth_getUncleByBlockNumberAndIndex: async (chain, [ref, i]) => uncleResult(await resolve(chain, ref), index(i)),
-  eth_getUncleByBlockHashAndIndex: async (chain, [hash, i]) => uncleResult(await byHash(chain, hash), index(i)),
+  eth_getBlockTransactionCountByNumber: async (chain, [ref]) => txCount(await resolve(chain, ref, "block")),
+  eth_getBlockTransactionCountByHash: async (chain, [hash]) => txCount(await byHash(chain, hash, "block")),
+  eth_getUncleCountByBlockNumber: async (chain, [ref]) => uncleCount(await resolve(chain, ref, "block")),
+  eth_getUncleCountByBlockHash: async (chain, [hash]) => uncleCount(await byHash(chain, hash, "block")),
+  eth_getUncleByBlockNumberAndIndex: async (chain, [ref, i]) => uncleResult(await resolve(chain, ref, "block"), index(i)),
+  eth_getUncleByBlockHashAndIndex: async (chain, [hash, i]) => uncleResult(await byHash(chain, hash, "block"), index(i)),
 
   eth_getTransactionByHash: async (chain, [hash]) => {
-    const found = await chain.transaction(hash32(hash));
+    const found = await chain.transaction(hash32(hash), "block");
     return found ? txResult(found.rec, found.index) : null;
   },
   eth_getTransactionByBlockNumberAndIndex: async (chain, [ref, i]) => {
-    const rec = await resolve(chain, ref);
+    const rec = await resolve(chain, ref, "block");
     return rec ? txResult(rec, index(i)) : null;
   },
   eth_getTransactionByBlockHashAndIndex: async (chain, [hash, i]) => {
-    const rec = await byHash(chain, hash);
+    const rec = await byHash(chain, hash, "block");
     return rec ? txResult(rec, index(i)) : null;
   },
   eth_getRawTransactionByHash: async (chain, [hash]) => {
-    const found = await chain.transaction(hash32(hash));
+    const found = await chain.transaction(hash32(hash), "block");
     return found ? data(found.rec.block.txs[found.index]!.raw) : null;
   },
   eth_getRawTransactionByBlockNumberAndIndex: async (chain, [ref, i]) => {
-    const tx = (await resolve(chain, ref))?.block.txs[index(i)];
+    const tx = (await resolve(chain, ref, "block"))?.block.txs[index(i)];
     return tx ? data(tx.raw) : null;
   },
   eth_getRawTransactionByBlockHashAndIndex: async (chain, [hash, i]) => {
-    const tx = (await byHash(chain, hash))?.block.txs[index(i)];
+    const tx = (await byHash(chain, hash, "block"))?.block.txs[index(i)];
     return tx ? data(tx.raw) : null;
   },
 
+  // A receipt is formatted from the receipt and its transaction's context (sender, type, gas
+  // price against the header's base fee): the whole record.
   eth_getTransactionReceipt: async (chain, [hash]) => {
     const found = await chain.transaction(hash32(hash));
     return found ? receiptResult(found.rec, found.index) : null;
@@ -103,15 +114,15 @@ const BLOCK_METHODS: Record<string, Handler> = {
   },
 
   debug_getRawBlock: async (chain, [ref]) => {
-    const rec = await resolve(chain, ref);
+    const rec = await resolve(chain, ref, "block");
     return rec ? data(rec.block.raw) : null;
   },
   debug_getRawHeader: async (chain, [ref]) => {
-    const rec = await resolve(chain, ref);
+    const rec = await resolve(chain, ref, "block");
     return rec ? data(rec.block.header.raw) : null;
   },
   debug_getRawTransaction: async (chain, [hash]) => {
-    const found = await chain.transaction(hash32(hash));
+    const found = await chain.transaction(hash32(hash), "block");
     return found ? data(found.rec.block.txs[found.index]!.raw) : null;
   },
   debug_getRawReceipts: async (chain, [ref]) => {

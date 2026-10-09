@@ -12,7 +12,7 @@ export async function stateBlock(chain: Chain, param: unknown): Promise<number> 
   let n: number;
   if ("number" in ref) n = ref.number;
   else {
-    const rec = await chain.blockByHash(ref.hash);
+    const rec = await chain.blockByHash(ref.hash, "block");
     if (!rec) throw new RpcError(-32000, `header for hash not found`);
     n = rec.block.header.number;
   }
