@@ -8,10 +8,16 @@
   //   bunx wrangler deploy --env 1          Ethereum mainnet  eth.nullrpc.dev
   //   bunx wrangler secret put KEY_SECRET --env <id>   (the same value as nullrpc-app's KEY_SECRET)
   //
-  // Requires, per chain: nullrpc-live-{id} (apps/live), nullrpc-app (apps/app), nullrpc-executor
-  // (apps/executor), and the archive under ARCHIVE_PREFIX in the nullrpc bucket.
+  // Requires, per chain: nullrpc-live-{id} (apps/live), nullrpc-app (apps/app), and the archive
+  // under ARCHIVE_PREFIX in the nullrpc bucket. Execution and tracing run in-process
+  // (packages/executor, bundled with its WebAssembly); the optional EXECUTOR service binding
+  // (nullrpc-executor, apps/executor) moves them to that Worker instead:
+  //   { "binding": "EXECUTOR", "service": "nullrpc-executor", "entrypoint": "Executor" }
   "name": "nullrpc-rpc",
   "main": "src/index.ts",
+  // The executor's WebAssembly is built from packages/executor/crate before bundling
+  // (its crate/pkg is git-ignored).
+  "build": { "command": "bun run build", "watch_dir": ["../../packages/executor/crate/src"] },
   "compatibility_date": "2026-10-08",
   "workers_dev": false,
   "preview_urls": false,
@@ -36,8 +42,7 @@
       "r2_buckets": [{ "binding": "ARCHIVE", "bucket_name": "nullrpc" }],
       "services": [
         { "binding": "LIVE", "service": "nullrpc-live-560048", "entrypoint": "LiveReads" },
-        { "binding": "APP", "service": "nullrpc-app", "entrypoint": "Access" },
-        { "binding": "EXECUTOR", "service": "nullrpc-executor", "entrypoint": "Executor" }
+        { "binding": "APP", "service": "nullrpc-app", "entrypoint": "Access" }
       ],
       "durable_objects": { "bindings": [{ "name": "RATE_BUDGET", "class_name": "RateBudget", "script_name": "nullrpc-app" }] },
       // Per-plan requests per second, per location; namespaces are shared by every chain, so one
@@ -65,8 +70,7 @@
       "r2_buckets": [{ "binding": "ARCHIVE", "bucket_name": "nullrpc" }],
       "services": [
         { "binding": "LIVE", "service": "nullrpc-live-1", "entrypoint": "LiveReads" },
-        { "binding": "APP", "service": "nullrpc-app", "entrypoint": "Access" },
-        { "binding": "EXECUTOR", "service": "nullrpc-executor", "entrypoint": "Executor" }
+        { "binding": "APP", "service": "nullrpc-app", "entrypoint": "Access" }
       ],
       "durable_objects": { "bindings": [{ "name": "RATE_BUDGET", "class_name": "RateBudget", "script_name": "nullrpc-app" }] },
       "ratelimits": [

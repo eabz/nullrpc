@@ -22,6 +22,7 @@ import { METHODS } from "./methods";
 import { pageResponse, statusResponse, usageResponse, type PageConfig } from "./page/page";
 import { errorResponse, MAX_BATCH, RpcError, validate, type MethodEnv, type RpcRequest } from "./rpc";
 import type { ExecutorApi } from "./executor";
+import { executor as localExecutor } from "@nullrpc/executor";
 
 export interface Env {
   ARCHIVE: R2Bucket;
@@ -49,7 +50,8 @@ export interface Env {
   RPC_RATE_LIMIT_GROWTH?: RateLimiter;
   RPC_RATE_LIMIT_SCALE?: RateLimiter;
   ASSETS?: Fetcher;
-  /** The executor Worker (nullrpc-executor, entrypoint Executor): execution and tracing. */
+  /** Execution and tracing run in-process (@nullrpc/executor); bound, the executor Worker
+   *  (nullrpc-executor, entrypoint Executor) runs them instead. */
   EXECUTOR?: ExecutorApi;
   /** HTTPS JSON-RPC endpoint transactions are relayed to (eth_sendRawTransaction). */
   RELAY_URL?: string;
@@ -191,7 +193,7 @@ async function rpc(request: Request, env: Env, ctx: ExecutionContext): Promise<R
   let results: RpcResponse[];
   try {
     const chain = await openChain(env);
-    const menv: MethodEnv = { chainId: Number(env.CHAIN_ID), relayUrl: env.RELAY_URL, executor: env.EXECUTOR };
+    const menv: MethodEnv = { chainId: Number(env.CHAIN_ID), relayUrl: env.RELAY_URL, executor: env.EXECUTOR ?? localExecutor };
     results = await Promise.all(items.map((item) => {
       const req = validate(item);
       return "error" in req ? (req as RpcResponse) : call(chain, req, menv);

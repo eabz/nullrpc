@@ -30,7 +30,7 @@ export interface MethodEnv {
   chainId: number;
   /** HTTPS JSON-RPC endpoint of the transaction relay; unset disables eth_sendRawTransaction. */
   relayUrl?: string;
-  /** The executor Worker; unset disables execution and tracing. */
+  /** The executor (in-process, or the executor Worker); unset disables execution and tracing. */
   executor?: import("./executor").ExecutorApi;
 }
 

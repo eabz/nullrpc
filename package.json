@@ -1,7 +1,10 @@
 {
   "name": "nullrpc",
   "private": true,
-  "workspaces": ["apps/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "typecheck": "bun run --filter '*' typecheck"
   }

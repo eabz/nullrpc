@@ -1,5 +1,6 @@
-// The StateSource the executor reads through (src/executor.ts): a Workers RPC target over this
-// request's pinned chain view, so every executor read sees the same archive generation and head.
+// The StateSource the executor reads through (src/executor.ts) over this request's pinned chain
+// view, so every executor read sees the same archive generation and head. An RpcTarget, so the
+// same object serves the executor Worker over a service binding when EXECUTOR is bound.
 
 import { RpcTarget } from "cloudflare:workers";
 import { decodeAccount, type Domain } from "./archive/state";

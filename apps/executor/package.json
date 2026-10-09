@@ -3,15 +3,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "sh scripts/build.sh",
+    "build": "bun run --cwd ../../packages/executor build",
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "deploy": "bun run build && wrangler deploy",
     "typecheck": "tsc --noEmit",
-    "test": "sh scripts/build.sh && cargo test --manifest-path crate/Cargo.toml && vitest run",
-    "fixtures": "node test/fixtures/fetch.mjs"
+    "test": "bun run build && vitest run"
   },
   "dependencies": {
-    "@noble/hashes": "^2.0.0"
+    "@nullrpc/executor": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261007.1",

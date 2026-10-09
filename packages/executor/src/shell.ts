@@ -1,7 +1,7 @@
 // The round loop around the WebAssembly executor (crate/): the executor runs as far as the
 // values it knows allow and answers the response, the witness it wants, or the state keys it
-// is missing; this loop reads them from the RPC Worker's StateSource and runs it again.
-// Runtime-independent (Workers and Node tests share it).
+// is missing; this loop reads them from the caller's StateSource and runs it again.
+// Runtime-independent (Workers and Node tests share it); index.ts binds it to the module.
 
 import { keccak_256 } from "@noble/hashes/sha3.js";
 import type { ExecRequest, ExecResponse, StateKey, StateSource, StateValue, Witness } from "./contract";
@@ -21,9 +21,19 @@ type Round =
 /** Most keys per StateSource.read call (apps/rpc/src/state-source.ts). */
 const READ_BATCH = 256;
 /** Rounds a request may take (the executor's own limit is 256 dependent read rounds). */
-const MAX_ROUNDS = 300;
+export const MAX_ROUNDS = 300;
 /** Wall-clock budget of one request. */
-const TIMEOUT_MS = 25_000;
+export const TIMEOUT_MS = 25_000;
+/** A round that ran this long is followed by a turn of the event loop before the next one. */
+const YIELD_AFTER_MS = 10;
+
+/**
+ * A turn of the event loop. A round is synchronous: nothing else in the isolate runs during it.
+ * Between rounds the state reads are awaited (I/O, so other requests proceed), except when the
+ * caches answer every key; a long round is then followed by an explicit turn, so one slow
+ * request with warm caches still lets the isolate's other requests make progress.
+ */
+const yieldNow = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 /** A small LRU by total size. */
 class Lru<V> {
@@ -56,10 +66,12 @@ class Lru<V> {
 
 /** Per isolate: bytecode by hash (immutable), witnesses by block hash (immutable), and account
  *  and storage values by (chain, block hash, block, key): the state at the end of a block is
- *  fixed once the block is, so entries never need invalidating, only evicting. */
-const codeCache = new Lru<string>(32 * 1024 * 1024);
-const witnessCache = new Lru<Witness | null>(16 * 1024 * 1024);
-const stateCache = new Lru<StateValue>(32 * 1024 * 1024);
+ *  fixed once the block is, so entries never need invalidating, only evicting. Budgets (rough,
+ *  in UTF-16 string bytes) are sized for sharing the RPC Worker's 128 MB isolate with the
+ *  module's memory and the archive's own caches. */
+const codeCache = new Lru<string>(16 * 1024 * 1024);
+const witnessCache = new Lru<Witness | null>(8 * 1024 * 1024);
+const stateCache = new Lru<StateValue>(16 * 1024 * 1024);
 
 /** The RLP item at `at` of `b`: where its payload starts and ends, and whether it is a list. */
 function rlpItem(b: Uint8Array, at: number): { list: boolean; start: number; end: number } {
@@ -233,8 +245,12 @@ export async function execute(
   const wasm = session(JSON.stringify(request));
   try {
     let input = "";
+    let slow = false;
     for (let round = 0; round < MAX_ROUNDS; round++) {
+      if (slow) await yieldNow();
+      const ran = now();
       const out = JSON.parse(wasm.run(input)) as Round;
+      slow = now() - ran >= YIELD_AFTER_MS;
       if ("done" in out) return out.response;
       if (now() - started > TIMEOUT_MS) return { error: { code: -32005, message: "execution exceeded its time budget (timeout)" } };
       if ("witness" in out) {
@@ -251,6 +267,8 @@ export async function execute(
     }
     return { error: { code: -32005, message: `execution needs more than ${MAX_ROUNDS} rounds` } };
   } catch (e) {
+    // A trap in the module is the caller's to handle (index.ts drops the instance).
+    if (e instanceof WebAssembly.RuntimeError) throw e;
     console.error("executor state read failed", e instanceof Error ? e.message : String(e));
     return failure("execution unavailable: state could not be read");
   } finally {

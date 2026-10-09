@@ -1,6 +1,8 @@
-// Execution and tracing, run by the executor Worker (src/executor.ts). This Worker resolves the
-// block (or the transaction's block) and hands the executor a StateSource over the request's
-// pinned view; the executor returns the JSON-RPC result or error.
+// Execution and tracing, run by the executor (src/executor.ts: @nullrpc/executor in-process,
+// or the executor Worker when EXECUTOR is bound). This module resolves the block (or the
+// transaction's block) and hands the executor a StateSource over the request's pinned view; a
+// dependency round is then a function call plus the state reads. The executor returns the
+// JSON-RPC result or error.
 
 import type { Chain } from "../chain";
 import { data } from "../eth/hex";
