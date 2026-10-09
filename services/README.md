@@ -35,7 +35,17 @@ JSON-RPC on localhost.
 ### Build
 
 ```bash
-cd services && go build -trimpath -o bin/ ./cmd/backfill
+cd services && GOAMD64=v3 go build -trimpath -o bin/ ./cmd/backfill
+```
+
+`GOAMD64=v3` lets the compiler use AVX2 and BMI, which every server CPU since 2015 has;
+drop it for an older machine. The build also applies profile-guided optimization when
+`cmd/backfill/default.pgo` exists (Go picks that file up on its own). The committed
+profile comes from the witness executor on recent mainnet blocks; to refresh it, record a
+new one on the machine that runs the backfill and commit it:
+
+```bash
+NULLRPC_CPUPROFILE=/tmp/witness.prof bin/backfill --datadir /data/mainnet witness-test --from 23000000 --to 23020000 && cp /tmp/witness.prof cmd/backfill/default.pgo
 ```
 
 ### Credentials
@@ -122,7 +132,7 @@ R2, while the node still holds block `B+1` and the state at `B`.
 ### Build
 
 ```bash
-cd services && go build -trimpath -o bin/ ./cmd/daemon
+cd services && GOAMD64=v3 go build -trimpath -o bin/ ./cmd/daemon
 ```
 
 ### Credentials
