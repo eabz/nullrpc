@@ -102,7 +102,9 @@ main { flex: 1; min-width: 0; padding-top: 28px; }
   padding: 16px 0 20px; border-top: 1px solid var(--nr-border); color: var(--nr-text-secondary); font-size: 14px; line-height: 1.625;
 }
 .foot p { margin: 0; }
-.foot .links { display: flex; gap: 16px; margin: 0 auto 0 0; padding: 0; list-style: none; }
+.foot-links { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-left: auto; }
+.foot-links a { padding: 6px 0; color: var(--nr-text-secondary); text-decoration: none; }
+.foot-links a:hover { color: var(--nr-accent); }
 .foot-social { display: inline-flex; align-items: center; gap: 8px; padding: 6px 0; color: var(--nr-text-secondary); text-decoration: none; }
 .foot-social:hover { color: var(--nr-accent); }
 

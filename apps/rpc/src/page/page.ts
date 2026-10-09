@@ -52,7 +52,7 @@ export function renderPage(cfg: PageConfig, origin: string): string {
     ? `<p class="note">Requests without a key are rate limited. For production, <a href="https://app.nullrpc.dev">get an API key</a> and append it to the URL (<code>${escape(origin)}/&lt;key&gt;</code>) or send it as the <code>x-api-key</code> header.</p>\n`
     : "";
   const links =
-    '<nav class="foot-links" aria-label="More"><a href="https://nullrpc.dev/terms">Terms</a><a href="https://nullrpc.dev/privacy">Privacy</a><a href="https://status.nullrpc.dev">Status</a></nav>\n';
+    '<nav class="foot-links" aria-label="More"><a href="https://nullrpc.dev/terms">Terms</a><a href="https://nullrpc.dev/privacy">Privacy</a></nav>\n';
   const values: Record<string, string> = {
     name: escape(cfg.name),
     chain_id: escape(String(cfg.chainId)),
