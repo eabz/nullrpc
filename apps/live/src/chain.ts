@@ -18,6 +18,32 @@ export interface ChainState {
   shards: number | null;
 }
 
+/** The daemon's promotion rule (docs/storage.md, "Promotion"), sent with its writes. */
+export interface PromotionParams {
+  /** Blocks per promotion. */
+  batch: number;
+  /** A smaller batch is promoted once block P+1 is this old (seconds). */
+  max_age_s: number;
+  /** Batches promoted at most at once. */
+  max_batches: number;
+  /** Blocks per group: a promotion ends on a group boundary. */
+  group: number;
+}
+
+/** The next promotion, from the daemon's rule and the window's pointers. */
+export interface PromotionNext {
+  /** Finalized blocks above P, the ones a promotion could take now. */
+  finalized_above: number | null;
+  /** The block whose finalization completes a batch above P (on a group boundary). */
+  due_block: number;
+  batch: number;
+  /** When block P+1 reaches max_age (ms); null while P+1 is not in the window. */
+  deadline: number | null;
+  max_age_s: number;
+  /** The rule says a promotion is due now: the daemon is about to publish one. */
+  due: boolean;
+}
+
 /** Pipeline status for the status dashboard (GET /internal/status on the LiveStatus entrypoint). */
 export interface ChainStatus {
   /** When this status was read (ms). */
@@ -41,7 +67,13 @@ export interface ChainStatus {
   last_progress: number | null;
   /** When the daemon last wrote blocks (ms). */
   last_ingest: number | null;
-  promotion: { last: { archived_through: BlockId; generation: number; at: number } | null };
+  promotion: {
+    /** The daemon's promotion rule, as it last reported it; null until it does. */
+    params: PromotionParams | null;
+    /** When the next promotion is due; null without params or a promoted block. */
+    next: PromotionNext | null;
+    last: { archived_through: BlockId; generation: number; at: number } | null;
+  };
   counters: Record<string, number>;
   halted: boolean;
   /** The last ingest error of the past day. */
@@ -182,19 +214,25 @@ export class ChainDO extends DurableObject<Env> {
   }
 
   /** First start after the backfill: records the last promoted block, generation and shard count. */
-  async init(promoted: BlockId, generation: number, shards: number): Promise<ChainState> {
+  async init(promoted: BlockId, generation: number, shards: number, promotion: PromotionParams | null = null): Promise<ChainState> {
     const st = await this.state();
     if (st.shards !== null && st.shards !== shards) throw new Error(`shard count is ${st.shards}, not ${shards}`);
-    if (st.promoted === null) {
-      this.ctx.storage.transactionSync(() => {
+    this.ctx.storage.transactionSync(() => {
+      if (st.promoted === null) {
         this.set("promoted", promoted);
         this.set("generation", generation);
         this.set("shards", shards);
         this.set("head", promoted);
-      });
-    }
+      }
+      this.setPromotionParams(promotion);
+    });
     await this.ensureAlarm();
     return this.state();
+  }
+
+  /** Records the daemon's promotion rule when it sends one (inside a transaction). */
+  private setPromotionParams(p: PromotionParams | null): void {
+    if (p && JSON.stringify(p) !== JSON.stringify(this.get<PromotionParams>("promotion_params"))) this.set("promotion_params", p);
   }
 
   async putRows(rows: GroupRow[]): Promise<void> {
@@ -213,7 +251,7 @@ export class ChainDO extends DurableObject<Env> {
   }
 
   /** Moves the head; the head's block must be in the window, or be the last promoted block. */
-  async setHead(head: BlockId, safe: BlockId | null, finalized: BlockId | null, networkHead: BlockId | null = null): Promise<void> {
+  async setHead(head: BlockId, safe: BlockId | null, finalized: BlockId | null, networkHead: BlockId | null = null, promotion: PromotionParams | null = null): Promise<void> {
     const promoted = this.get<BlockId>("promoted");
     const atPromoted = promoted !== null && promoted.number === head.number && promoted.hash === head.hash;
     const idx = this.index();
@@ -224,6 +262,7 @@ export class ChainDO extends DurableObject<Env> {
       if (safe) this.set("safe", safe);
       if (finalized) this.set("finalized", finalized);
       if (networkHead) this.set("network_head", networkHead);
+      this.setPromotionParams(promotion);
       if (prev?.hash !== head.hash) this.set("head_time", idx.times.get(head.number) ?? null);
       if (!prev || head.number > prev.number) {
         this.set("last_progress", Date.now());
@@ -267,16 +306,45 @@ export class ChainDO extends DurableObject<Env> {
   }
 
   /** After a promotion: groups at or below `promoted` are in R2 now. */
-  async pruneAtOrBelow(promoted: BlockId, generation: number): Promise<void> {
+  async pruneAtOrBelow(promoted: BlockId, generation: number, promotion: PromotionParams | null = null): Promise<void> {
     this.ctx.storage.transactionSync(() => {
       this.sql.exec("DELETE FROM rows WHERE last <= ?", promoted.number);
       this.set("promoted", promoted);
       this.set("generation", generation);
       this.set("promotion_last", { archived_through: promoted, generation, at: Date.now() });
+      this.setPromotionParams(promotion);
       this.count({ prunes: 1 });
     });
     const idx = this.idx;
     if (idx) for (const [first, row] of idx.rows) if (row.last <= promoted.number) dropRow(idx, first);
+  }
+
+  /**
+   * Mirrors the daemon's promotionTarget (services/internal/core/daemon.go): a promotion is
+   * due when a full batch above P is finalized, or when block P+1 is older than max_age; it
+   * ends on a group boundary, at most max_batches batches above P and never above the head.
+   */
+  private promotionNext(st: ChainState, p: PromotionParams | null, now: number): PromotionNext | null {
+    if (!p || !st.promoted) return null;
+    const P = st.promoted.number;
+    const g = p.group;
+    const t1 = this.index().times.get(P + 1);
+    const deadline = t1 != null ? (t1 + p.max_age_s) * 1000 : null;
+    const F = st.finalized?.number ?? null;
+    let due = false;
+    if (F != null && st.head) {
+      const limit = Math.min(F, st.head.number, P + p.max_batches * p.batch);
+      const to = Math.floor((limit + 1) / g) * g - 1;
+      due = limit + 1 >= g && to > P && (to - P >= p.batch || (deadline != null && now >= deadline));
+    }
+    return {
+      finalized_above: F != null ? Math.max(0, F - P) : null,
+      due_block: Math.ceil((P + p.batch + 1) / g) * g - 1,
+      batch: p.batch,
+      deadline,
+      max_age_s: p.max_age_s,
+      due,
+    };
   }
 
   /** Records an ingest error for the status page. */
@@ -292,6 +360,7 @@ export class ChainDO extends DurableObject<Env> {
     const st = await this.state();
     const target = this.target(st.head);
     const promotionLast = this.get<ChainStatus["promotion"]["last"]>("promotion_last");
+    const params = this.get<PromotionParams>("promotion_params");
     const lastError = this.get<{ message: string; at: number }>("last_error");
     return {
       at: now,
@@ -306,7 +375,7 @@ export class ChainDO extends DurableObject<Env> {
       pending_blocks: st.head && st.promoted ? Math.max(0, st.head.number - st.promoted.number) : null,
       last_progress: this.get<number>("last_progress"),
       last_ingest: this.get<number>("last_ingest"),
-      promotion: { last: promotionLast },
+      promotion: { params, next: this.promotionNext(st, params, now), last: promotionLast },
       counters: this.get<Record<string, number>>("counters") ?? {},
       halted: false,
       last_error: lastError && now - lastError.at < ERROR_TTL_MS ? lastError : null,

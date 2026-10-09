@@ -1,0 +1,35 @@
+target https://hoodi.nullrpc.dev (keyless: 10 rps, burst 20)
+head 3781463, archived through 3781284, live window 179 blocks
+workload: 142 transactions, 125 addresses, 8 contracts from blocks 3781462 3781460 3781396 10345 1994428 3709633 3661712 3745339
+
+read mix: 311 calls in 68.3s = 4.6 req/s at concurrency 8; ok 297, rate-limited 0, errors 14 (4.50%); p50 238ms p90 2.41s p99 25.24s max 25.89s
+method                              n  ok  429  err    p50     p90     p99     max
+---------------------------------  --  --  ---  ---  -----  ------  ------  ------
+eth_getTransactionReceipt          42  42    0    0  1.84s   2.39s   3.42s   3.42s
+eth_blockNumber                    35  35    0    0   52ms    67ms   142ms   142ms
+eth_getBalance latest              28  28    0    0  197ms   650ms   3.97s   3.97s
+eth_call                           28  18    0   10  1.79s  25.56s  25.89s  25.89s
+eth_getBlockByNumber latest        26  26    0    0   82ms   182ms   700ms   700ms
+eth_getTransactionByHash           25  25    0    0  1.82s   2.14s   3.11s   3.11s
+eth_getBlockByNumber archive full  16  16    0    0  800ms   968ms   1.10s   1.10s
+eth_getBalance archive             14  14    0    0  505ms   581ms   659ms   659ms
+eth_gasPrice                       13  13    0    0  214ms   281ms   349ms   349ms
+eth_getBlockByNumber live full     12  12    0    0   88ms   223ms   423ms   423ms
+eth_getTransactionCount            11  11    0    0  200ms   220ms   261ms   261ms
+eth_getBlockByHash                  9   9    0    0  1.92s   2.34s   2.34s   2.34s
+eth_getCode                         9   9    0    0  679ms   4.10s   4.10s   4.10s
+eth_getLogs 10 blocks               8   8    0    0  866ms   1.44s   1.44s   1.44s
+eth_feeHistory                      6   6    0    0  159ms   333ms   333ms   333ms
+eth_getBlockReceipts                6   6    0    0  151ms   177ms   177ms   177ms
+eth_getLogs 100 blocks              6   4    0    2  2.53s   3.03s   3.03s   3.03s
+eth_chainId                         5   5    0    0   54ms    76ms    76ms    76ms
+eth_estimateGas                     5   3    0    2  813ms  25.18s  25.18s  25.18s
+eth_call archive                    4   4    0    0  1.51s  15.23s  15.23s  15.23s
+eth_getStorageAt                    3   3    0    0  272ms   3.48s   3.48s   3.48s
+errors:
+  5× 200 -32005 execution exceeded its time budget (timeout)
+  3× 200 3 execution reverted: Bad timestamp
+  2× 200 -32005 query returns more than 10000 logs; narrow the range or add 
+  2× 200 3 execution reverted: ERC20: insufficient allowance
+  1× 200 3 execution reverted
+  1× 200 -32000 insufficient funds for gas * price + value: address 0x8A4674
