@@ -277,7 +277,8 @@ if (PHASES.includes("calls")) {
     const rows = [["case", "n", "ok", "refused", "err", "p50", "p95", "max", "credits", "r2/call", "resp-cache", "rounds", "hints"]];
     for (const c of CASES.filter((x) => x.cls === cls)) {
       const ss = samples.calls.filter((s) => s.label === c.label);
-      const ms = ss.map((s) => s.ms).sort((a, b) => a - b);
+      // Percentiles over successful answers only; refusals and failures are counted, not timed.
+      const ms = (ss.some((s) => s.ok) ? ss.filter((s) => s.ok) : ss).map((s) => s.ms).sort((a, b) => a - b);
       const tally = cacheTally(ss);
       const ex = execTally(ss);
       rows.push([c.label, ss.length, ss.filter((s) => s.ok).length, ss.filter((s) => s.refused).length, ss.filter((s) => !s.ok && !s.refused).length, fmtMs(percentile(ms, 50)), fmtMs(percentile(ms, 95)), fmtMs(ms[ms.length - 1]), ss[0]?.credits ?? "-", tally.r2ReadsPerCall.toFixed(1), tally.responseHitRate === null ? "-" : `${(tally.responseHitRate * 100).toFixed(0)}%`, ex.rounds, ex.hints]);
@@ -434,12 +435,13 @@ const econ = planEconomics();
 const md = [];
 md.push(`# nullrpc benchmark ${stamp}`, "", `Target ${t.url} (${t.key ? "internal key" : "keyless"}), head ${head}, archived through ${P}, generation ${status?.generation ?? "?"}.`, "");
 if (samples.calls.length) {
-  md.push("## Calls", "", "Each case repeated " + REPEAT + " times, 4 in flight, shuffled. `r2/call` is the Worker's reported R2 misses per call; `resp-cache` the share of answers served from the response cache.", "");
+  md.push("## Calls", "", "Each case repeated " + REPEAT + " times, 4 in flight, shuffled. p50, p95 and max are over successful answers (refusals and failures are counted in their columns, not timed). `r2/call` is the Worker's reported R2 misses per call; `resp-cache` the share of answers served from the response cache.", "");
   for (const cls of ["normal", "heavy", "deep", "deep-heavy"]) {
     md.push(`### ${cls}`, "", "| case | n | ok | refused | err | p50 | p95 | max | credits | r2/call | resp-cache |", "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
     for (const c of CASES.filter((x) => x.cls === cls)) {
       const ss = samples.calls.filter((s) => s.label === c.label);
-      const ms = ss.map((s) => s.ms).sort((a, b) => a - b);
+      // Percentiles over successful answers only; refusals and failures are counted, not timed.
+      const ms = (ss.some((s) => s.ok) ? ss.filter((s) => s.ok) : ss).map((s) => s.ms).sort((a, b) => a - b);
       const tally = cacheTally(ss);
       md.push(`| ${c.label} | ${ss.length} | ${ss.filter((s) => s.ok).length} | ${ss.filter((s) => s.refused).length} | ${ss.filter((s) => !s.ok && !s.refused).length} | ${fmtMs(percentile(ms, 50))} | ${fmtMs(percentile(ms, 95))} | ${fmtMs(ms[ms.length - 1])} | ${ss[0]?.credits ?? "-"} | ${tally.r2ReadsPerCall.toFixed(1)} | ${tally.responseHitRate === null ? "-" : (tally.responseHitRate * 100).toFixed(0) + "%"} |`);
     }

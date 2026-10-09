@@ -73,8 +73,37 @@ due line renews once at a time", and the Worker-level "the plan's rate limit app
 granted plan, not to a key the app never answered for"). `bun run test` 282 passed, `bun run
 typecheck` clean in apps/rpc and apps/app.
 
-## After
+## After (deployed 21:57 UTC: nullrpc-app 449762d5, nullrpc-rpc-560048 22214403)
 
-To be filled once both Workers are deployed (`after/`): the Scale stage through the internal
-key should show 0 refusals, and the app's lease rate should drop to about one call per isolate
-per 30s.
+Two Scale stages through the internal key, run from the main checkout right after the deploy
+(the RPC version also carries the shared response-cache misses and the running log index in
+receipts, both unrelated to admission). The same tails were attached throughout.
+
+| run | achieved | n | ok | access refusals | 429 "Rate limit exceeded" | errors | p50 | p99 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 21:58 (`after/report.md`) | 429 req/s | 23,416 | 22,711 | 0 | **0** | 600 client timeouts | 278ms | 40s (client) |
+| 22:00 (`after-2/report.md`) | 2,198 req/s | 44,784 | 44,514 | 0 | **0** | 0 | 199ms | 1.73s |
+
+The "refused" column of both reports (105 and 270) is the eth_estimateGas "insufficient funds"
+answers of the user mix, as in every run; no request was refused by access. The second run,
+2,198 req/s achieved, is the highest Scale rate served so far and had no error of any kind.
+
+The first run's 600 errors were on the client, not the new admission path. They are exactly
+the client's in-flight cap (600), all 13 methods of the mix in proportion, all at the client's
+40s fetch timeout, and the last 600 samples to complete: the client's slots filled with stalled
+connections in the minute after the deploy, which is also why it achieved 429 req/s and dropped
+38,994 sends. The server did not hold them: Cloudflare's own numbers for the RPC Worker in the
+21:58 minute are 23,387 requests (the client sent 23,416) with wall p50 7ms, p90 54ms, p99 1.3s;
+600 requests held for 40s would be 2.6% of the minute, far above that p99. The lease path was
+quiet too: every lease call in the window answered 200 within 1.5s, so the 8s lease timeout
+never fired, and an internal line (5M credits reserved) never waits on a renewal. Two minutes
+later the second run, same code, had no timeout at five times the rate.
+
+Lease traffic (`after/tails.txt`, `after/app-analytics.txt`): 0 `lease_error` events in the
+RPC tail for both runs (601 in the 21:42 reproduction); the app answered every lease call 200
+(before: 387 D1 "overloaded" 500s). The app saw 539 + 152 + 579 requests in the three minutes
+of the two runs, about 6 per second against 110 per second in the milestone's Scale minute,
+with a burst of 126 first grants in the three seconds the second run's isolates started, one per
+isolate, then one renewal per isolate per 30s. Lease wall time: p50 0.49 to 1.07s, p99 1.0 to
+1.4s per minute (milestone: p50 6.6s, p99 28.5s); D1 writes 34 to 318 per minute (milestone:
+6,664), since each line's usage is now reported once.

@@ -1,0 +1,35 @@
+head 3785377; replay [{"from":"0xd10c37575e5f8378830a1745455a51c790971d3e","to":"0x91cb447b…; balanceOf {"to":"0x352aee9651e30b5fb0f770d7f4a0000c4a80e7fd","data":"0x70a08231cf19407a4a04b68efe58df5389517611991b98d3"}
+
+== deep replay, 10 sequential on one connection
+replay #1 | 5676ms | rounds=3 keys=21 hints=2002 live=0 archive=69 | bypass | execution reverted
+replay #2 | 86ms | (no exec header) | bypass | execution reverted
+replay #3 | 78ms | (no exec header) | bypass | execution reverted
+replay #4 | 70ms | (no exec header) | bypass | execution reverted
+replay #5 | 85ms | (no exec header) | bypass | execution reverted
+replay #6 | 64ms | (no exec header) | bypass | execution reverted
+replay #7 | 106ms | (no exec header) | bypass | execution reverted
+replay #8 | 62ms | (no exec header) | bypass | execution reverted
+replay #9 | 69ms | (no exec header) | bypass | execution reverted
+replay #10 | 63ms | (no exec header) | bypass | execution reverted
+
+== balanceOf latest, 10 sequential on one connection
+balanceOf #1 | 552ms | rounds=2 keys=4 hints=179 live=4 archive=21 | bypass | execution reverted
+balanceOf #2 | 180ms | (no exec header) | bypass | execution reverted
+balanceOf #3 | 51ms | (no exec header) | bypass | execution reverted
+balanceOf #4 | 62ms | (no exec header) | bypass | execution reverted
+balanceOf #5 | 72ms | (no exec header) | bypass | execution reverted
+balanceOf #6 | 61ms | (no exec header) | bypass | execution reverted
+balanceOf #7 | 60ms | (no exec header) | bypass | execution reverted
+balanceOf #8 | 47ms | (no exec header) | bypass | execution reverted
+balanceOf #9 | 52ms | (no exec header) | bypass | execution reverted
+balanceOf #10 | 53ms | (no exec header) | bypass | execution reverted
+
+== balanceOf latest, 8 with 4 in flight
+balanceOf par #1 | 53ms | (no exec header) | bypass | execution reverted
+balanceOf par #2 | 1007ms | rounds=1 keys=3 hints=179 live=4 archive=20 | bypass | execution reverted
+balanceOf par #3 | 560ms | rounds=1 keys=3 hints=179 live=4 archive=20 | bypass | execution reverted
+balanceOf par #4 | 928ms | rounds=2 keys=4 hints=179 live=4 archive=21 | bypass | execution reverted
+balanceOf par #5 | 147ms | (no exec header) | bypass | execution reverted
+balanceOf par #6 | 762ms | rounds=1 keys=3 hints=179 live=4 archive=20 | bypass | execution reverted
+balanceOf par #7 | 961ms | rounds=2 keys=4 hints=179 live=4 archive=21 | bypass | execution reverted
+balanceOf par #8 | 1041ms | rounds=1 keys=3 hints=179 live=4 archive=20 | bypass | execution reverted
