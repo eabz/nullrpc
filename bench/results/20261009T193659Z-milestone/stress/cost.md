@@ -6,10 +6,10 @@ Service-binding and RPC calls between Workers are not billed as requests (their 
 
 | window | client req | rpc req/req | live calls/req | app calls/req | DO req/req | R2 B/req | cpu ms/req | rpc cpu p50/p99 | $ per 1M req | biggest cost |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
-| stress free | 420 | 12.46 | 12.4 | 4.42 | 24.7 | 3.8 | 942.6 | 12.2 / 862.7 ms | 28.378 | Workers CPU 66% |
-| stress builder | 4727 | 2.86 | 3.0 | 1.40 | 6.0 | 0.9 | 216.6 | 9.3 / 790.7 ms | 6.615 | Workers CPU 65% |
-| stress growth | 8609 | 2.58 | 2.4 | 0.91 | 4.6 | 0.5 | 158.2 | 5.7 / 732.0 ms | 4.911 | Workers CPU 64% |
-| stress scale | 13456 | 1.01 | 0.8 | 0.22 | 1.6 | 0.2 | 53.3 | 4.8 / 704.0 ms | 1.731 | Workers CPU 62% |
+| stress free | 420 | 12.57 | 5.0 | 1.28 | 10.7 | 5.1 | 422.7 | 2.0 / 823.6 ms | 15.983 | Workers CPU 53% |
+| stress builder | 5223 | 2.56 | 0.8 | 0.66 | 1.6 | 0.4 | 75.6 | 1.9 / 818.4 ms | 2.762 | Workers CPU 55% |
+| stress growth | 8016 | 3.44 | 0.4 | 0.41 | 0.8 | 0.2 | 43.6 | 1.4 / 249.5 ms | 2.172 | Workers requests 47% |
+| stress scale | 19355 | 1.01 | 0.1 | 0.02 | 0.1 | 0.1 | 7.5 | 1.3 / 94.6 ms | 0.500 | Workers requests 60% |
 
 ## Margin per plan
 
@@ -17,8 +17,8 @@ Revenue per 1M requests is the plan price over the requests its quota buys at 20
 
 | plan | $/mo | revenue $ per 1M req | cost $ per 1M req (stress scale) | margin per 1M req | cost of the full quota | margin at full quota |
 |---|---|---|---|---|---|---|
-| public | 0 | 0.000 | 1.731 | -1.731 | 0.83 | -0.83 |
-| free | 0 | 0.000 | 1.731 | -1.731 | 1.67 | -1.67 |
-| builder | 19 | 0.658 | 1.731 | -1.073 | 49.98 | -30.98 |
-| growth | 89 | 0.616 | 1.731 | -1.114 | 249.92 | -160.92 |
-| scale | 599 | 0.622 | 1.731 | -1.108 | 1666.12 | -1067.12 |
+| public | 0 | 0.000 | 0.500 | -0.500 | 0.24 | -0.24 |
+| free | 0 | 0.000 | 0.500 | -0.500 | 0.48 | -0.48 |
+| builder | 19 | 0.658 | 0.500 | 0.158 | 14.44 | 4.56 |
+| growth | 89 | 0.616 | 0.500 | 0.116 | 72.20 | 16.80 |
+| scale | 599 | 0.622 | 0.500 | 0.122 | 481.33 | 117.67 |
