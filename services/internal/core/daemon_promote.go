@@ -5,8 +5,9 @@ package core
 // promote moves finalized blocks P+1 … P′ from the spool into a new R2 generation: one
 // segment and one witness range per chunk the blocks touch, a hash index object, a log index
 // object and a level-0 state layer. compact then runs one merge at a time, each publishing
-// its own generation: four state layers, hash index objects or log index objects of one level
-// into one of the next level, or a complete chunk's segments and witness ranges into one.
+// its own generation: four contiguous state layers, hash index objects or log index objects of
+// one level (any run, lowest level and oldest first: mergeableRun) into one of the next level,
+// or a complete chunk's segments and witness ranges into one.
 // Objects a new generation no longer names are deleted 7 days later.
 
 import (
@@ -260,11 +261,19 @@ func (p *promotion) compact() (bool, error) {
 	var upload []ObjectRef
 	var removed []string
 	what := ""
+	layerAt := p.mergeableLayers(m)
+	hashAt := p.mergeableIndex(len(m.HashIndex.Objects), func(i int) (uint64, uint64) {
+		o := m.HashIndex.Objects[i]
+		return o.FirstBlock, o.LastBlock
+	})
+	logAt := p.mergeableIndex(len(m.LogIndex.Objects), func(i int) (uint64, uint64) {
+		o := m.LogIndex.Objects[i]
+		return o.FirstBlock, o.LastBlock
+	})
 
 	switch {
-	case p.mergeableLayers(m) != nil:
-		group := p.mergeableLayers(m)
-		n := len(m.StateHistory.Layers)
+	case layerAt >= 0:
+		group := m.StateHistory.Layers[layerAt : layerAt+mergeWidth]
 		layers := make([]*stateLayer, len(group))
 		for i, ref := range group {
 			if layers[i], err = p.r2.layer(ref); err != nil {
@@ -281,15 +290,11 @@ func (p *promotion) compact() (bool, error) {
 			return false, err
 		}
 		upload = objs
-		next.StateHistory.Layers = append(append([]StateHistoryLayerRef(nil), m.StateHistory.Layers[:n-len(group)]...), merged)
+		next.StateHistory.Layers = replaceRun(m.StateHistory.Layers, layerAt, merged)
 		what = fmt.Sprintf("state layers %d-%d to level %d", merged.FirstBlock, merged.LastBlock, merged.Level)
 
-	case p.mergeableIndex(len(m.HashIndex.Objects), func(i int) (uint64, uint64) {
-		o := m.HashIndex.Objects[i]
-		return o.FirstBlock, o.LastBlock
-	}) > 0:
-		n := len(m.HashIndex.Objects)
-		group := m.HashIndex.Objects[n-4:]
+	case hashAt >= 0:
+		group := m.HashIndex.Objects[hashAt : hashAt+mergeWidth]
 		for _, o := range group {
 			removed = append(removed, hashIndexKeys(o)...)
 		}
@@ -298,15 +303,11 @@ func (p *promotion) compact() (bool, error) {
 			return false, err
 		}
 		upload = objs
-		next.HashIndex = &HashIndex{KeyBytes: hashIndexKeyBytes, Objects: append(append([]HashIndexObject(nil), m.HashIndex.Objects[:n-4]...), merged)}
+		next.HashIndex = &HashIndex{KeyBytes: hashIndexKeyBytes, Objects: replaceRun(m.HashIndex.Objects, hashAt, merged)}
 		what = fmt.Sprintf("hash index %d-%d", merged.FirstBlock, merged.LastBlock)
 
-	case p.mergeableIndex(len(m.LogIndex.Objects), func(i int) (uint64, uint64) {
-		o := m.LogIndex.Objects[i]
-		return o.FirstBlock, o.LastBlock
-	}) > 0:
-		n := len(m.LogIndex.Objects)
-		group := m.LogIndex.Objects[n-4:]
+	case logAt >= 0:
+		group := m.LogIndex.Objects[logAt : logAt+mergeWidth]
 		for _, o := range group {
 			removed = append(removed, logIndexKeys(o)...)
 		}
@@ -316,7 +317,7 @@ func (p *promotion) compact() (bool, error) {
 		}
 		upload = objs
 		next.LogIndex = &LogIndex{KeyBytes: logIndexKeyBytes, PartitionBlocks: logIndexPartitionBlocks,
-			Objects: append(append([]LogIndexObject(nil), m.LogIndex.Objects[:n-4]...), merged)}
+			Objects: replaceRun(m.LogIndex.Objects, logAt, merged)}
 		what = fmt.Sprintf("log index %d-%d", merged.FirstBlock, merged.LastBlock)
 
 	default:
@@ -416,39 +417,65 @@ func (p *promotion) compact() (bool, error) {
 	return true, nil
 }
 
-// mergeableLayers returns the newest four state layers when they share a level and are not
-// the base, or nil.
-func (p *promotion) mergeableLayers(m *Manifest) []StateHistoryLayerRef {
+// mergeWidth is how many objects of one level a merge folds into one of the next level.
+const mergeWidth = 4
+
+// mergeableLayers picks the state layers the next merge replaces: the run of mergeWidth
+// contiguous layers of one level, none the base, that mergeableRun prefers. It returns the
+// run's position in the manifest, or -1.
+func (p *promotion) mergeableLayers(m *Manifest) int {
 	ls := m.StateHistory.Layers
-	if len(ls) < 4 {
-		return nil
-	}
-	group := ls[len(ls)-4:]
-	for i, l := range group {
-		if l.Level == baseLevel || l.Level != group[0].Level || (i > 0 && l.FirstBlock != group[i-1].LastBlock+1) {
-			return nil
-		}
-	}
-	return group
+	return mergeableRun(len(ls), func(i int) (uint64, uint64, int, bool) {
+		l := ls[i]
+		return l.FirstBlock, l.LastBlock, int(l.Level), l.Level == baseLevel
+	})
 }
 
-// mergeableIndex reports whether the newest four index objects share a level and are not the
-// base (the first object, from the backfill).
+// mergeableIndex picks the index objects the next merge replaces, likewise; an index object's
+// level follows from its span (indexLevel), and the first object is the base (the backfill's).
 func (p *promotion) mergeableIndex(n int, span func(int) (uint64, uint64)) int {
-	if n < 5 {
-		return 0
-	}
 	batch := p.d.cfg.batch
-	f0, l0 := span(n - 4)
-	level := indexLevel(f0, l0, batch)
-	for i := n - 3; i < n; i++ {
+	return mergeableRun(n, func(i int) (uint64, uint64, int, bool) {
 		f, l := span(i)
-		_, pl := span(i - 1)
-		if f != pl+1 || indexLevel(f, l, batch) != level {
-			return 0
+		return f, l, indexLevel(f, l, batch), i == 0
+	})
+}
+
+// mergeableRun finds, among n objects ordered by first block, a run of mergeWidth contiguous
+// objects of one level, none the base: the one of the lowest level, and the oldest of those.
+// Every run qualifies, not only the newest, so a backlog drains: a merged object in the
+// middle of the list never strands the objects around it, and the small objects of the lowest
+// level fold first. It returns the run's start, or -1.
+func mergeableRun(n int, object func(int) (first, last uint64, level int, base bool)) int {
+	best, bestLevel := -1, 0
+	for start := 0; start+mergeWidth <= n; start++ {
+		_, last, level, base := object(start)
+		if base || (best >= 0 && level >= bestLevel) {
+			continue
+		}
+		run := true
+		for i := start + 1; i < start+mergeWidth; i++ {
+			f, l, lv, b := object(i)
+			if b || lv != level || f != last+1 {
+				run = false
+				break
+			}
+			last = l
+		}
+		if run {
+			best, bestLevel = start, level
 		}
 	}
-	return 4
+	return best
+}
+
+// replaceRun returns list with the mergeWidth objects at start replaced by merged, in place, so
+// the manifest's lists stay ordered by first block and contiguous.
+func replaceRun[T any](list []T, start int, merged T) []T {
+	out := make([]T, 0, len(list)-mergeWidth+1)
+	out = append(out, list[:start]...)
+	out = append(out, merged)
+	return append(out, list[start+mergeWidth:]...)
 }
 
 // completeChunk finds a chunk wholly at or below the archive tip that has more than one

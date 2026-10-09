@@ -209,9 +209,11 @@ from where it stopped. It logs one JSON line per promotion, merge, reorg and ret
 4. **Promotion.** When a batch is finalized: segments, witness ranges, hash and log index objects
    and a level-0 state layer to R2, a new manifest, `HEAD.json` with `If-Match`, then the live
    window is pruned.
-5. **Compaction.** Between promotions, one merge per generation: state layers and index objects
-   into higher levels, a complete chunk's segments and witness ranges into one. Replaced objects
-   are deleted 7 days later.
+5. **Compaction.** Between promotions, one merge per generation: any four contiguous state
+   layers or index objects of one level (the lowest level, then the oldest run, so a backlog of
+   small promotions drains instead of stranding behind a merged object) into one of the next
+   level; a complete chunk's segments and witness ranges into one. Replaced objects are deleted
+   7 days later (docs/storage.md, "Compaction").
 
 ## nullrpc-live-{chain-id}
 
