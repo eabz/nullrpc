@@ -123,6 +123,7 @@ func runDaemon(cfg daemonConfig, token string) error {
 		d.cfg.live = cfg.live
 	}
 	d.live = newLiveClient(cfg.live, token)
+	d.live.promotion = map[string]any{"batch": cfg.batch, "max_age_s": int64(cfg.maxAge.Seconds()), "max_batches": cfg.maxBatches, "group": cfg.group}
 	var genesis []byte
 	if cfg.genesis != "" {
 		genesis, err = os.ReadFile(cfg.genesis)
