@@ -713,15 +713,49 @@ func witnessCheckStage(w *workDir) error {
 	return nil
 }
 
-// runWitnessTest executes a block range like the witness stage and reports its speed,
-// without writing anything: `backfill witness-test --from N --to M`.
+// witnessBenchmarkJobs keeps the work identical across worker-count comparisons. The
+// benchmark uses the pipeline's default segment size and, unless explicitly overridden,
+// its carried-state run length.
+func witnessBenchmarkJobs(from, to, run uint64, workers int) ([]witnessJob, error) {
+	if from > to {
+		return nil, errors.New("--from must not exceed --to")
+	}
+	// Segment and run splitting add their sizes to block numbers. Leave enough
+	// headroom for those additions, including the increment after the final segment.
+	if to > math.MaxUint64-8192 {
+		return nil, fmt.Errorf("--to must not exceed %d", uint64(math.MaxUint64-8192))
+	}
+	if workers <= 0 {
+		return nil, errors.New("--exec-workers must be positive")
+	}
+	if run == 0 || run > 8192 {
+		return nil, errors.New("--run-blocks must be between 1 and 8192")
+	}
+	var segments [][2]uint64
+	for n := from; n <= to; n += 8192 {
+		segments = append(segments, [2]uint64{n, min(n+8191, to)})
+	}
+	return witnessJobs(segments, run), nil
+}
+
+// runWitnessTest reports execution and witness-encoding throughput, including sampled
+// overlay checks. Compression, archive writing, uploads and state-layer checks are omitted:
+// `backfill witness-test --from N --to M`.
 func runWitnessTest(args []string) {
 	fs := flag.NewFlagSet("witness-test", flag.ExitOnError)
 	_, datadir, _ := workFlags(fs) // --work and --rpc are accepted and unused
 	from := fs.Uint64("from", 1, "first block")
 	to := fs.Uint64("to", 10000, "last block")
 	workers := fs.Int("exec-workers", runtime.NumCPU(), "blocks executed in parallel")
+	run := fs.Uint64("run-blocks", witnessRun, "consecutive blocks per carried-state run, 1-8192 (fixed across worker counts)")
 	fs.Parse(args)
+	jobs, err := witnessBenchmarkJobs(*from, *to, *run, *workers)
+	if err != nil {
+		fail(err)
+	}
+	activeWorkers := min(*workers, len(jobs))
+	fmt.Fprintf(os.Stderr, "{\"scope\":\"execution_and_encoding\",\"run_blocks\":%d,\"workers\":%d,\"jobs\":%d,\"max_active_workers\":%d}\n",
+		*run, *workers, len(jobs), activeWorkers)
 	if *datadir == "" {
 		var err error
 		if *datadir, err = erigonDatadir(); err != nil {
@@ -735,15 +769,7 @@ func runWitnessTest(args []string) {
 	defer closeExec()
 	started := time.Now()
 	var blocks, accounts, slots, size atomic.Uint64
-	// Segments of the pipeline's size, so the runs match the stage's.
-	var segments [][2]uint64
-	for n := *from; n <= *to; n += 8192 {
-		segments = append(segments, [2]uint64{n, min(n+8191, *to)})
-	}
-	// Short runs on a small range, so every worker has several; the stage uses witnessRun.
-	run := max(witnessBatch, min(witnessRun, (*to-*from+1)/uint64(max(1, *workers)*4)))
-	fmt.Fprintf(os.Stderr, "{\"run_blocks\":%d,\"workers\":%d}\n", run, *workers)
-	err = runWitnessJobs(exec, witnessJobs(segments, run), *workers, func(_ witnessJob, _ uint64, wit *blockWitness) error {
+	err = runWitnessJobs(exec, jobs, activeWorkers, func(_ witnessJob, _ uint64, wit *blockWitness) error {
 		blocks.Add(1)
 		accounts.Add(uint64(len(wit.accounts)))
 		for _, s := range wit.storage {
@@ -756,7 +782,7 @@ func runWitnessTest(args []string) {
 		fail(err)
 	}
 	secs := time.Since(started).Seconds()
-	fmt.Printf("{\"blocks\":%d,\"seconds\":%.1f,\"blocks_per_s\":%.0f,\"accounts\":%d,\"slots\":%d,\"witness_bytes\":%d}\n",
+	fmt.Printf("{\"scope\":\"execution_and_encoding\",\"blocks\":%d,\"seconds\":%.1f,\"blocks_per_s\":%.0f,\"accounts\":%d,\"slots\":%d,\"witness_bytes\":%d}\n",
 		blocks.Load(), secs, float64(blocks.Load())/secs, accounts.Load(), slots.Load(), size.Load())
 }
 

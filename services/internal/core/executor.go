@@ -117,8 +117,13 @@ func (x *witnessExecutor) readTx(ctx context.Context) (ekv.TemporalTx, error) {
 // every key that block, or an earlier block of the run, touched.
 type stateOverlay struct {
 	accounts map[[20]byte]*accounts.Account // nil: the account does not exist
-	storage  map[[20]byte]map[[32]byte]uint256.Int
+	storage  map[[20]byte]map[[32]byte]overlaySlot
 	entries  int
+}
+
+type overlaySlot struct {
+	value   uint256.Int
+	present bool
 }
 
 func newStateOverlay() *stateOverlay {
@@ -129,7 +134,7 @@ func newStateOverlay() *stateOverlay {
 
 func (o *stateOverlay) reset() {
 	o.accounts = map[[20]byte]*accounts.Account{}
-	o.storage = map[[20]byte]map[[32]byte]uint256.Int{}
+	o.storage = map[[20]byte]map[[32]byte]overlaySlot{}
 	o.entries = 0
 }
 
@@ -140,16 +145,16 @@ func (o *stateOverlay) putAccount(a [20]byte, acc *accounts.Account) {
 	o.accounts[a] = acc
 }
 
-func (o *stateOverlay) putSlot(a [20]byte, s [32]byte, v uint256.Int) {
+func (o *stateOverlay) putSlot(a [20]byte, s [32]byte, v uint256.Int, present bool) {
 	slots := o.storage[a]
 	if slots == nil {
-		slots = map[[32]byte]uint256.Int{}
+		slots = map[[32]byte]overlaySlot{}
 		o.storage[a] = slots
 	}
 	if _, ok := slots[s]; !ok {
 		o.entries++
 	}
-	slots[s] = v
+	slots[s] = overlaySlot{value: v, present: present}
 }
 
 func (o *stateOverlay) dropStorage(a [20]byte) {
@@ -157,21 +162,32 @@ func (o *stateOverlay) dropStorage(a [20]byte) {
 	delete(o.storage, a)
 }
 
-// overlayReader serves reads from the overlay and the rest from the history.
+// overlayReader serves reads from the overlay and caches successful history reads,
+// including absent accounts and zero slots. Later writes replace these values.
 type overlayReader struct {
 	state.StateReader
 	o *stateOverlay
 }
 
 func (r *overlayReader) ReadAccountData(address accounts.Address) (*accounts.Account, error) {
-	if acc, ok := r.o.accounts[[20]byte(address.Value())]; ok {
+	a := [20]byte(address.Value())
+	if acc, ok := r.o.accounts[a]; ok {
 		if acc == nil {
 			return nil, nil
 		}
 		cp := *acc
 		return &cp, nil
 	}
-	return r.StateReader.ReadAccountData(address)
+	acc, err := r.StateReader.ReadAccountData(address)
+	if err == nil {
+		var cached *accounts.Account
+		if acc != nil {
+			cp := *acc
+			cached = &cp
+		}
+		r.o.putAccount(a, cached)
+	}
+	return acc, err
 }
 
 func (r *overlayReader) ReadAccountDataForDebug(address accounts.Address) (*accounts.Account, error) {
@@ -179,12 +195,17 @@ func (r *overlayReader) ReadAccountDataForDebug(address accounts.Address) (*acco
 }
 
 func (r *overlayReader) ReadAccountStorage(address accounts.Address, key accounts.StorageKey) (uint256.Int, bool, error) {
-	if slots := r.o.storage[[20]byte(address.Value())]; slots != nil {
-		if v, ok := slots[[32]byte(key.Value())]; ok {
-			return v, !v.IsZero(), nil
+	a, s := [20]byte(address.Value()), [32]byte(key.Value())
+	if slots := r.o.storage[a]; slots != nil {
+		if slot, ok := slots[s]; ok {
+			return slot.value, slot.present, nil
 		}
 	}
-	return r.StateReader.ReadAccountStorage(address, key)
+	v, present, err := r.StateReader.ReadAccountStorage(address, key)
+	if err == nil {
+		r.o.putSlot(a, s, v, present)
+	}
+	return v, present, err
 }
 
 // overlayWriter applies a block's writes to the overlay.
@@ -214,7 +235,7 @@ func (w *overlayWriter) DeleteAccount(address accounts.Address, _ *accounts.Acco
 }
 
 func (w *overlayWriter) WriteAccountStorage(address accounts.Address, _ uint64, key accounts.StorageKey, _, value uint256.Int) error {
-	w.o.putSlot([20]byte(address.Value()), [32]byte(key.Value()), value)
+	w.o.putSlot([20]byte(address.Value()), [32]byte(key.Value()), value, !value.IsZero())
 	return nil
 }
 

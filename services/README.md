@@ -38,14 +38,17 @@ JSON-RPC on localhost.
 cd services && GOAMD64=v3 go build -trimpath -o bin/ ./cmd/backfill
 ```
 
-`GOAMD64=v3` lets the compiler use AVX2 and BMI, which every server CPU since 2015 has;
-drop it for an older machine. The build also applies profile-guided optimization when
-`cmd/backfill/default.pgo` exists (Go picks that file up on its own). The committed
-profile comes from the witness executor on recent mainnet blocks; to refresh it, record a
-new one on the machine that runs the backfill and commit it:
+On amd64, `GOAMD64=v3` targets CPUs with AVX2 and BMI; omit it if the machine does not
+support that feature level. The build also applies [profile-guided optimization](https://go.dev/doc/pgo) when
+`cmd/backfill/default.pgo` exists (Go picks that file up on its own). No profile is currently
+bundled. Collect one on the backfill machine using a representative range on its network,
+then rebuild with it. For example, on Hoodi:
 
 ```bash
-NULLRPC_CPUPROFILE=/tmp/witness.prof bin/backfill --datadir /data/mainnet witness-test --from 23000000 --to 23020000 && cp /tmp/witness.prof cmd/backfill/default.pgo
+NULLRPC_CPUPROFILE=/tmp/witness.prof bin/backfill witness-test \
+  --datadir /data/hoodi --from 1000000 --to 1065535 --exec-workers 32
+go tool pprof -top bin/backfill /tmp/witness.prof
+GOAMD64=v3 go build -trimpath -pgo=/tmp/witness.prof -o bin/ ./cmd/backfill
 ```
 
 ### Credentials
@@ -82,7 +85,7 @@ bin/backfill status
 | `--rpc` | `http://127.0.0.1:8545` | the archive node's JSON-RPC |
 | `--stream` | off | upload the state layer, each segment and each witness range as soon as they are written, and remove the local copies. Needed when the disk cannot hold the whole archive. Sticky per work directory. |
 | `--witnesses-alongside` | on | run the witness stage alongside stages 2–5 instead of after them; `=false` on a machine without the memory for both |
-| `--exec-workers` | one per core | runs of blocks executed in parallel by the witness stage. Each worker carries state across its run and may hold up to about 100 MB of it; more workers than cores keeps the cores busy while others wait on the disk |
+| `--exec-workers` | one per logical CPU | runs of blocks executed in parallel by the witness stage. Each worker carries state across its run and may hold up to about 100 MB of it. Extra workers can hide disk latency, but also increase memory use and contention; measure before increasing this value |
 | `--concurrency` | 48 | parallel RPC calls (`--block-source rpc` and its fallbacks) |
 | `--pre-byzantium-receipts` | `fail` | `status` for Ethereum mainnet: Erigon keeps no post-state roots for receipts before Byzantium |
 | `--tmp` | `WORK/trie.tmp` | sort runs of the root check, e.g. on another disk |
@@ -107,12 +110,36 @@ bin/backfill status
 | 10 | upload | `upload.done`; HEAD.json is written to R2 last, with `If-None-Match: *` |
 
 Other commands: `verify` and `state-verify` check sampled state values against the node.
-`witness-test` executes a block range like the witness stage and prints its speed, writing
-nothing:
+`witness-test` measures block execution and witness encoding, without writing archive
+objects. It retains the gas, receipts and sampled overlay/history checks. It excludes
+compression, state-layer cross-checks, archive writes and uploads, so its rate is not the
+full pipeline's throughput:
 
 ```bash
-bin/backfill witness-test --from 1000000 --to 1010000
+bin/backfill witness-test --datadir /data/hoodi --from 1000000 --to 1524287 --exec-workers 32
 ```
+
+The benchmark uses the production run length of 1,024 consecutive blocks, independent of
+worker count. `--run-blocks` overrides this for experiments only; it does not change the
+backfill stage. Its startup line reports the run length, number of jobs and maximum active
+workers. A short interval may have too few jobs to occupy all requested workers.
+
+For a 32-core machine, compare 32, 64 and 128 workers on the same range. The 524,288-block
+interval above gives 512 jobs, enough for four jobs per worker at 128 workers. Run the
+benchmarks sequentially with other backfill work stopped or finished; repeat comparisons
+with warm filesystem caches so the first run's cold reads do not bias the result. Compare
+the old and new binaries with identical settings. Check CPU utilization and I/O wait as
+well as blocks/second: more workers are useful only while they improve measured throughput.
+
+Workers cache successful account and storage reads, including absent accounts and zero
+slots, as well as execution writes. System calls and block finalization update that cache;
+contract deletion/recreation invalidates storage. The cache is private to each consecutive
+run and remains subject to the entry limit and sampled comparison against uncached history.
+
+Progress `blocks_per_s` is the cumulative average since the witness stage started.
+`witness_progress` counts executed blocks, while `witnesses` names ranges written in order;
+a slow early range can cause later completed ranges to appear together. Their ETAs use
+different completion counts and are estimates, not measurements of remaining block cost.
 
 ## daemon
 
