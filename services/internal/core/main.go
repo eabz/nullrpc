@@ -1,4 +1,4 @@
-// nullrpc-backfill builds the nullrpc archive (docs/storage.md) from an Erigon v3 archive node:
+// backfill builds the nullrpc archive (docs/storage.md) from an Erigon v3 archive node:
 // state history from Erigon's frozen files, blocks and receipts, witnesses from the node's
 // tracer, the hash and log indexes, then uploads it to R2.
 //
@@ -85,12 +85,12 @@ type stats struct {
 	Seconds        float64 `json:"seconds"`
 }
 
-// programName prefixes error messages: nullrpc-backfill or nullrpc-daemon.
-var programName = "nullrpc-backfill"
+// programName prefixes error messages: backfill or daemon.
+var programName = "backfill"
 
 var fileName = regexp.MustCompile(`^v[0-9.]+-([a-z]+)\.([0-9]+)-([0-9]+)\.(ef|v|kv)$`)
 
-// BackfillMain is the nullrpc-backfill command; args excludes the program name.
+// BackfillMain is the backfill command; args excludes the program name.
 func BackfillMain(args []string) {
 	if len(args) < 1 || strings.HasPrefix(args[0], "-") {
 		runPipeline(args)
@@ -104,7 +104,7 @@ func BackfillMain(args []string) {
 	}
 	cmd, ok := commands[args[0]]
 	if !ok {
-		fail(fmt.Errorf("unknown command %q; run `nullrpc-backfill` with no command to build an archive, or see services/README.md", args[0]))
+		fail(fmt.Errorf("unknown command %q; run `backfill` with no command to build an archive, or see services/README.md", args[0]))
 	}
 	// NULLRPC_CPUPROFILE=path writes a CPU profile of a command that returns normally.
 	if path := os.Getenv("NULLRPC_CPUPROFILE"); path != "" {

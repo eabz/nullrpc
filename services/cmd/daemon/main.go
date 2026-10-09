@@ -1,4 +1,4 @@
-// nullrpc-daemon follows a pruned node and keeps nullrpc's live window and R2 archive current
+// daemon follows a pruned node and keeps nullrpc's live window and R2 archive current
 // (services/README.md).
 package main
 

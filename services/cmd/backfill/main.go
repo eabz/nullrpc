@@ -1,4 +1,4 @@
-// nullrpc-backfill builds the nullrpc archive from an Erigon archive node (services/README.md).
+// backfill builds the nullrpc archive from an Erigon archive node (services/README.md).
 package main
 
 import (

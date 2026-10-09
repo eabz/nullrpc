@@ -1,6 +1,6 @@
 package core
 
-// Streaming mode (`nullrpc-backfill --stream`): build an archive larger than the local
+// Streaming mode (`backfill --stream`): build an archive larger than the local
 // disk by uploading it in pieces and removing local data once the bucket holds
 // it. The state change streams are removed once the state layer is built and
 // verified; the state layer is uploaded after the root check; each segment and
@@ -572,7 +572,7 @@ func trieTmpDir(work, tmp string) string {
 	if err != nil {
 		abs = work
 	}
-	return filepath.Join(tmp, "nullrpc-backfill-trie-"+sha256Hex([]byte(abs))[:12]+".tmp")
+	return filepath.Join(tmp, "nullrpc-trie-"+sha256Hex([]byte(abs))[:12]+".tmp")
 }
 
 func describeStreamStats(what string, st streamStats) string {

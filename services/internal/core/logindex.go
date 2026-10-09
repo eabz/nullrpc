@@ -754,7 +754,7 @@ func logIndexStage(w *workDir) error {
 	tmp := w.at("log-index.tmp")
 	if w.opts.tmp != "" {
 		abs, _ := filepath.Abs(w.root)
-		tmp = filepath.Join(w.opts.tmp, "nullrpc-backfill-log-index-"+sha256Hex([]byte(abs))[:12]+".tmp")
+		tmp = filepath.Join(w.opts.tmp, "nullrpc-log-index-"+sha256Hex([]byte(abs))[:12]+".tmp")
 	}
 	defer os.RemoveAll(tmp)
 	obj, st, err := buildLogIndex(src, w.archive(), w.namespace, bundles, logIndexOptions{

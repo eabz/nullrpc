@@ -1,8 +1,8 @@
 package core
 
-// `nullrpc-backfill` with no subcommand runs the whole pipeline in a work directory.
+// `backfill` with no subcommand runs the whole pipeline in a work directory.
 // Every stage leaves its output there, so the current stage is derived from
-// the files present: rerunning resumes, and `nullrpc-backfill status` reports it.
+// the files present: rerunning resumes, and `backfill status` reports it.
 
 import (
 	"context"
@@ -382,7 +382,7 @@ func lockWork(work string) (func(), error) {
 	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		pid, _ := os.ReadFile(filepath.Join(work, ".lock"))
 		f.Close()
-		return nil, fmt.Errorf("another nullrpc-backfill run (pid %s) is using %s; see `nullrpc-backfill status`", strings.TrimSpace(string(pid)), work)
+		return nil, fmt.Errorf("another backfill run (pid %s) is using %s; see `backfill status`", strings.TrimSpace(string(pid)), work)
 	}
 	f.Truncate(0)
 	f.WriteString(strconv.Itoa(os.Getpid()))
@@ -390,7 +390,7 @@ func lockWork(work string) (func(), error) {
 }
 
 func runPipeline(args []string) {
-	fs := flag.NewFlagSet("nullrpc-backfill", flag.ExitOnError)
+	fs := flag.NewFlagSet("backfill", flag.ExitOnError)
 	work, datadir, rpcURL := workFlags(fs)
 	genesis := fs.String("genesis", "", "full genesis JSON (default: bundled for known chains)")
 	concurrency := fs.Int("concurrency", 48, "parallel RPC calls (witness tracing, --block-source rpc, RPC fallbacks)")

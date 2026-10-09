@@ -5,8 +5,8 @@ Two programs, one Go module. Both write the archive through the same code in
 
 | Command | Phase ([docs/pipeline.md](../docs/pipeline.md)) | Runs on |
 |---|---|---|
-| `nullrpc-backfill` | 1. Backfill: an Erigon archive node to R2, genesis to `B` | the backfill machine |
-| `nullrpc-daemon` | 3. Live: a pruned node to the live window and R2, forever | the live machine |
+| `backfill` | 1. Backfill: an Erigon archive node to R2, genesis to `B` | the backfill machine |
+| `daemon` | 3. Live: a pruned node to the live window and R2, forever | the live machine |
 
 The daemon writes the live window to the chain's `nullrpc-live-{chain-id}` Worker (`apps/live`), which holds the
 `ChainDO` and `StateShard` Durable Objects.
@@ -15,7 +15,7 @@ The daemon writes the live window to the chain's `nullrpc-live-{chain-id}` Worke
 go test ./...
 ```
 
-## nullrpc-backfill
+## backfill
 
 Builds the nullrpc archive (generation 1, genesis to the node's finalized block `B`) from an
 Erigon v3 archive node and uploads it to R2. Its steps are the backfill DAG in
@@ -35,7 +35,7 @@ JSON-RPC on localhost.
 ### Build
 
 ```bash
-cd services && go build -trimpath -o nullrpc-backfill ./cmd/nullrpc-backfill
+cd services && go build -trimpath -o backfill ./cmd/backfill
 ```
 
 ### Credentials
@@ -56,14 +56,14 @@ mkdir -p /mnt/nullrpc/work && cd /mnt/nullrpc/work
 ```
 
 ```bash
-/path/to/nullrpc-backfill --datadir /mnt/erigon --pre-byzantium-receipts=status --stream
+/path/to/backfill --datadir /mnt/erigon --pre-byzantium-receipts=status --stream
 ```
 
 The run is resumable: every stage writes its output to the work directory, and a rerun starts
 at the first unfinished stage. Check progress from another shell:
 
 ```bash
-/path/to/nullrpc-backfill status
+/path/to/backfill status
 ```
 
 | Flag | Default | Use |
@@ -96,7 +96,7 @@ at the first unfinished stage. Check progress from another shell:
 
 Other commands: `verify` and `state-verify` check sampled state values against the node.
 
-## nullrpc-daemon
+## daemon
 
 Follows a pruned node and keeps the live window and R2 current: the block, promotion, reorg and
 restart DAGs in [docs/dags.md](../docs/dags.md). Start it after the backfill's `HEAD.json` is in
@@ -114,7 +114,7 @@ R2, while the node still holds block `B+1` and the state at `B`.
 ### Build
 
 ```bash
-cd services && go build -trimpath -o nullrpc-daemon ./cmd/nullrpc-daemon
+cd services && go build -trimpath -o daemon ./cmd/daemon
 ```
 
 ### Credentials
@@ -129,7 +129,7 @@ cd services && go build -trimpath -o nullrpc-daemon ./cmd/nullrpc-daemon
 ### Run
 
 ```bash
-nullrpc-daemon --spool /mnt/nullrpc/spool
+daemon --spool /mnt/nullrpc/spool
 ```
 
 | Flag | Default | Use |

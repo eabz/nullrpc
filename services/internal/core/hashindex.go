@@ -612,7 +612,7 @@ func hashIndexStage(w *workDir) error {
 	tmp := w.at("hash-index.tmp")
 	if w.opts.tmp != "" {
 		abs, _ := filepath.Abs(w.root)
-		tmp = filepath.Join(w.opts.tmp, "nullrpc-backfill-hash-index-"+sha256Hex([]byte(abs))[:12]+".tmp")
+		tmp = filepath.Join(w.opts.tmp, "nullrpc-hash-index-"+sha256Hex([]byte(abs))[:12]+".tmp")
 	}
 	defer os.RemoveAll(tmp)
 	obj, st, err := buildHashIndex(src, w.archive(), w.namespace, bundles, hashIndexOptions{

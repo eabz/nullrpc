@@ -1,6 +1,6 @@
 package core
 
-// nullrpc-daemon (docs/pipeline.md, "Phase 3: Live"; docs/dags.md): follows a pruned node and
+// daemon (docs/pipeline.md, "Phase 3: Live"; docs/dags.md): follows a pruned node and
 // keeps the live window (nullrpc-live's Durable Objects) and the R2 archive current.
 //
 //   - Restart (dags.md, "Restart"): read R2's HEAD.json (P), the live window's state, and the
@@ -62,10 +62,10 @@ type daemon struct {
 	wake      chan struct{}
 }
 
-// DaemonMain is the nullrpc-daemon command; args excludes the program name.
+// DaemonMain is the daemon command; args excludes the program name.
 func DaemonMain(args []string) {
-	programName = "nullrpc-daemon"
-	fs := flag.NewFlagSet("nullrpc-daemon", flag.ExitOnError)
+	programName = "daemon"
+	fs := flag.NewFlagSet("daemon", flag.ExitOnError)
 	cfg := daemonConfig{}
 	fs.StringVar(&cfg.spool, "spool", envOr("NULLRPC_SPOOL", "nullrpc-spool"), "spool directory (env NULLRPC_SPOOL); daemon.env there holds the credentials")
 	fs.StringVar(&cfg.rpc, "rpc", envOr("NULLRPC_RPC_URL", "http://127.0.0.1:8545"), "the node's JSON-RPC (env NULLRPC_RPC_URL)")
