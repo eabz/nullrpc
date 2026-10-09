@@ -103,12 +103,21 @@ export class ChainDO extends DurableObject<Env> {
     this.sql.exec(`CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT)`);
     // One sample a minute of the head and the network head, kept 7 days.
     this.sql.exec(`CREATE TABLE IF NOT EXISTS samples (t INTEGER PRIMARY KEY, executed INTEGER, target INTEGER)`);
-    // Once: samples taken before the daemon reported a network head stored the head as the
-    // target (a false lag of 0); mark them unknown.
+  }
+
+  private samplesFixed = false;
+
+  /**
+   * Once per object: samples taken before the daemon reported a network head stored the head as
+   * the target (a false lag of 0); mark them unknown. Runs on the first history read or sample.
+   */
+  private fixSamples(): void {
+    if (this.samplesFixed) return;
     if (this.get<boolean>("samples_unknown_target") === null) {
       this.sql.exec("UPDATE samples SET target = NULL WHERE t < (SELECT MIN(t) FROM samples WHERE target <> executed)");
       this.set("samples_unknown_target", true);
     }
+    this.samplesFixed = true;
   }
 
   private get<T>(k: string): T | null {
@@ -321,6 +330,7 @@ export class ChainDO extends DurableObject<Env> {
    * blocks per second between that sample and the one before it.
    */
   async history(range: HistoryRange): Promise<History> {
+    this.fixSamples();
     const { span_s, bucket_s } = HISTORY_RANGES[range];
     const to = Math.floor(Date.now() / 1000);
     const from = to - span_s;
@@ -348,6 +358,7 @@ export class ChainDO extends DurableObject<Env> {
   }
 
   override async alarm(): Promise<void> {
+    this.fixSamples();
     const now = Date.now();
     const head = this.get<BlockId>("head");
     if (head) {
