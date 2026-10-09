@@ -39,7 +39,7 @@ writes and needs before it can run.
 | B3 Block boundaries | B2 | client files | transaction range per block | a block's range is missing or overlaps |
 | B4 Block bundles | B3 | client files, node RPC for anything the files lack | `segments/` | a receipts root, header hash or transaction hash mismatch |
 | B5 State dump | B3 | client history files | sorted change streams | a change outside its block's range |
-| B6 Witnesses | B3 | node: `prestateTracer` per block | one witness per block | the tracer errors for a block (retry), then stop |
+| B6 Witnesses | B3 | node database: each block executed in process | one witness per block | the gas used or receipts root differs from the header, then stop |
 | B7 Hash index | B4 | block bundles | `hash-index/` | |
 | B8 Log index | B4 | block bundles | `log-index/` | |
 | B9 State history | B5 | change streams | `state/v1/layers/`, filters | |

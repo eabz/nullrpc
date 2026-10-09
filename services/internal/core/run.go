@@ -40,6 +40,7 @@ const envFileName = "backfill.env"
 
 type runOptions struct {
 	concurrency  int
+	execWorkers  int // blocks executed in parallel for witnesses
 	chunkBlocks  uint64
 	upload       bool
 	files        int
@@ -182,7 +183,7 @@ func stages(stream bool) []stage {
 			return buildBundles(w.rpc, w.opts.blockSource(w.datadir), blocks, w.archive(), w.namespace, 0, layer.LastBlock,
 				w.opts.chunkBlocks, done, w.at("bundles.json"), blobs, target)
 		}},
-		// One witness range per segment, traced on the archive node.
+		// One witness range per segment, executed in process against the archive node's database.
 		{"witnesses", func(w *workDir) bool {
 			_, bundles := w.layerAndBundles()
 			var st witnessState
@@ -400,7 +401,8 @@ func runPipeline(args []string) {
 	fs := flag.NewFlagSet("backfill", flag.ExitOnError)
 	work, datadir, rpcURL := workFlags(fs)
 	genesis := fs.String("genesis", "", "full genesis JSON (default: bundled for known chains)")
-	concurrency := fs.Int("concurrency", 48, "parallel RPC calls (witness tracing, --block-source rpc, RPC fallbacks)")
+	concurrency := fs.Int("concurrency", 48, "parallel RPC calls (--block-source rpc, RPC fallbacks)")
+	execWorkers := fs.Int("exec-workers", runtime.NumCPU(), "blocks executed in parallel for witnesses")
 	source := blockSourceFlags(fs)
 	preByzantium := preByzantiumFlag(fs)
 	chunkBlocks := fs.Uint64("chunk-blocks", 8192, "blocks per segment")
@@ -419,7 +421,7 @@ func runPipeline(args []string) {
 	if err != nil {
 		fail(err)
 	}
-	w.opts = runOptions{concurrency: *concurrency, chunkBlocks: *chunkBlocks, upload: *doUpload, files: *files,
+	w.opts = runOptions{concurrency: *concurrency, execWorkers: *execWorkers, chunkBlocks: *chunkBlocks, upload: *doUpload, files: *files,
 		deleteAfter: *deleteAfter, source: source.options("", *concurrency), preByzantium: *preByzantium, stream: *stream, tmp: *tmp}
 	if isStreamWork(w.root) && !w.opts.stream {
 		fmt.Fprintf(os.Stderr, "%s was started in streaming mode; continuing with --stream\n", w.root)

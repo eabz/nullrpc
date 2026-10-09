@@ -101,6 +101,7 @@ func BackfillMain(args []string) {
 		"status":       runStatus,
 		"verify":       runVerify,
 		"state-verify": runStateVerify,
+		"witness-test": runWitnessTest,
 	}
 	cmd, ok := commands[args[0]]
 	if !ok {

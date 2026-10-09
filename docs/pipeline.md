@@ -44,7 +44,7 @@ consensus client.
    - **State**: every account, storage and code change from the client's history files, sorted
      into **state history** layers. The **root check** builds the state trie at `B` from the
      same data and compares its root with block `B`'s `stateRoot`; the trie is then discarded.
-   - **Witnesses**: each block's pre-state from the archive node's tracer (see below). The
+   - **Witnesses**: each block's pre-state, from executing the block in process (see below). The
      **witness check** compares one block in 997 with the state history at its parent block:
      two independent extractions of the same state must agree.
 5. **Upload** every object to R2 with multipart uploads. Each object's SHA-256 is checked.
@@ -60,21 +60,30 @@ A witness is the value, before the block, of every account, storage slot and con
 the block touches, including keys it only reads. The RPC Worker replays any transaction of
 the block from it in memory.
 
-Produced by `debug_traceBlockByNumber` with `prestateTracer` on the archive node. The tracer
-reports each transaction's pre-state; the first time a key appears in the block, its value
-is the value the transaction found. A key no earlier transaction touched is unchanged since
-the start of the block, so that is its value before the block, with one exception: slots
-written by the block's pre-transaction system calls (on Ethereum: EIP-4788 beacon roots,
-EIP-2935 block hashes) hold their value after the call. A replay therefore applies the
-witness and skips those system calls; their effect is already in it. Post-transaction work
-(withdrawals, EIP-7002 and EIP-7251 requests) does not affect any transaction's trace.
+The backfill executes every block in process with the client's own EVM, reading the archive
+node's database directly and read-only: no RPC, no tracer and no JSON. The block's state reader
+is the client's history at the start of the block, after its pre-transaction system calls (on
+Ethereum: EIP-4788 beacon roots, EIP-2935 block hashes). The executor records the first read
+of every account and storage slot. The EVM's in-block cache answers any later read of the same
+key, so every recorded value is the key's value at the start of the block, whether or not a
+later transaction changes it.
 
-An account the tracer reports as empty (no balance, nonce or code) is looked up in the
-state history at the parent block, so the witness records whether it exists.
+A replay therefore applies the witness and skips the pre-transaction system calls: their
+effect is already in it. Post-transaction work (withdrawals, EIP-7002 and EIP-7251 requests)
+does not affect any transaction.
 
-Every block's parent state is in the archive, so blocks do not depend on each other. The
-witness stage runs many tracer calls in parallel (`--concurrency`). It is the longest stage of the backfill, and it
-must finish before the archive is deleted: a pruned node cannot produce witnesses for old
+Execution is checked on every block, not sampled:
+
+- The gas used must equal the header's `gasUsed`, and the blob gas used its `blobGasUsed`.
+- From Byzantium on, the receipts the execution produced must hash to the header's
+  `receiptsRoot`.
+
+A block that fails either check stops the run.
+
+Every block's state is in the archive, so blocks do not depend on each other. The witness
+stage executes many blocks in parallel (`--exec-workers`, one per core by default), 16
+consecutive blocks per short read transaction. It is the longest stage of the backfill, and
+it must finish before the archive is deleted: a pruned node cannot produce witnesses for old
 blocks.
 
 ## Phase 2: Prune

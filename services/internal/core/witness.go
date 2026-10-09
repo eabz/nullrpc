@@ -3,15 +3,14 @@ package core
 // Witnesses (docs/storage.md, "Witnesses"; docs/pipeline.md, "Witnesses").
 //
 // A block's witness is the value, before the block, of every account and storage slot its
-// transactions touch, including keys they only read. It comes from the archive node's
-// prestateTracer: each transaction's pre-state, keeping the first time a key appears in the
-// block. A key a transaction touches for the first time was not changed by an earlier
-// transaction of the block, so its first pre-state is its value at the start of the block
-// (after the block's pre-transaction system calls, whose writes a replay therefore takes
-// from the witness instead of re-running them).
+// transactions touch, including keys they only read: each key's value at the start of the
+// block, after the block's pre-transaction system calls (whose writes a replay therefore takes
+// from the witness instead of re-running them). The backfill executes every block in process
+// against the archive node's database (executor.go) and records the first read of each key;
+// every replay is checked against the header's gas used and receipts root.
 //
 // One witness range per segment: witnesses/{first}-{last}-{content-id}/ with offsets.bin
-// (56 bytes per block) and witness.{n}.pack (one frame per block, codec 5). Blocks trace in
+// (56 bytes per block) and witness.{n}.pack (one frame per block, codec 5). Blocks execute in
 // parallel; each range is written in block order. A sample of blocks is cross-checked
 // against the state history layer, an independent extraction of the same state.
 
@@ -22,10 +21,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -41,7 +42,7 @@ const (
 	witnessFlagCode    = 2
 	witnessCheckEvery  = 997 // cross-check one block in this many against the state layer
 	witnessStateFile   = "witnesses.json"
-	witnessTraceTimout = "600s"
+	witnessBatch       = 16 // consecutive blocks per worker read transaction
 )
 
 // Pre-transaction system call contracts: their slots in a witness hold the value after the
@@ -132,115 +133,6 @@ func (w *blockWitness) encode() []byte {
 		}
 	}
 	return out
-}
-
-// prestateAccount is one account of a prestateTracer result.
-type prestateAccount struct {
-	Balance string            `json:"balance"`
-	Nonce   json.Number       `json:"nonce"`
-	Code    string            `json:"code"`
-	Storage map[string]string `json:"storage"`
-}
-
-// traceWitness builds block n's witness from the archive node. existence resolves whether an
-// account that looks empty (no balance, nonce or code) exists before the block.
-func traceWitness(rpc *rpcClient, n uint64, k *keccak, existence func(addr [20]byte) (bool, error)) (*blockWitness, error) {
-	w := newBlockWitness()
-	if n == 0 {
-		return w, nil // genesis has no transactions
-	}
-	raw, err := rpc.call("debug_traceBlockByNumber", fmt.Sprintf("0x%x", n),
-		map[string]any{"tracer": "prestateTracer", "timeout": witnessTraceTimout})
-	if err != nil {
-		return nil, fmt.Errorf("trace block %d: %w", n, err)
-	}
-	var txs []struct {
-		TxHash string                     `json:"txHash"`
-		Result map[string]prestateAccount `json:"result"`
-		Error  string                     `json:"error"`
-	}
-	if err := json.Unmarshal(raw, &txs); err != nil {
-		return nil, fmt.Errorf("trace block %d: %w", n, err)
-	}
-	for i, tx := range txs {
-		if tx.Error != "" {
-			return nil, fmt.Errorf("trace block %d transaction %d: %s", n, i, tx.Error)
-		}
-		for addrHex, acc := range tx.Result {
-			addr, err := decodeData(addrHex, 20)
-			if err != nil {
-				return nil, fmt.Errorf("block %d: address %q: %w", n, addrHex, err)
-			}
-			var a [20]byte
-			copy(a[:], addr)
-			if _, seen := w.accounts[a]; !seen {
-				wa, err := witnessAccountOf(acc, k)
-				if err != nil {
-					return nil, fmt.Errorf("block %d account %s: %w", n, addrHex, err)
-				}
-				if !wa.exists {
-					if wa.exists, err = existence(a); err != nil {
-						return nil, err
-					}
-				}
-				w.accounts[a] = wa
-			}
-			if len(acc.Storage) == 0 {
-				continue
-			}
-			slots := w.storage[a]
-			if slots == nil {
-				slots = map[[32]byte][]byte{}
-				w.storage[a] = slots
-			}
-			for slotHex, valueHex := range acc.Storage {
-				slot, err := decodeData(slotHex, 32)
-				if err != nil {
-					return nil, fmt.Errorf("block %d slot %q: %w", n, slotHex, err)
-				}
-				var s [32]byte
-				copy(s[:], slot)
-				if _, seen := slots[s]; seen {
-					continue
-				}
-				value, err := decodeData(valueHex, 32)
-				if err != nil {
-					return nil, fmt.Errorf("block %d slot value %q: %w", n, valueHex, err)
-				}
-				slots[s] = trimLeadingZeros(value)
-			}
-		}
-	}
-	return w, nil
-}
-
-func witnessAccountOf(acc prestateAccount, k *keccak) (*witnessAccount, error) {
-	wa := &witnessAccount{}
-	if acc.Balance != "" {
-		b, err := quantityBytes(acc.Balance)
-		if err != nil {
-			return nil, err
-		}
-		wa.balance = trimLeadingZeros(b)
-	}
-	if acc.Nonce != "" {
-		n, err := acc.Nonce.Int64()
-		if err != nil || n < 0 {
-			return nil, fmt.Errorf("invalid nonce %q", acc.Nonce)
-		}
-		wa.nonce = uint64(n)
-	}
-	if code := strings.TrimPrefix(acc.Code, "0x"); code != "" {
-		raw, err := hex.DecodeString(code)
-		if err != nil {
-			return nil, fmt.Errorf("invalid code: %w", err)
-		}
-		if len(raw) > 0 {
-			wa.codeHash, wa.hasCode = k.sum(raw), true
-		}
-	}
-	wa.exists = wa.nonce > 0 || len(wa.balance) > 0 || wa.hasCode
-	return wa, nil
 }
 
 // checkWitness compares a witness with the state layer at block n-1, skipping the
@@ -382,7 +274,7 @@ func checkWitnessRanges(st witnessState, bundles []BundleRef) error {
 	return nil
 }
 
-// witnessStage traces every block of every segment, one range at a time, resuming after the
+// witnessStage executes every block of every segment, one range at a time, resuming after the
 // ranges WORK/witnesses.json already lists.
 func witnessStage(w *workDir) error {
 	layerRef, bundles := w.layerAndBundles()
@@ -413,60 +305,73 @@ func witnessStage(w *workDir) error {
 		}
 		return os.Rename(w.at(witnessStateFile+".tmp"), w.at(witnessStateFile))
 	}
-	workers := max(1, w.opts.concurrency)
+	exec, closeExec, err := newWitnessExecutor(context.Background(), w.datadir)
+	if err != nil {
+		return err
+	}
+	defer closeExec()
+	workers := max(1, w.opts.execWorkers)
 	started := time.Now()
-	var traced atomic.Uint64
+	var executed atomic.Uint64
 	for _, b := range bundles[len(st.Ranges):] {
 		frames := make([]frame, b.LastBlock-b.FirstBlock+1)
-		blocks := make(chan uint64)
+		batches := make(chan [2]uint64)
 		var wg sync.WaitGroup
 		var mu sync.Mutex
 		var firstErr error
 		var checked uint64
+		fail := func(err error) {
+			mu.Lock()
+			if firstErr == nil {
+				firstErr = err
+			}
+			mu.Unlock()
+		}
+		failed := func() bool { mu.Lock(); defer mu.Unlock(); return firstErr != nil }
 		for range workers {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				k := newKeccak()
-				for n := range blocks {
-					mu.Lock()
-					stop := firstErr != nil
-					mu.Unlock()
-					if stop {
+				for r := range batches {
+					if failed() {
 						continue
 					}
-					existence := func(a [20]byte) (bool, error) {
-						if n == 0 {
-							return false, nil
+					// One short read transaction per batch.
+					err := func() error {
+						tx, err := exec.readTx(context.Background())
+						if err != nil {
+							return err
 						}
-						v, _, err := layer.get("accounts", a[:], n-1)
-						return len(v) > 0, err
-					}
-					wit, err := traceWitness(w.rpc, n, k, existence)
-					if err == nil && n%witnessCheckEvery == 0 {
-						var c int
-						c, err = checkWitness(layer, n, wit)
-						mu.Lock()
-						checked += uint64(c)
-						mu.Unlock()
-					}
+						defer tx.Rollback()
+						for n := r[0]; n <= r[1]; n++ {
+							wit, err := exec.execute(context.Background(), tx, n)
+							if err != nil {
+								return err
+							}
+							if n%witnessCheckEvery == 0 {
+								c, err := checkWitness(layer, n, wit)
+								if err != nil {
+									return err
+								}
+								mu.Lock()
+								checked += uint64(c)
+								mu.Unlock()
+							}
+							frames[n-b.FirstBlock] = compressFrame(wit.encode())
+							executed.Add(1)
+						}
+						return nil
+					}()
 					if err != nil {
-						mu.Lock()
-						if firstErr == nil {
-							firstErr = err
-						}
-						mu.Unlock()
-						continue
+						fail(err)
 					}
-					frames[n-b.FirstBlock] = compressFrame(wit.encode())
-					traced.Add(1)
 				}
 			}()
 		}
-		for n := b.FirstBlock; n <= b.LastBlock; n++ {
-			blocks <- n
+		for _, r := range batchRanges(b.FirstBlock, b.LastBlock) {
+			batches <- r
 		}
-		close(blocks)
+		close(batches)
 		wg.Wait()
 		if firstErr != nil {
 			return firstErr
@@ -491,10 +396,69 @@ func witnessStage(w *workDir) error {
 		if err := save(); err != nil {
 			return err
 		}
-		done := float64(traced.Load())
+		done := float64(executed.Load())
 		rate := done / time.Since(started).Seconds()
 		fmt.Fprintf(os.Stderr, "{\"witnesses\":\"%d-%d\",\"blocks_per_s\":%.0f,\"eta_s\":%.0f,\"cross_checked_values\":%d}\n",
 			rng.First, rng.Last, rate, float64(layerRef.LastBlock-rng.Last)/max(rate, 1e-9), st.Checked)
 	}
 	return nil
+}
+
+// runWitnessTest executes a block range with the witness executor and reports its speed,
+// without writing anything: `backfill witness-test --from N --to M`.
+func runWitnessTest(args []string) {
+	fs := flag.NewFlagSet("witness-test", flag.ExitOnError)
+	datadir := fs.String("datadir", os.Getenv("NULLRPC_DATADIR"), "Erigon datadir (env NULLRPC_DATADIR; default: from the running erigon process)")
+	from := fs.Uint64("from", 1, "first block")
+	to := fs.Uint64("to", 10000, "last block")
+	workers := fs.Int("exec-workers", runtime.NumCPU(), "blocks executed in parallel")
+	fs.Parse(args)
+	if *datadir == "" {
+		var err error
+		if *datadir, err = erigonDatadir(); err != nil {
+			fail(err)
+		}
+	}
+	exec, closeExec, err := newWitnessExecutor(context.Background(), *datadir)
+	if err != nil {
+		fail(err)
+	}
+	defer closeExec()
+	started := time.Now()
+	var blocks, accounts, slots, bytes atomic.Uint64
+	err = parallelEach(batchRanges(*from, *to), max(1, *workers), func(r [2]uint64) error {
+		tx, err := exec.readTx(context.Background())
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+		for n := r[0]; n <= r[1]; n++ {
+			wit, err := exec.execute(context.Background(), tx, n)
+			if err != nil {
+				return err
+			}
+			blocks.Add(1)
+			accounts.Add(uint64(len(wit.accounts)))
+			for _, s := range wit.storage {
+				slots.Add(uint64(len(s)))
+			}
+			bytes.Add(uint64(len(wit.encode())))
+		}
+		return nil
+	})
+	if err != nil {
+		fail(err)
+	}
+	secs := time.Since(started).Seconds()
+	fmt.Printf("{\"blocks\":%d,\"seconds\":%.1f,\"blocks_per_s\":%.0f,\"accounts\":%d,\"slots\":%d,\"witness_bytes\":%d}\n",
+		blocks.Load(), secs, float64(blocks.Load())/secs, accounts.Load(), slots.Load(), bytes.Load())
+}
+
+// batchRanges splits first..last into runs of witnessBatch blocks.
+func batchRanges(first, last uint64) [][2]uint64 {
+	var out [][2]uint64
+	for n := first; n <= last; n += witnessBatch {
+		out = append(out, [2]uint64{n, min(n+witnessBatch-1, last)})
+	}
+	return out
 }

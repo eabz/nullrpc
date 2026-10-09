@@ -5,7 +5,9 @@ package core
 //
 //   - record:  eth_getBlockByNumber, eth_getBlockReceipts, debug_getRawBlock, built and checked
 //              by the same code as the backfill (header hash, transaction hashes, receipts root).
-//   - witness: prestateTracer, as in the backfill (witness.go).
+//   - witness: prestateTracer (traceWitness, below): the first pre-state of each key the
+//              block's transactions touch. The backfill executes blocks in process instead
+//              (executor.go); both produce the witness frame of witness.go.
 //   - diff:    the value after the block of every account, storage slot and code the block
 //              changed. Transactions' changes come from prestateTracer in diffMode. Changes
 //              made outside transactions are read at the block: withdrawal recipients'
@@ -486,4 +488,117 @@ func blockLogKeys(record []byte, hash string, number uint64, k *keccak) ([]uint6
 		}
 	}
 	return out, nil
+}
+
+// The daemon traces each new block on its own node: a block's witness from the
+// prestateTracer, keeping the first pre-state of each key in the block.
+const witnessTraceTimout = "600s"
+
+// prestateAccount is one account of a prestateTracer result.
+type prestateAccount struct {
+	Balance string            `json:"balance"`
+	Nonce   json.Number       `json:"nonce"`
+	Code    string            `json:"code"`
+	Storage map[string]string `json:"storage"`
+}
+
+// traceWitness builds block n's witness from the archive node. existence resolves whether an
+// account that looks empty (no balance, nonce or code) exists before the block.
+func traceWitness(rpc *rpcClient, n uint64, k *keccak, existence func(addr [20]byte) (bool, error)) (*blockWitness, error) {
+	w := newBlockWitness()
+	if n == 0 {
+		return w, nil // genesis has no transactions
+	}
+	raw, err := rpc.call("debug_traceBlockByNumber", fmt.Sprintf("0x%x", n),
+		map[string]any{"tracer": "prestateTracer", "timeout": witnessTraceTimout})
+	if err != nil {
+		return nil, fmt.Errorf("trace block %d: %w", n, err)
+	}
+	var txs []struct {
+		TxHash string                     `json:"txHash"`
+		Result map[string]prestateAccount `json:"result"`
+		Error  string                     `json:"error"`
+	}
+	if err := json.Unmarshal(raw, &txs); err != nil {
+		return nil, fmt.Errorf("trace block %d: %w", n, err)
+	}
+	for i, tx := range txs {
+		if tx.Error != "" {
+			return nil, fmt.Errorf("trace block %d transaction %d: %s", n, i, tx.Error)
+		}
+		for addrHex, acc := range tx.Result {
+			addr, err := decodeData(addrHex, 20)
+			if err != nil {
+				return nil, fmt.Errorf("block %d: address %q: %w", n, addrHex, err)
+			}
+			var a [20]byte
+			copy(a[:], addr)
+			if _, seen := w.accounts[a]; !seen {
+				wa, err := witnessAccountOf(acc, k)
+				if err != nil {
+					return nil, fmt.Errorf("block %d account %s: %w", n, addrHex, err)
+				}
+				if !wa.exists {
+					if wa.exists, err = existence(a); err != nil {
+						return nil, err
+					}
+				}
+				w.accounts[a] = wa
+			}
+			if len(acc.Storage) == 0 {
+				continue
+			}
+			slots := w.storage[a]
+			if slots == nil {
+				slots = map[[32]byte][]byte{}
+				w.storage[a] = slots
+			}
+			for slotHex, valueHex := range acc.Storage {
+				slot, err := decodeData(slotHex, 32)
+				if err != nil {
+					return nil, fmt.Errorf("block %d slot %q: %w", n, slotHex, err)
+				}
+				var s [32]byte
+				copy(s[:], slot)
+				if _, seen := slots[s]; seen {
+					continue
+				}
+				value, err := decodeData(valueHex, 32)
+				if err != nil {
+					return nil, fmt.Errorf("block %d slot value %q: %w", n, valueHex, err)
+				}
+				slots[s] = trimLeadingZeros(value)
+			}
+		}
+	}
+	return w, nil
+}
+
+func witnessAccountOf(acc prestateAccount, k *keccak) (*witnessAccount, error) {
+	wa := &witnessAccount{}
+	if acc.Balance != "" {
+		b, err := quantityBytes(acc.Balance)
+		if err != nil {
+			return nil, err
+		}
+		wa.balance = trimLeadingZeros(b)
+	}
+	if acc.Nonce != "" {
+		n, err := acc.Nonce.Int64()
+		if err != nil || n < 0 {
+			return nil, fmt.Errorf("invalid nonce %q", acc.Nonce)
+		}
+		wa.nonce = uint64(n)
+	}
+	if code := strings.TrimPrefix(acc.Code, "0x"); code != "" {
+		raw, err := hex.DecodeString(code)
+		if err != nil {
+			return nil, fmt.Errorf("invalid code: %w", err)
+		}
+		if len(raw) > 0 {
+			wa.codeHash, wa.hasCode = k.sum(raw), true
+		}
+	}
+	wa.exists = wa.nonce > 0 || len(wa.balance) > 0 || wa.hasCode
+	return wa, nil
 }

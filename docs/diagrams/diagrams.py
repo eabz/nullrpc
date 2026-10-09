@@ -254,7 +254,7 @@ def dag_backfill():
     d.node("b3", 500, r(2), "B3 · Block boundaries", ["transaction ranges per block"])
     d.node("b4", 170, r(3), "B4 · Block bundles", ["receipts root checked"])
     d.node("b5", 500, r(3), "B5 · State dump", ["every change, from files"])
-    d.node("b6", 830, r(3), "B6 · Witnesses", ["prestateTracer, parallel"])
+    d.node("b6", 830, r(3), "B6 · Witnesses", ["in-process execution, parallel"])
     w = 170
     d.node("b7", 100, r(4), "B7 · Hash index", w=w)
     d.node("b8", 290, r(4), "B8 · Log index", w=w)
@@ -426,7 +426,7 @@ def infrastructure():
     d = Diagram("infrastructure", 780, 400)
     d.group(20, 30, 300, 160, "Hourly, during the backfill")
     d.box("bf", 45, 70, 250, 96, "host", "Backfill machine",
-          ["archive snapshot on local NVMe", "dumper and tracer", "released after HEAD = B"])
+          ["archive snapshot on local NVMe", "dumper and executor", "released after HEAD = B"])
     d.group(20, 220, 300, 160, "Monthly")
     d.box("live", 45, 260, 250, 96, "host", "Live machine",
           ["pruned node", "nullrpc daemon and spool", "RAID 1 NVMe"])
