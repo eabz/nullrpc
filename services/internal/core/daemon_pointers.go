@@ -2,7 +2,9 @@ package core
 
 // live/HEAD.json (docs/storage.md, "Live pointers"): the live window's pointers, written to R2
 // after every change to the head in the live Worker, so the RPC Worker reads them from R2 and
-// its edge cache instead of asking ChainDO on every request. The object is the only one besides
+// its edge cache instead of asking ChainDO on every request. Since the window's records are in
+// R2 too (daemon_records.go), the document also lists the window's hashes and names its
+// transaction index. The object is the only one besides
 // HEAD.json that changes: it is written unconditionally and the latest write wins, so the writer
 // serializes its writes and snapshots the pointers under the lock. A failed write is logged, not
 // returned: ingestion never waits on it, and a Worker that finds the object missing or stale
@@ -33,6 +35,11 @@ type livePointers struct {
 	Promoted   *BlockID `json:"promoted"`
 	Generation uint64   `json:"generation"`
 	WrittenAt  string   `json:"written_at"`
+	// Blocks lists the window's newest blocks (first..head, hashes in order), whose records are
+	// live/records/{number}-{hash}.bin; TxIndex names their transaction index (daemon_records.go).
+	// Both are left out when the window is unknown (a daemon without one, as in tests).
+	Blocks  *liveBlocks `json:"blocks,omitempty"`
+	TxIndex *ObjectRef  `json:"tx_index,omitempty"`
 }
 
 // pointers snapshots the live window's pointers as the daemon knows them.
@@ -56,6 +63,11 @@ func (d *daemon) publishPointers() {
 	if doc.Head == nil || doc.Promoted == nil {
 		return
 	}
+	// The records were written before their blocks reached the live Worker; the index goes
+	// before the pointers that name it.
+	blocks, entries := d.window.snapshot(*doc.Head, doc.Promoted.Number)
+	doc.Blocks = &blocks
+	doc.TxIndex = d.publishIndex(blocks, *doc.Head, entries)
 	data, err := json.Marshal(doc)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "{\"live_pointers_error\":%q}\n", err.Error())

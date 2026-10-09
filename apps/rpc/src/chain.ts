@@ -5,6 +5,8 @@
 // to every live read. A stale answer (a reorg removed the pin) re-reads the live state and
 // retries once. A promotion moves blocks out of the live window before the cached manifest may
 // know they are in R2; a live miss at or below the live `promoted` pointer re-reads HEAD.json.
+// Block and transaction reads in the window normally come from R2 records listed by the pinned
+// head's live/HEAD.json (src/live.ts); the live Worker is asked only for what those cannot answer.
 
 import type { Archive, Pin } from "./archive/archive";
 import { blockCandidates, transactionCandidates } from "./archive/hashindex";

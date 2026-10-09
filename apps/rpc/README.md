@@ -32,6 +32,14 @@ already stored when the daemon wrote the object, every live read still carries t
 answers `stale` if a reorg removed it, and the retry re-reads the pointers through the service
 binding, never from the cached object, so a request never mixes two branches.
 
+Block records above P come from the same bucket: the daemon writes `live/records/{number}-{hash}.bin`
+for every block it writes to the live window, `live/HEAD.json` lists the window's hashes by number
+and names a transaction index object, and `src/live.ts` reads both through the archive's edge
+cache (immutable, a day) with the pinned head's document, verifying each record's hash. The
+`LiveReads.block` and `txBlock` service calls remain the fallback for a head taken from `state()`
+after a reorg, a block the document does not list, or a missing object ([docs/storage.md](../../docs/storage.md),
+"Live records").
+
 ## Execution
 
 `eth_call`, `eth_estimateGas`, `eth_createAccessList` and the `debug_`/`trace_` methods run
