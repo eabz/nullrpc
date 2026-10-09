@@ -247,8 +247,10 @@ var (
 	errNeedsReceipts = fmt.Errorf("%w: receipts", errNeedsRPC)
 )
 
-// readBlock reads block n as a sourceBlock within one read transaction.
-func (e *erigonDB) readBlock(ctx context.Context, tx ekv.TemporalTx, n uint64, blocks []blockTx) (*sourceBlock, error) {
+// readBlock reads block n as a sourceBlock within one read transaction. statusReceipts
+// accepts pre-Byzantium receipts with a status in place of the post-state root
+// (--pre-byzantium-receipts=status); otherwise those blocks' receipts come from RPC.
+func (e *erigonDB) readBlock(ctx context.Context, tx ekv.TemporalTx, n uint64, blocks []blockTx, statusReceipts bool) (*sourceBlock, error) {
 	hash, ok, err := e.reader.CanonicalHash(ctx, tx, n)
 	if err != nil {
 		return nil, fmt.Errorf("block %d: canonical hash: %w", n, err)
@@ -297,8 +299,9 @@ func (e *erigonDB) readBlock(ctx context.Context, tx ekv.TemporalTx, n uint64, b
 		}
 		return src, fmt.Errorf("block %d: %w: %s", n, errNeedsReceipts, why)
 	}
-	if !e.chain.IsByzantium(n) {
-		// Pre-Byzantium receipts carry post-state roots the rcache does not keep.
+	if !e.chain.IsByzantium(n) && !statusReceipts {
+		// Pre-Byzantium receipts carry post-state roots the rcache does not keep; the RPC
+		// has none either, so the fallback only helps a node that serves them.
 		return needReceipts("pre-Byzantium receipts")
 	}
 	receipts, err := rawdb.ReadReceiptsCacheV2(tx, block, e.txNums)
@@ -418,7 +421,7 @@ func (s *dbBlockSource) fetchRange(ctx context.Context, first, last uint64) ([]*
 		}
 		defer tx.Rollback()
 		for n := first; n <= last; n++ {
-			src, err := s.db.readBlock(ctx, tx, n, s.blocks)
+			src, err := s.db.readBlock(ctx, tx, n, s.blocks, s.blobs.statusBeforeByzantium)
 			if errors.Is(err, errNeedsReceipts) && src != nil {
 				s.fallback(n, err)
 				needReceipts = append(needReceipts, src)
