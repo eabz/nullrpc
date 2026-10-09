@@ -413,7 +413,7 @@ export async function execute(
   const block =
     typeof request.blockHash === "string" && Number.isSafeInteger(request.blockNumber) && request.blockNumber! >= 0
       ? { hash: request.blockHash.toLowerCase(), number: request.blockNumber! }
-      : typeof request.block === "string" || request.block instanceof Uint8Array
+      : request.block != null
         ? blockOf(request.block)
         : null;
   const blockHash = block?.hash ?? null;
@@ -433,7 +433,8 @@ export async function execute(
     wire.blockHash = blockHash;
     if (seeded) wire.seed = blockHash;
   }
-  if (!blockHash || !session.has?.("block", blockHash)) wire.block = request.block instanceof Uint8Array ? "0x" + toHex(request.block) : request.block;
+  // (`instanceof Uint8Array` is not relied on: the bytes may come from another realm's buffer.)
+  if (!blockHash || !session.has?.("block", blockHash)) wire.block = typeof request.block === "string" ? request.block : "0x" + toHex(request.block);
   const wasm = session(JSON.stringify(wire));
   try {
     let input = "";
