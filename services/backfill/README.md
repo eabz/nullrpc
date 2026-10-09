@@ -62,7 +62,7 @@ at the first unfinished stage. Check progress from another shell:
 | `--pre-byzantium-receipts` | `fail` | `status` for Ethereum mainnet: Erigon keeps no post-state roots for receipts before Byzantium |
 | `--tmp` | `WORK/trie.tmp` | sort runs of the root check, e.g. on another disk |
 | `--upload` | on | `--upload=false` builds locally only |
-| `--genesis` | bundled for Ethereum mainnet | the chain's full genesis JSON for any other chain |
+| `--genesis` | bundled for Ethereum mainnet and Hoodi | the chain's full genesis JSON for any other chain |
 
 ## Stages
 

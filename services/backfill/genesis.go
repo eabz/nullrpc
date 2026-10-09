@@ -10,11 +10,11 @@ import (
 	"strings"
 )
 
-// Bundled full genesis files (allocation and fork schedule), by chain ID.
-// genesis/1.json is Ethereum mainnet in geth's genesis format, generated from
-// Erigon v3.7.1's embedded chain spec and allocation
-// (execution/chain/spec/{chainspecs,allocs}/mainnet.json). A run checks the genesis
-// it uses against the node's block 0. Other chains pass --genesis.
+// Bundled full genesis files (allocation and fork schedule), by chain ID, in geth's genesis
+// format, generated from Erigon v3.7.1's embedded chain specs and allocations
+// (execution/chain/spec/{chainspecs,allocs}): genesis/1.json is Ethereum mainnet,
+// genesis/560048.json is Hoodi. A run checks the genesis it uses against the node's block 0
+// (state root and block hash). Other chains pass --genesis.
 //
 //go:embed genesis/*.json
 var bundledGenesis embed.FS
