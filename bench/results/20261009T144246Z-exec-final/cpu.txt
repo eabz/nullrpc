@@ -1,0 +1,30 @@
+# CPU per case from a wrangler tail capture during the final after-runs (calls phase ×8 and the tracer subset ×4; bench/cpu.mjs); version f719c29c (main at b3cd520 + merge)
+
+178 requests in the capture; CPU mean 302ms, p50 140ms, p95 949ms
+
+case                                   n  cpu p50  cpu p95  cpu mean  cpu total  wall p50  outcomes
+------------------------------------  --  -------  -------  --------  ---------  --------  --------
+trace_replayBlockTransactions deep    10    489ms    965ms     537ms      5.37s     496ms     ok=10
+eth_call replay at n-1                 6    203ms    4.00s     844ms      5.07s     322ms      ok=6
+debug_traceCall callTracer             8     60ms    2.71s     517ms      4.14s     500ms      ok=8
+trace_replayBlockTransactions recent  10    343ms    949ms     406ms      4.06s     537ms     ok=10
+eth_call real calldata latest          5    120ms    2.02s     706ms      3.53s     632ms      ok=5
+debug_traceBlockByHash recent          9    388ms    760ms     378ms      3.40s     616ms      ok=9
+debug_traceCall replay at n-1          9    254ms    852ms     333ms      3.00s     374ms      ok=9
+eth_estimateGas real calldata          3    1.39s    1.51s     997ms      2.99s    22.91s      ok=3
+debug_traceBlockByNumber deep          8    238ms    853ms     348ms      2.79s     456ms      ok=8
+(untagged)                            31      3ms    435ms      67ms      2.09s     148ms     ok=31
+debug_traceBlockByNumber recent        7    160ms    526ms     273ms      1.91s     616ms      ok=7
+trace_block deep                       7    144ms    1.10s     265ms      1.85s     178ms      ok=7
+trace_transaction deep                 5    321ms    836ms     368ms      1.84s     493ms      ok=5
+eth_estimateGas replay at n-1          5    146ms    771ms     312ms      1.56s     230ms      ok=5
+trace_block recent                     4     65ms    699ms     354ms      1.42s     311ms      ok=4
+trace_replayTransaction deep           8    115ms    457ms     175ms      1.40s     228ms      ok=8
+debug_traceTransaction deep            6    125ms    483ms     231ms      1.39s     433ms      ok=6
+trace_call                             5    197ms    501ms     223ms      1.11s     715ms      ok=5
+trace_replayTransaction recent         9     47ms    444ms     121ms      1.09s     294ms      ok=9
+debug_traceTransaction recent          5    208ms    413ms     207ms      1.04s     509ms      ok=5
+eth_createAccessList                   6     37ms    640ms     171ms      1.03s     441ms      ok=6
+eth_estimateGas transfer               5     84ms    475ms     143ms      717ms     490ms      ok=5
+trace_transaction recent               5     89ms    331ms     133ms      664ms     338ms      ok=5
+eth_call balanceOf                     2     85ms    228ms     157ms      313ms     760ms      ok=2
