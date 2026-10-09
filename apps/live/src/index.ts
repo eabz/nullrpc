@@ -3,16 +3,21 @@
 //   /ingest/*  the nullrpc daemon's writes, with `Authorization: Bearer INGEST_TOKEN`:
 //     GET  /ingest/state     ChainDO pointers
 //     POST /ingest/init      {promoted, generation}: first start after the backfill
-//     POST /ingest/blocks    {rows: [{first, last, chain, shards: {i: data}}], head, safe, finalized}
+//     POST /ingest/blocks    {rows: [{first, last, chain, shards: {i: data}}], head, safe, finalized,
+//                            network_head?}
 //                            one row per group of blocks (base64, sections per block): shard rows
-//                            first, then ChainDO rows, then the head
+//                            first, then ChainDO rows, then the head; network_head is the node's
+//                            head, the status page's target
 //     POST /ingest/reorg     {ancestor, removed: [{number, hash}]}: fence, lower the head, truncate
 //     POST /ingest/prune     {promoted, generation}: after a promotion
 //   LiveReads  the entrypoint the RPC Worker binds to read the live window.
+//   LiveStatus the entrypoint the status dashboard binds to (service bindings only; no public route):
+//     GET  /internal/status                 {chain: ChainStatus}
+//     GET  /internal/history?range=1h|24h|7d  {bucket_s, from, to, retention_s, points}
 
 import { WorkerEntrypoint } from "cloudflare:workers";
-import type { ChainDO } from "./chain";
-import { fromBase64, unhex, shardOf, DOMAIN, type BlockId } from "./codec";
+import { fromBase64, normalizeBlockId, normalizeKey, shardOf, unhex, DOMAIN, type BlockId } from "./codec";
+import { HISTORY_RANGES, type ChainDO, type HistoryRange } from "./chain";
 import type { Env } from "./env";
 import type { StateShard } from "./shard";
 
@@ -43,13 +48,7 @@ function authorized(request: Request, env: Env): boolean {
   return diff === 0;
 }
 
-function blockId(v: unknown, what: string): BlockId {
-  const b = v as BlockId;
-  if (!b || !Number.isSafeInteger(b.number) || b.number < 0 || typeof b.hash !== "string" || !/^0x[0-9a-f]{64}$/.test(b.hash)) {
-    throw new Error(`invalid ${what}`);
-  }
-  return { number: b.number, hash: b.hash };
-}
+const blockId = normalizeBlockId;
 
 interface IngestRow {
   first: number;
@@ -90,7 +89,12 @@ async function ingest(request: Request, env: Env, path: string): Promise<Respons
       await Promise.all([...perShard].map(([s, list]) => shard(env, s).applyMany(list)));
       await chain(env).putRows(chainRows);
       const head = blockId(body.head, "head");
-      await chain(env).setHead(head, body.safe ? blockId(body.safe, "safe") : null, body.finalized ? blockId(body.finalized, "finalized") : null);
+      await chain(env).setHead(
+        head,
+        body.safe ? blockId(body.safe, "safe") : null,
+        body.finalized ? blockId(body.finalized, "finalized") : null,
+        body.network_head ? blockId(body.network_head, "network_head") : null,
+      );
       return json({ head });
     }
     case "/ingest/reorg": {
@@ -115,7 +119,7 @@ async function ingest(request: Request, env: Env, path: string): Promise<Respons
 }
 
 export default {
-  async fetch(request, env): Promise<Response> {
+  async fetch(request, env, ctx): Promise<Response> {
     const url = new URL(request.url);
     if (!url.pathname.startsWith("/ingest/")) return json({ error: "not found" }, 404);
     if (!authorized(request, env)) return json({ error: "unauthorized" }, 401);
@@ -124,32 +128,56 @@ export default {
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       console.error(`${request.method} ${url.pathname}: ${message}`);
+      ctx.waitUntil(chain(env).noteError(`${url.pathname}: ${message}`).catch(() => {}));
       return json({ error: message }, 400);
     }
   },
 } satisfies ExportedHandler<Env>;
 
-/** Reads of the live window for the RPC Worker (service binding with entrypoint LiveReads). */
+/**
+ * Reads of the live window for the RPC Worker (service binding with entrypoint LiveReads). Pins
+ * are validated and their hashes lowercased; keys may carry 0x and any case.
+ */
 export class LiveReads extends WorkerEntrypoint<Env> {
   async state() {
     return chain(this.env).state();
   }
   async block(numberOrHash: number | string, pin: BlockId) {
-    return chain(this.env).block(numberOrHash, pin);
+    return chain(this.env).block(numberOrHash, normalizeBlockId(pin, "pin"));
   }
   async witness(number: number, pin: BlockId) {
-    return chain(this.env).witness(number, pin);
+    return chain(this.env).witness(number, normalizeBlockId(pin, "pin"));
   }
   async txBlock(txHash: string, pin: BlockId) {
-    return chain(this.env).txBlock(txHash, pin);
+    return chain(this.env).txBlock(txHash, normalizeBlockId(pin, "pin"));
   }
-  /** domain: 1 accounts, 2 storage, 3 code; keyHex without 0x. */
+  /** domain: 1 accounts, 2 storage, 3 code; keyHex with or without 0x. */
   async getPinned(domain: number, keyHex: string, n: number, pin: BlockId) {
-    const s = shardOf(domain, unhex(keyHex), shardCount(this.env));
-    return shard(this.env, s).getPinned(domain, keyHex.toLowerCase(), n, pin);
+    const key = normalizeKey(domain, keyHex);
+    const s = shardOf(domain, unhex(key), shardCount(this.env));
+    return shard(this.env, s).getPinned(domain, key, n, normalizeBlockId(pin, "pin"));
   }
   async scanPinned(addressHex: string, n: number, pin: BlockId) {
-    const s = shardOf(DOMAIN.storage, unhex(addressHex), shardCount(this.env));
-    return shard(this.env, s).scanPinned(addressHex.toLowerCase(), n, pin);
+    const address = normalizeKey(DOMAIN.accounts, addressHex);
+    const s = shardOf(DOMAIN.storage, unhex(address), shardCount(this.env));
+    return shard(this.env, s).scanPinned(address, n, normalizeBlockId(pin, "pin"));
+  }
+}
+
+/** Pipeline status for the status dashboard (service binding with entrypoint LiveStatus). */
+export class LiveStatus extends WorkerEntrypoint<Env> {
+  override async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    if (request.method !== "GET") return json({ error: "method not allowed" }, 405);
+    switch (url.pathname) {
+      case "/internal/status":
+        return json({ chain: { chain_id: this.env.CHAIN_ID, ...(await chain(this.env).status()) } });
+      case "/internal/history": {
+        const range = url.searchParams.get("range") ?? "1h";
+        if (!Object.hasOwn(HISTORY_RANGES, range)) return json({ error: "range must be one of 1h, 24h, 7d" }, 400);
+        return json(await chain(this.env).history(range as HistoryRange));
+      }
+    }
+    return json({ error: "not found" }, 404);
   }
 }

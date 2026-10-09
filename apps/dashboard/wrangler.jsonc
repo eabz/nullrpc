@@ -12,6 +12,9 @@
   // Worker logs only; no per-request invocation logs, which would record client IP addresses.
   "observability": { "enabled": true, "logs": { "enabled": true, "invocation_logs": false } },
   "routes": [{ "pattern": "status.nullrpc.dev", "custom_domain": true }],
+  // Live pipeline status and history per chain: GET /internal/status and /internal/history on the
+  // chain's live Worker, through its LiveStatus entrypoint (not reachable from the internet).
+  "services": [{ "binding": "LIVE_560048", "service": "nullrpc-live-560048", "entrypoint": "LiveStatus" }],
   // public/ is served before the Worker for every path except /api/*.
   "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": ["/api/*"], "not_found_handling": "404-page" }
 }

@@ -180,3 +180,68 @@ export interface BlockId {
   number: number;
   hash: string; // 0x-prefixed lowercase
 }
+
+/** The RLP item at `at`: its payload is b[start, end). */
+function rlpItem(b: Uint8Array, at: number): { list: boolean; start: number; end: number } {
+  const p = b[at];
+  if (p === undefined) throw new Error("truncated rlp");
+  let list = false;
+  let start = at + 1;
+  let len: number;
+  if (p < 0x80) return { list, start: at, end: at + 1 };
+  if (p < 0xb8) len = p - 0x80;
+  else if (p < 0xc0 || p >= 0xf8) {
+    list = p >= 0xf8;
+    const n = p - (list ? 0xf7 : 0xb7);
+    len = 0;
+    for (let i = 0; i < n; i++) len = len * 256 + (b[at + 1 + i] ?? 0);
+    start += n;
+  } else {
+    list = true;
+    len = p - 0xc0;
+  }
+  if (start + len > b.length) throw new Error("truncated rlp");
+  return { list, start, end: start + len };
+}
+
+/**
+ * The timestamp (seconds) in a block record: the record is the RLP list [raw_block, …], raw_block
+ * the block's RLP [header, …], and the timestamp the header's 12th field. Null if malformed.
+ */
+export function recordTimestamp(record: Uint8Array): number | null {
+  try {
+    const top = rlpItem(record, 0);
+    const raw = rlpItem(record, top.start);
+    if (!top.list || raw.list) return null;
+    const block = rlpItem(record, raw.start);
+    const header = rlpItem(record, block.start);
+    if (!block.list || !header.list) return null;
+    let at = header.start;
+    for (let i = 0; i < 11; i++) at = rlpItem(record, at).end;
+    const ts = rlpItem(record, at);
+    if (ts.list || ts.end > header.end || ts.end - ts.start > 6) return null;
+    let n = 0;
+    for (let i = ts.start; i < ts.end; i++) n = n * 256 + (record[i] as number);
+    return n;
+  } catch {
+    return null;
+  }
+}
+
+/** A block id with a lowercase hash, or an error: number a safe integer ≥ 0, hash 0x + 64 hex. */
+export function normalizeBlockId(v: unknown, what: string): BlockId {
+  const b = v as { number?: unknown; hash?: unknown } | null;
+  const hash = typeof b?.hash === "string" ? b.hash.toLowerCase() : "";
+  if (!b || typeof b.number !== "number" || !Number.isSafeInteger(b.number) || b.number < 0 || !/^0x[0-9a-f]{64}$/.test(hash)) {
+    throw new TypeError(`invalid ${what}`);
+  }
+  return { number: b.number, hash };
+}
+
+/** A state key as lowercase hex without 0x, or an error: accounts, storage and code keys only. */
+export function normalizeKey(domain: number, keyHex: unknown): string {
+  if (domain !== DOMAIN.accounts && domain !== DOMAIN.storage && domain !== DOMAIN.code) throw new TypeError(`invalid domain ${domain}`);
+  const h = typeof keyHex === "string" ? keyHex.replace(/^0x/i, "").toLowerCase() : "";
+  if (h.length !== 2 * (KEY_LEN[domain] as number) || /[^0-9a-f]/.test(h)) throw new TypeError(`invalid key for domain ${domain}`);
+  return h;
+}

@@ -6,7 +6,8 @@
     "dev": "wrangler dev --env 560048",
     "deploy:hoodi": "wrangler deploy --env 560048",
     "deploy:ethereum": "wrangler deploy --env 1",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
   },
   "dependencies": {
     "@noble/hashes": "^1.8.0"
