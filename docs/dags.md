@@ -44,14 +44,15 @@ writes and needs before it can run.
 | B8 Log index | B4 | block bundles | `log-index/` | |
 | B9 State history | B5 | change streams | `state/v1/layers/`, filters | |
 | B10 Root check | B5 | change streams | nothing kept | trie root ≠ header `B`'s `stateRoot` |
-| B11 Witness check | B4, B6 | sample of blocks and witnesses | nothing kept | a replay's receipts differ from the archive's |
+| B11 Witness check | B6, B9 | one witness in 997, the state history at its parent block | nothing kept | a value differs |
 | B12 Upload | B7–B11 | every object | R2 objects | SHA-256 mismatch after upload |
 | B13 Manifest | B12 | object list | `manifests/` | |
 | B14 HEAD | B13 | | `HEAD.json`, create-if-absent | `HEAD.json` already exists (stop) |
-| B15 Copy to B2 | B14 | R2 objects | B2 objects | |
 
-B6 is independent of B4, B5 and their children, and is the longest step. Start it as soon as
-B3 finishes. B11 also needs B4: a replay needs the block's transactions.
+B6 needs only the block range and is the longest step; B11 runs inside it, on the blocks it
+samples. The backfill service (`services/backfill`) runs the steps one after another, in
+the order B1, B2, B3, B5, B9, B10, B4, B6 with B11, B7, B8, B12–B14; the graph shows which
+steps could overlap.
 
 ## Handoff
 
@@ -113,11 +114,10 @@ block order. The head never skips a block.
 | P11 Prune StateShards | P10 | | `pruneAtOrBelow(P′)` on every shard | |
 | P12 Prune ChainDO | P10 | | rows ≤ `P′` deleted, `P = P′` | |
 | P13 Spool to acked/ | P11, P12 | | `live/` → `acked/` | |
-| P14 Copy to B2 | P13 | new R2 objects | B2 objects | |
-| P15 Schedule GC | P13 | manifest N−1 | delete list, due in 7 days | |
+| P14 Schedule GC | P13 | manifest N−1 | delete list, due in 7 days | |
 
 A crash between P10 and P13 is safe: on restart, `HEAD.json` already names `P′`, so the
-daemon runs P11–P15 again.
+daemon runs P11–P14 again.
 
 ## Reorg
 
@@ -143,7 +143,7 @@ Runs before anything else when the daemon starts.
 | Step | Needs | Does |
 |---|---|---|
 | R1 Read state | | `HEAD.json` (generation, `P`), `ChainDO` (head, `P`) |
-| R2 Finish promotion | R1 | if `HEAD.json`'s `P` is above `ChainDO`'s, run Promotion P11–P15 |
+| R2 Finish promotion | R1 | if `HEAD.json`'s `P` is above `ChainDO`'s, run Promotion P11–P14 |
 | R3 Replay ready/ | R2 | Block K10–K13 for every file in `ready/`, in order |
 | R4 Check live/ | R2 | every file in `live/` is in `ChainDO`; rewrite any that is not |
 | R5 Delete tmp/ | | remove partial files |

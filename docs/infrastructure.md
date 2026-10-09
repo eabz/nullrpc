@@ -12,10 +12,6 @@ Cloudflare's network, with no credentials and no request signing. Promotion move
 with a conditional write (`If-Match`), so two writers can never both publish. Every other object
 is written create-if-absent.
 
-**Backblaze B2 holds a backup copy.** Rebuilding the archive takes an archive snapshot and days on
-a backfill machine, so every object is kept twice. The daemon copies each new object to B2 after
-`HEAD.json` moves. Nothing reads B2 except a restore.
-
 **Caching.** The Worker caches immutable frames with the Cache API, and index roots, filter blocks
 and code in the isolate. Most reads of recent and popular data never reach R2.
 
@@ -64,7 +60,6 @@ disks, with the spool on them, keep a single disk failure from opening that gap.
 |---|---|---|
 | R2 S3 token, archive bucket, read-write | daemon, backfill machine | object writes and `HEAD.json` |
 | Cloudflare Access service token | daemon | the ingest route to `ChainDO` and `StateShard` |
-| B2 application key, write-only | daemon, backfill machine | backup uploads |
 | R2 binding, read-only | RPC Worker | archive reads |
 
 The node listens for RPC on localhost only. Only its P2P ports are open to the internet.

@@ -166,7 +166,7 @@ def r(i, top=30):
 
 
 def architecture():
-    d = Diagram("architecture", 1120, 560)
+    d = Diagram("architecture", 1120, 550)
     d.group(20, 40, 330, 410, "Live machine")
     d.group(500, 40, 600, 410, "Cloudflare")
     d.box("net", 45, 70, 280, 56, "ext", "Blockchain network", ["P2P · consensus"])
@@ -178,7 +178,6 @@ def architecture():
     d.box("r2", 540, 330, 230, 64, "st", "R2", ["immutable history, genesis … P"])
     d.box("worker", 850, 200, 220, 64, "cf", "RPC Worker", ["JSON-RPC, reads only"])
     d.box("clients", 850, 480, 220, 50, "ext", "Clients", ["wallets · apps · indexers"])
-    d.box("b2", 540, 480, 230, 50, "st", "Backblaze B2", ["backup copy of R2"])
     d.arrow("net", "node", label="blocks")
     d.arrow("node", "daemon", label="local RPC")
     d.arrow("daemon", "spool")
@@ -189,7 +188,6 @@ def architecture():
     d.arrow("worker", "shard", "l", "r", label="reads")
     d.arrow("worker", "r2", "l", "r", oa=16, mid=825)
     d.arrow("clients", "worker", "t", "b", label="JSON-RPC")
-    d.arrow("r2", "b2", label="copy", dashed=True)
     d.save()
 
 
@@ -250,7 +248,7 @@ def spool():
 
 
 def dag_backfill():
-    d = Diagram("dag-backfill", 1000, r(8) + 84)
+    d = Diagram("dag-backfill", 1000, r(7) + 84)
     d.node("b1", 500, r(0), "B1 · Restore snapshot", ["streamed into extraction"], "host")
     d.node("b2", 500, r(1), "B2 · Pick B", ["the node's finalized block"])
     d.node("b3", 500, r(2), "B3 · Block boundaries", ["transaction ranges per block"])
@@ -262,15 +260,14 @@ def dag_backfill():
     d.node("b8", 290, r(4), "B8 · Log index", w=w)
     d.node("b9", 480, r(4), "B9 · State history", ["layers + filters"], w=w)
     d.node("b10", 670, r(4), "B10 · Root check", ["trie root = stateRoot"], w=w)
-    d.node("b11", 870, r(4), "B11 · Witness check", ["sampled replays"], w=w)
+    d.node("b11", 870, r(4), "B11 · Witness check", ["vs state history"], w=w)
     d.node("b12", 500, r(5), "B12 · Upload", ["multipart, SHA-256 checked"], "st")
     d.node("b13", 500, r(6), "B13 · Manifest", ["generation 1"], "st")
     d.node("b14", 500, r(7), "B14 · HEAD", ["create-if-absent"], "st")
-    d.node("b15", 500, r(8), "B15 · Copy to B2", ["every object"], "st")
     for a, b in [("b1", "b2"), ("b2", "b3"), ("b3", "b4"), ("b3", "b5"), ("b3", "b6"),
                  ("b4", "b7"), ("b4", "b8"), ("b5", "b9"), ("b5", "b10"), ("b6", "b11"),
                  ("b7", "b12"), ("b8", "b12"), ("b9", "b12"), ("b10", "b12"), ("b11", "b12"),
-                 ("b12", "b13"), ("b13", "b14"), ("b14", "b15")]:
+                 ("b12", "b13"), ("b13", "b14")]:
         d.arrow(a, b)
     d.save()
 
@@ -340,8 +337,7 @@ def dag_promotion():
     d.node("p11", 300, r(6), "P11 · Prune StateShards", ["pruneAtOrBelow(P′)"], "cf", w=240)
     d.node("p12", 700, r(6), "P12 · Prune ChainDO", ["rows ≤ P′, set P = P′"], "cf", w=240)
     d.node("p13", 500, r(7), "P13 · Spool to acked/", w=300)
-    d.node("p14", 300, r(8), "P14 · Copy to B2", ["new objects"], "st", w=240)
-    d.node("p15", 700, r(8), "P15 · Schedule GC", ["unreferenced, after 7 days"], "st", w=240)
+    d.node("p14", 500, r(8), "P14 · Schedule GC", ["unreferenced, after 7 days"], "st", w=300)
     d.arrow("p1", "p2")
     for k in ["p3", "p4", "p5", "p6", "p7"]:
         d.arrow("p2", k)
@@ -350,7 +346,7 @@ def dag_promotion():
     d.arrow("p9", "p10")
     d.arrow("p10", "stop", "r", "l", label="conflict")
     for a, b in [("p10", "p11"), ("p10", "p12"), ("p11", "p13"), ("p12", "p13"),
-                 ("p13", "p14"), ("p13", "p15")]:
+                 ("p13", "p14")]:
         d.arrow(a, b)
     d.save()
 
@@ -427,7 +423,7 @@ def read_path():
 
 
 def infrastructure():
-    d = Diagram("infrastructure", 1000, 400)
+    d = Diagram("infrastructure", 780, 400)
     d.group(20, 30, 300, 160, "Hourly, during the backfill")
     d.box("bf", 45, 70, 250, 96, "host", "Backfill machine",
           ["archive snapshot on local NVMe", "dumper and tracer", "released after HEAD = B"])
@@ -437,11 +433,9 @@ def infrastructure():
     d.group(420, 30, 330, 250, "Cloudflare")
     d.box("r2", 445, 70, 280, 56, "st", "R2", ["the archive"])
     d.box("do", 445, 180, 280, 56, "cf", "ChainDO + StateShards", ["the live window"])
-    d.box("b2", 445, 320, 280, 56, "st", "Backblaze B2", ["backup"])
     d.arrow("bf", "r2", "r", "l", label="archive upload")
     d.arrow("live", "do", "r", "l", mid=370, label="live writes", at=0)
     d.path([(250, 260), (250, 200), (395, 200), (395, 110), (445, 110)], label="promotion", lpos=(395, 155))
-    d.path([(725, 98), (745, 98), (745, 348), (725, 348)], label="copy", dashed=True, at=1)
     d.save()
 
 

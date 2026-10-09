@@ -45,11 +45,10 @@ consensus client.
      into **state history** layers. The **root check** builds the state trie at `B` from the
      same data and compares its root with block `B`'s `stateRoot`; the trie is then discarded.
    - **Witnesses**: each block's pre-state from the archive node's tracer (see below). The
-     **witness check** replays a sample of blocks from their witnesses and requires the same
-     receipts as the archive.
+     **witness check** compares one block in 997 with the state history at its parent block:
+     two independent extractions of the same state must agree.
 5. **Upload** every object to R2 with multipart uploads. Each object's SHA-256 is checked.
 6. **Write the manifest** for generation 1, then **`HEAD.json`** with a create-if-absent write.
-7. **Copy everything to B2.**
 
 The backfill is done when `HEAD.json` names a manifest that ends at `B`. Every stage writes
 its output to the work directory and records completion, so a rerun resumes at the first
@@ -63,13 +62,18 @@ the block from it in memory.
 
 Produced by `debug_traceBlockByNumber` with `prestateTracer` on the archive node. The tracer
 reports each transaction's pre-state; the first time a key appears in the block, its value
-is the value at the start of the block. The dumper always adds what a block reads outside
-its transactions: the blockchain's system contract slots (on Ethereum: EIP-4788 beacon roots,
-EIP-2935 block hashes, EIP-7002 withdrawals, EIP-7251 consolidations), the withdrawal
-recipients and the coinbase.
+is the value the transaction found. A key no earlier transaction touched is unchanged since
+the start of the block, so that is its value before the block, with one exception: slots
+written by the block's pre-transaction system calls (on Ethereum: EIP-4788 beacon roots,
+EIP-2935 block hashes) hold their value after the call. A replay therefore applies the
+witness and skips those system calls; their effect is already in it. Post-transaction work
+(withdrawals, EIP-7002 and EIP-7251 requests) does not affect any transaction's trace.
+
+An account the tracer reports as empty (no balance, nonce or code) is looked up in the
+state history at the parent block, so the witness records whether it exists.
 
 Every block's parent state is in the archive, so blocks do not depend on each other. The
-witness stage runs one tracer call per core. It is the longest stage of the backfill, and it
+witness stage runs many tracer calls in parallel (`--concurrency`). It is the longest stage of the backfill, and it
 must finish before the archive is deleted: a pruned node cannot produce witnesses for old
 blocks.
 
@@ -170,7 +174,7 @@ When `F` reaches `P` plus the batch size, or the oldest unpromoted finalized blo
    N−1's ETag. A conflict means something else wrote `HEAD.json`: the daemon stops and alerts,
    and never overwrites.
 4. Prune the shards and `ChainDO` at or below `P′`, and set `P = P′`.
-5. Move the spool files to `acked/`. Copy the new objects to B2. Schedule objects that no
+5. Move the spool files to `acked/`. Schedule objects that no
    manifest references any more for deletion in 7 days.
 
 If promotion falls behind, the live window grows and keeps serving. Two limits apply: the

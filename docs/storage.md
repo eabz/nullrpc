@@ -295,7 +295,8 @@ accounts := uvarint(n) (address[20] u8(flags) uvarint(nonce) uvarint(len) balanc
 storage  := uvarint(n) (address[20] uvarint(m) (slot[32] uvarint(len) value){m}){n}
 ```
 
-Values are the block's pre-state: the state after block N−1. Bytecode is not repeated in the
+Values are the block's pre-state: what each key held when the block's first transaction to touch
+it started (docs/pipeline.md, "Witnesses"). Bytecode is not repeated in the
 witness: the Worker reads it from the `code` domain by hash and caches it with no expiry,
 because a code hash names one immutable bytecode.
 
