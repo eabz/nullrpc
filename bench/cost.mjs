@@ -39,10 +39,19 @@ function token() {
 const TOKEN = token();
 
 async function graphql(query, variables) {
-  const res = await fetch("https://api.cloudflare.com/client/v4/graphql", { method: "POST", headers: { authorization: `Bearer ${TOKEN}`, "content-type": "application/json" }, body: JSON.stringify({ query, variables }) });
-  const body = await res.json();
-  if (body.errors?.length) throw new Error("GraphQL: " + body.errors.map((e) => e.message).join("; "));
-  return body.data.viewer.accounts[0];
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch("https://api.cloudflare.com/client/v4/graphql", { method: "POST", headers: { authorization: `Bearer ${TOKEN}`, "content-type": "application/json" }, body: JSON.stringify({ query, variables }) });
+    const body = await res.json();
+    const msg = body.errors?.map((e) => e.message).join("; ") ?? "";
+    // The analytics API has a small budget per 5 minutes; wait it out rather than fail.
+    if (/budget depleted|rate limit/i.test(msg) && attempt < 3) {
+      console.log("analytics rate limit: waiting 5 minutes");
+      await new Promise((r) => setTimeout(r, 5 * 60_000 + 5_000));
+      continue;
+    }
+    if (msg) throw new Error("GraphQL: " + msg);
+    return body.data.viewer.accounts[0];
+  }
 }
 async function rest(path) {
   const res = await fetch(`https://api.cloudflare.com/client/v4${path}`, { headers: { authorization: `Bearer ${TOKEN}` } });
@@ -55,9 +64,11 @@ async function rest(path) {
 const PRICE = { workersReq: 0.3 / 1e6, cpuMs: 0.02 / 1e6, doReq: 0.15 / 1e6, doGbS: 12.5 / 1e6, r2ClassA: 4.5 / 1e6, r2ClassB: 0.36 / 1e6, doRowsRead: 0.001 / 1e6, doRowsWritten: 1.0 / 1e6 };
 
 /** Durable Object namespaces of the live and app Workers. */
+let nsCache = null;
 async function namespaces() {
+  if (nsCache) return nsCache;
   const list = await rest(`/accounts/${ACCOUNT}/workers/durable_objects/namespaces?per_page=100`);
-  return list.filter((n) => [LIVE, APP].includes(n.script)).map((n) => ({ id: n.id, name: `${n.script}/${n.class}` }));
+  return (nsCache = list.filter((n) => [LIVE, APP].includes(n.script)).map((n) => ({ id: n.id, name: `${n.script}/${n.class}` })));
 }
 
 async function window(label, from, to, requests) {
@@ -78,11 +89,14 @@ async function window(label, from, to, requests) {
   const CLASS_A = new Set(["PutObject", "CopyObject", "CompleteMultipartUpload", "CreateMultipartUpload", "ListObjects", "ListBuckets", "PutBucket", "UploadPart", "UploadPartCopy", "PutObjectAcl", "DeleteObject", "DeleteObjects"]);
   let classA = 0, classB = 0;
   for (const x of r2.r2OperationsAdaptiveGroups ?? []) (CLASS_A.has(x.dimensions.actionType) ? (classA += x.sum.requests) : (classB += x.sum.requests));
-  const workersReq = Object.values(scripts).reduce((s, x) => s + x.requests, 0);
+  // Only edge-originated requests are billed: calls over service bindings and Workers RPC are
+  // not charged as requests (their CPU time is). The RPC Worker is the only edge entry.
+  const workersReq = scripts[RPC]?.requests ?? 0;
   const cpuMs = Object.values(scripts).reduce((s, x) => s + x.cpuMs, 0);
   const cost = workersReq * PRICE.workersReq + cpuMs * PRICE.cpuMs + doReq * PRICE.doReq + doGbS * PRICE.doGbS + classA * PRICE.r2ClassA + classB * PRICE.r2ClassB + rowsRead * PRICE.doRowsRead + rowsWritten * PRICE.doRowsWritten;
   const n = requests || scripts[RPC]?.requests || 1;
-  return { label, from, to, requests: n, scripts, doReq, doGbS, rowsRead, rowsWritten, r2ClassA: classA, r2ClassB: classB, cost, per1M: (cost / n) * 1e6, units: { workersReq: workersReq / n, cpuMs: cpuMs / n, doReq: doReq / n, r2ClassB: classB / n, rowsRead: rowsRead / n } };
+  const breakdown = { "Workers requests": workersReq * PRICE.workersReq, "Workers CPU": cpuMs * PRICE.cpuMs, "DO requests": doReq * PRICE.doReq, "DO duration": doGbS * PRICE.doGbS, "DO rows": rowsRead * PRICE.doRowsRead + rowsWritten * PRICE.doRowsWritten, "R2 Class B": classB * PRICE.r2ClassB, "R2 Class A": classA * PRICE.r2ClassA };
+  return { label, from, to, requests: n, scripts, doReq, doGbS, rowsRead, rowsWritten, r2ClassA: classA, r2ClassB: classB, cost, per1M: (cost / n) * 1e6, breakdown, units: { rpcReq: workersReq / n, liveCalls: (scripts[LIVE]?.requests ?? 0) / n, appCalls: (scripts[APP]?.requests ?? 0) / n, cpuMs: cpuMs / n, doReq: doReq / n, r2ClassB: classB / n, rowsRead: rowsRead / n } };
 }
 
 const windows = [];
@@ -97,7 +111,7 @@ const results = [];
 for (const [label, from, to, n] of windows) {
   const r = await window(label, from, to, n);
   results.push(r);
-  console.log(`${label}: ${n} client requests; Workers ${Object.entries(r.scripts).map(([s, x]) => `${s}=${x.requests} (cpu p50 ${x.cpuP50.toFixed(1)}ms)`).join(", ")}; DO ${r.doReq}; R2 B ${r.r2ClassB} A ${r.r2ClassA}; $${r.cost.toFixed(4)} = $${r.per1M.toFixed(2)} per 1M requests`);
+  console.log(`${label}: ${n} client requests; per request: rpc ${r.units.rpcReq.toFixed(2)}, live calls ${r.units.liveCalls.toFixed(1)}, app calls ${r.units.appCalls.toFixed(2)}, DO ${r.units.doReq.toFixed(1)}, R2 B ${r.units.r2ClassB.toFixed(1)}, cpu ${r.units.cpuMs.toFixed(1)}ms; $${r.per1M.toFixed(2)} per 1M requests = ${Object.entries(r.breakdown).filter(([, v]) => v > 0).map(([k, v]) => `${k} ${((v / r.cost) * 100).toFixed(0)}%`).join(", ")}`);
 }
 
 // Margin per plan: the price the quota buys per 1M requests against the measured cost.
@@ -112,8 +126,8 @@ for (const [plan, p] of Object.entries(PLANS)) {
   rows.push([plan, p.price, rev.toFixed(3), costRef.per1M.toFixed(3), (rev - costRef.per1M).toFixed(3), quotaCost.toFixed(2), (p.price - quotaCost).toFixed(2)]);
 }
 console.log("\n" + table(rows));
-const md = [`# Cost of run ${DIR.split("/").pop()}`, "", "Cloudflare metrics per run window (sampled, with a 30s tail). Prices: Workers $0.30/M requests and $0.02/M CPU-ms, Durable Objects $0.15/M requests and $12.50/M GB-s plus SQL rows, R2 $0.36/M Class B and $4.50/M Class A.", "", "| window | client req | rpc req | rpc cpu p50/p99 | live req | app req | DO req | R2 B | R2 A | $ total | $ per 1M req |", "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"];
-for (const r of results) md.push(`| ${r.label} | ${r.requests} | ${r.scripts[RPC]?.requests ?? 0} | ${(r.scripts[RPC]?.cpuP50 ?? 0).toFixed(1)} / ${(r.scripts[RPC]?.cpuP99 ?? 0).toFixed(1)} ms | ${r.scripts[LIVE]?.requests ?? 0} | ${r.scripts[APP]?.requests ?? 0} | ${r.doReq} | ${r.r2ClassB} | ${r.r2ClassA} | ${r.cost.toFixed(4)} | ${r.per1M.toFixed(3)} |`);
+const md = [`# Cost of run ${DIR.split("/").pop()}`, "", "Cloudflare metrics per run window (sampled, with a 30s tail). Prices: Workers $0.30/M requests and $0.02/M CPU-ms, Durable Objects $0.15/M requests and $12.50/M GB-s plus SQL rows, R2 $0.36/M Class B and $4.50/M Class A.", "", "Service-binding and RPC calls between Workers are not billed as requests (their CPU is), so only the RPC Worker's edge requests count. Per-request units are divided by the client's request count; other traffic in the window (dashboards, other clients) inflates them.", "", "| window | client req | rpc req/req | live calls/req | app calls/req | DO req/req | R2 B/req | cpu ms/req | rpc cpu p50/p99 | $ per 1M req | biggest cost |", "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|"];
+for (const r of results) { const top = Object.entries(r.breakdown).sort((a, b) => b[1] - a[1])[0]; md.push(`| ${r.label} | ${r.requests} | ${r.units.rpcReq.toFixed(2)} | ${r.units.liveCalls.toFixed(1)} | ${r.units.appCalls.toFixed(2)} | ${r.units.doReq.toFixed(1)} | ${r.units.r2ClassB.toFixed(1)} | ${r.units.cpuMs.toFixed(1)} | ${(r.scripts[RPC]?.cpuP50 ?? 0).toFixed(1)} / ${(r.scripts[RPC]?.cpuP99 ?? 0).toFixed(1)} ms | ${r.per1M.toFixed(3)} | ${top[0]} ${((top[1] / r.cost) * 100).toFixed(0)}% |`); }
 md.push("", "## Margin per plan", "", `Revenue per 1M requests is the plan price over the requests its quota buys at ${mixCredits.toFixed(1)} credits per request (the measured user mix). Cost per 1M requests is the ${costRef.label} window's. Free plans have no revenue: their column is the cost of serving a full quota.`, "", "| " + rows[0].join(" | ") + " |", "|" + rows[0].map(() => "---").join("|") + "|");
 for (const r of rows.slice(1)) md.push("| " + r.join(" | ") + " |");
 writeFileSync(join(DIR, "cost.md"), md.join("\n") + "\n");
