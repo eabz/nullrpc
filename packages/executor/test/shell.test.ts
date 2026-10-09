@@ -5,7 +5,7 @@
 import { keccak_256 } from "@noble/hashes/sha3.js";
 import { describe, expect, it, vi } from "vitest";
 import type { ExecRequest, StateKey, StateSource, StateValue } from "../src/contract";
-import { blockHashOf, execute, type WasmSession } from "../src/shell";
+import { blockHashOf, execute, type SessionFactory, type WasmSession } from "../src/shell";
 
 // ---- a minimal RLP writer for block records: [raw_block, senders, receipts, blob_gas_price]
 
@@ -348,5 +348,66 @@ describe("time budget", () => {
     const witnessWanted = () => ({ run: () => JSON.stringify({ witness: 60, hash: "0x" + "60".repeat(32) }), usage: () => "" });
     const out = await execute({ method: "debug_traceTransaction", params: [], chain: chain(906), block: record(61).record, txIndex: 0 }, stalled, witnessWanted, Date.now, 60);
     expect(out).toEqual({ error: { code: -32005, message: "execution exceeded its time budget (timeout)" } });
+  });
+});
+
+// ---- what the module keeps by block hash: a request there sends neither the record nor hints
+
+describe("module cache", () => {
+  /** A scripted factory that remembers the blocks it decoded and the snapshots it was asked for. */
+  function caching(script: Script) {
+    const blocks = new Set<string>();
+    const known = new Set<string>();
+    const requests: Record<string, unknown>[] = [];
+    const inputs: string[] = [];
+    const factory = ((json: string) => {
+      const request = JSON.parse(json) as { block?: string; blockHash?: string; seed?: string };
+      requests.push(request);
+      if (request.block) blocks.add(blockHashOf(request.block)!);
+      let round = 0;
+      return {
+        run(input: string) {
+          inputs.push(input);
+          if (input) {
+            const snapshot = (JSON.parse(input) as { snapshot?: string }).snapshot;
+            if (snapshot) known.add(snapshot);
+          }
+          if (round++ === 0) return JSON.stringify({ missing: script.missing, at: script.at });
+          return JSON.stringify({ done: true, response: { result: "ok" } });
+        },
+        usage: () => "{}",
+      };
+    }) as SessionFactory;
+    factory.has = (kind, hash) => (kind === "block" ? blocks.has(hash) : known.has(hash));
+    return { factory, requests, inputs };
+  }
+
+  it("the first call at a block sends the record and a snapshot mark; the next sends the hash and a seed, and reads no hints", async () => {
+    const r = record(70);
+    const { factory, requests, inputs } = caching({ missing: [{ kind: "blockHash", number: 5 }], at: 70 });
+    const first = new HintingState(TABLE, HINTS);
+    await execute({ method: "eth_call", params: [], chain: chain(907), block: r.record }, first, factory);
+    expect(requests[0]).toMatchObject({ block: r.record, blockHash: r.hash });
+    expect(requests[0]!.seed).toBeUndefined();
+    expect(first.hinted).toBe(1);
+    expect(JSON.parse(inputs[1]!)).toMatchObject({ snapshot: r.hash });
+
+    const second = new HintingState(TABLE, HINTS);
+    await execute({ method: "eth_call", params: [], chain: chain(907), block: r.record, blockHash: r.hash, blockNumber: 70 }, second, factory);
+    expect(requests[1]!.block).toBeUndefined();
+    expect(requests[1]).toMatchObject({ blockHash: r.hash, seed: r.hash });
+    expect(second.hinted).toBe(0);
+    const input = JSON.parse(inputs[3]!) as { keys: StateKey[]; snapshot?: string };
+    expect(input.keys).toEqual([{ kind: "blockHash", number: 5 }]);
+    expect(input.snapshot).toBeUndefined();
+  });
+
+  it("a trace at a known block sends the hash without a record, and never a seed", async () => {
+    const r = record(71);
+    const { factory, requests } = caching({ missing: [{ kind: "blockHash", number: 5 }], at: 70 });
+    await execute({ method: "eth_call", params: [], chain: chain(907), block: r.record }, new CountingState(TABLE), factory);
+    await execute({ method: "debug_traceTransaction", params: [], chain: chain(907), block: r.record, txIndex: 0 }, new CountingState(TABLE), factory);
+    expect(requests[1]!.block).toBeUndefined();
+    expect(requests[1]!.seed).toBeUndefined();
   });
 });

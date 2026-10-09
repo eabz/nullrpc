@@ -98,7 +98,13 @@ fn invalid(message: impl Into<String>) -> Error {
 impl Session {
     /// A session for `request` (`ExecRequest` JSON).
     pub fn new(request: &str) -> Self {
-        let mut known = Known::default();
+        // `seed`: start from the module's state snapshot of that block (`cache`), so a request
+        // at a block the module has seen skips its hints wave.
+        let mut known = serde_json::from_str::<Value>(request)
+            .ok()
+            .and_then(|r| r.get("seed")?.as_str()?.parse::<alloy_primitives::B256>().ok())
+            .and_then(|hash| crate::cache::known(&hash))
+            .unwrap_or_default();
         let (job, at, wants_witness, limits) = match parse(request, &mut known) {
             Ok(parsed) => parsed,
             Err(error) => (Job::Failed(error_json(error)), 0, false, Limits::calls()),
@@ -193,6 +199,15 @@ impl Session {
             }
         }
         self.asked.clear();
+        // `snapshot`: what is known now is the state at the end of that block (the shell says
+        // so only for a call's first wave); the module keeps it for the next request there.
+        if let Some(hash) = input
+            .get("snapshot")
+            .and_then(Value::as_str)
+            .and_then(|s| s.parse::<alloy_primitives::B256>().ok())
+        {
+            crate::cache::remember_known(hash, &self.known);
+        }
         Ok(())
     }
 
@@ -601,13 +616,24 @@ fn parse(request: &str, known: &mut Known) -> Result<Parsed, Error> {
     };
     let config = ChainConfig::from_value(request.get("chain").unwrap_or(&Value::Null))
         .map_err(|e| Error::Unavailable(format!("execution unavailable: {e}")))?;
-    let record = request
-        .get("block")
-        .and_then(Value::as_str)
-        .and_then(|s| hex::decode(s.strip_prefix("0x").unwrap_or(s)).ok())
-        .ok_or_else(|| Error::unavailable("block record missing"))?;
-    let block = crate::record::decode(&record)
-        .map_err(|e| Error::Unavailable(format!("invalid block record: {e}")))?;
+    // The record, decoded and kept by hash (`cache`); a request may name `blockHash` instead of
+    // sending a record the module already holds.
+    let block = match request.get("block").and_then(Value::as_str) {
+        Some(hex) => {
+            let record = hex::decode(hex.strip_prefix("0x").unwrap_or(hex))
+                .map_err(|e| Error::Unavailable(format!("invalid block record: {e}")))?;
+            let block = crate::record::decode(&record)
+                .map_err(|e| Error::Unavailable(format!("invalid block record: {e}")))?;
+            (*crate::cache::remember_block(block)).clone()
+        }
+        None => request
+            .get("blockHash")
+            .and_then(Value::as_str)
+            .and_then(|s| s.parse().ok())
+            .and_then(|hash| crate::cache::block(&hash))
+            .map(|block| (*block).clone())
+            .ok_or_else(|| Error::unavailable("block record missing"))?,
+    };
     let index = request.get("txIndex").and_then(Value::as_u64);
     let number = block.number();
     let call_kind = match method.as_str() {

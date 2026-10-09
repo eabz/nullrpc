@@ -28,6 +28,18 @@ const DOMAIN_CODE = { accounts: 1, storage: 2, code: 3 } as const;
  * the executor's shell.
  */
 const archiveValues = new Lru<string, Uint8Array>(32_768);
+/** Decoded block records by hash, per isolate: a record is immutable, and the head's is
+ *  decoded for every call at `latest` otherwise. */
+const decodedRecords = new Lru<string, BlockRecord>(32);
+
+function decodedRecord(hash: string, frame: Uint8Array): BlockRecord {
+  let rec = decodedRecords.get(hash);
+  if (!rec) {
+    rec = decodeRecord(frame);
+    decodedRecords.set(hash, rec);
+  }
+  return rec;
+}
 const hexOf = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 
 export interface Pointers {
@@ -152,7 +164,7 @@ export class Chain {
   }
 
   private archiveRecord(n: number, found: { hash: Uint8Array; frame: Uint8Array }): BlockRecord {
-    const rec = decodeRecord(found.frame);
+    const rec = decodedRecord(data(found.hash), found.frame);
     if (rec.block.header.number !== n || !equal(rec.block.header.hash, found.hash)) throw new ArchiveError(`block ${n} does not match its offsets record`);
     return rec;
   }
@@ -193,7 +205,7 @@ export class Chain {
   }
 
   private liveRecord(found: { number: number; hash: string; record: Uint8Array }): BlockRecord {
-    const rec = decodeRecord(found.record);
+    const rec = decodedRecord(found.hash.toLowerCase(), found.record);
     if (rec.block.header.number !== found.number || data(rec.block.header.hash) !== found.hash.toLowerCase()) {
       throw new ArchiveError(`live block ${found.number} does not match its hash`);
     }

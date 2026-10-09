@@ -390,3 +390,58 @@ fn limits_and_params_are_explicit() {
     let (response, _) = run(&state, &request("eth_sign", json!([]), None));
     assert_eq!(response["error"]["code"], json!(-32602));
 }
+
+#[test]
+fn the_module_keeps_blocks_and_snapshots_by_hash() {
+    use crate::{api::Session, cache, protocol};
+    cache::reset();
+    let state = state();
+    let call = json!([{"from": SENDER, "to": CONTRACT, "data": "0x"}, "latest"]);
+    let first = request("eth_call", call.clone(), None);
+    let (expected, _) = run(&state, &first);
+    // Decoding the record kept the block; a request may now name its hash only.
+    let block_hash = {
+        let record = hex::decode(&record()[2..]).unwrap();
+        crate::record::decode(&record).unwrap().hash
+    };
+    assert!(cache::has_block(&block_hash));
+    assert!(!cache::has_known(&block_hash));
+    let mut without_record: Value = serde_json::from_str(&first).unwrap();
+    without_record.as_object_mut().unwrap().remove("block");
+    without_record["blockHash"] = json!(format!("{block_hash:#x}"));
+    let (same, rounds) = run(&state, &without_record.to_string());
+    assert_eq!(same, expected);
+    assert!(rounds >= 1);
+
+    // A session whose first round is marked `snapshot` leaves the state it knew behind; the
+    // next request starting from it (`seed`) reads only what the first wave did not cover.
+    let mut session = Session::new(&first);
+    let keys = match session.run("") {
+        crate::api::Progress::Need(keys, _) => keys,
+        _ => panic!("the first round asks for the call's keys"),
+    };
+    let values = state.answer(&keys);
+    let keys: Vec<Value> = keys.iter().map(protocol::key_json).collect();
+    let mut answered = json!({ "keys": keys, "values": values });
+    // The code of the callee comes with its account, as the shell sends it.
+    let code_hash = keccak256(code());
+    answered["keys"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"kind": "code", "hash": code_hash}));
+    answered["values"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"kind": "code", "code": code()}));
+    answered["snapshot"] = json!(format!("{block_hash:#x}"));
+    let _ = session.run(&answered.to_string());
+    assert!(cache::has_known(&block_hash));
+
+    let mut seeded: Value = serde_json::from_str(&first).unwrap();
+    seeded["seed"] = json!(format!("{block_hash:#x}"));
+    let (again, rounds_seeded) = run(&state, &seeded.to_string());
+    assert_eq!(again, expected);
+    assert!(rounds_seeded < rounds, "the accounts and code come from the snapshot");
+    cache::reset();
+    assert!(!cache::has_block(&block_hash));
+}

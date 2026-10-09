@@ -67,6 +67,10 @@ export interface ExecRequest {
   /** The block the request runs at: for calls, state at its end and its header as the context;
    *  for traces, the block containing the transaction(s). Block record, RLP hex. */
   block: string;
+  /** The block's hash and number when the caller has them decoded (apps/rpc does): the shell
+   *  then skips decoding the record itself. */
+  blockHash?: string;
+  blockNumber?: number;
   /** For mined-transaction traces: the transaction's index in `block`. */
   txIndex?: number;
 }

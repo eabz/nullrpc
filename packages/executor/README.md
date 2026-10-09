@@ -31,6 +31,12 @@ Worker of its own. `src/contract.ts` is the contract (`StateSource`, `ExecReques
   wrangler's `CompiledWasm` rule (`crate/pkg/executor_bg.wasm`) and instantiates it on the first
   request; one instance per isolate serves every request. A trap (Rust panic) drops the instance
   once no request is using it.
+- The module keeps, by block hash, the newest decoded block records and a state snapshot per
+  block (`crate/src/cache.rs`): what a call's first wave handed it (hints, profile, its own
+  first keys, with their bytecode analysed). The shell asks `has_block`/`has_known` and sends
+  a request at a block the module has seen with `blockHash` instead of the record and `seed`
+  instead of hints, so repeated calls at a head cost the module a few hundred microseconds of
+  setup instead of a 600 KB JSON of state (the fixed cost that made a `balanceOf` 12 ms of CPU).
 
 State: calls run on the end state of `request.block` with its header as the EVM context.
 Mined-transaction traces replay the block on its pre-state: the witness first, reads at block
