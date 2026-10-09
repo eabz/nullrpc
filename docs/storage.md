@@ -244,12 +244,11 @@ filter, so results equal a full scan.
 
 ### Index tiers
 
-Promotion adds one hash index object and one log index object per batch. When the newest four
-objects are contiguous and of the same level, they merge into one object of the next level. An
-object's level follows from its span: level ℓ covers at least `batch × 4^ℓ` blocks. The
-backfill's object is a base below all levels. The
-index therefore has at most three objects per level, and a lookup reads every object in
-parallel.
+Promotion adds one hash index object and one log index object per batch. When four contiguous
+objects are of the same level, they merge into one object of the next level ("Compaction"
+below says which four). An object's level follows from its span: level ℓ covers at least
+`batch × 4^ℓ` blocks. The backfill's object is a base below all levels. The index therefore
+has a few objects per level, and a lookup reads every object in parallel.
 
 ### State history
 
@@ -317,8 +316,9 @@ same round.
 before `n`, in parallel. Search the layers whose filter accepts the key, newest first; the first
 layer with an entry at or before `n` answers. If none does, the key was absent or zero at `n`.
 
-**Tiers.** Promotion writes one level-0 layer per batch. When four layers of one level exist,
-they merge into one layer of the next level. A level-ℓ layer covers `batch × 4^ℓ` blocks, there
+**Tiers.** Promotion writes one level-0 layer per batch. When four contiguous layers of one
+level exist, they merge into one layer of the next level ("Compaction" below says which four).
+A level-ℓ layer covers `batch × 4^ℓ` blocks, there
 is no top level, and the backfill's layer is a base below all levels. At 256 blocks per batch,
 the history reaches level 9 (67 million blocks, about 25 years) with at most 3 layers per level:
 a lookup reads at most about 28 filter blocks in one round and two pages after it. The daemon
@@ -530,13 +530,23 @@ Each promotion writes, for blocks `P+1 … P′`: one segment and one witness ra
 blocks touch, a hash index object, a log index object, a level-0 state layer built from the
 blocks' diffs, the manifest and `HEAD.json`. That is tens of objects an hour.
 
+### Compaction
+
 Between promotions the daemon compacts, one step at a time, each step publishing its own
 generation:
 
-1. the newest four state layers, if they are of one level, into one layer of the next level;
-2. the newest four hash index objects, then log index objects, likewise;
+1. four contiguous state layers of one level, none the base, into one layer of the next level;
+2. four contiguous hash index objects, then log index objects, likewise;
 3. a chunk that is complete and has more than one segment: its segments into one, and its
    witness ranges into one.
+
+**Which four.** Any run of four qualifies, not only the newest: the daemon takes the run of the
+lowest level, and the oldest such run. The merged object replaces the four in place, so the
+manifest's lists stay ordered by first block. Promotions smaller than a batch (`max_age`)
+multiply level-0 objects, and a merged object in the middle of the list must not strand the
+objects around it; while the daemon idles, the backlog folds from the oldest end until no four
+contiguous objects share a level. What remains is a few objects per level, plus any object
+whose level-mates are not adjacent to it (the daemon merges objects of one level only).
 
 Merges read the objects they replace from R2 (no egress fees). The replaced objects are deleted 7
 days after the generation that dropped them; manifests are kept.
