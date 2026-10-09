@@ -503,10 +503,18 @@ func buildHashIndex(src objectSource, archive localArchive, ns string, bundles [
 		count   uint64
 	}{{true, txSorters, st.Transactions}, {false, blockSorters, st.Blocks}} {
 		w.begin(part.tx, part.count)
+		var merged uint64
+		kind := "blocks"
+		if part.tx {
+			kind = "transactions"
+		}
 		err := mergeSorted(part.sorters, func(k, _ []byte) error {
 			e := hashEntry{key: hashKey(k, hashIndexKeyBytes), block: getUint40(k[6:11])}
 			if part.tx {
 				e.index = uint32(k[11])<<16 | uint32(k[12])<<8 | uint32(k[13])
+			}
+			if merged++; merged%100_000_000 == 0 {
+				fmt.Fprintf(os.Stderr, "{\"hash_index_merge\":%q,\"entries\":%d,\"of\":%d,\"s\":%.0f}\n", kind, merged, part.count, time.Since(t0).Seconds())
 			}
 			return w.push(e)
 		})

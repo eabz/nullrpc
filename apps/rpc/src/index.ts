@@ -202,13 +202,18 @@ async function rpc(request: Request, env: Env, ctx: ExecutionContext): Promise<R
   if (who && ledger) {
     admitted = await ledger.admit(who, worst);
     if (!admitted.ok) return refuse(refusal(admitted.status, who.keyed));
-    const { ent } = admitted;
-    const limitKey = ent.account ?? (who.keyed ? who.subject : who.rateKey);
-    const allowed =
-      (await limitByPlan(env, ent.plan, limitKey)) && (!ent.limiter || !ent.account || (await takeStrict(env.RATE_BUDGET, ent.account, ent.rps)));
-    if (!allowed) {
-      ledger.release(admitted.line, worst);
-      return refuse(RATE_LIMITED);
+    const { ent, granted } = admitted;
+    // The plan's rate limits apply once the app has said which plan this is. A line the app
+    // never answered for (unreachable) is served fail-open within the ledger's soft bound:
+    // refusing it on the fallback plan's limit would turn an outage of the app into 429s.
+    if (granted) {
+      const limitKey = ent.account ?? (who.keyed ? who.subject : who.rateKey);
+      const allowed =
+        (await limitByPlan(env, ent.plan, limitKey)) && (!ent.limiter || !ent.account || (await takeStrict(env.RATE_BUDGET, ent.account, ent.rps)));
+      if (!allowed) {
+        ledger.release(admitted.line, worst);
+        return refuse(RATE_LIMITED);
+      }
     }
   }
 

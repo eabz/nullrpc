@@ -177,9 +177,9 @@ C("normal", "net_version", () => ["net_version", []]);
 // heavy: expensive, at the head
 C("heavy", "eth_getBlockByNumber recent full", () => ["eth_getBlockByNumber", [hex(between(head - 7, head - 1)), true]]);
 C("heavy", "eth_getBlockReceipts recent", () => ["eth_getBlockReceipts", [hex(between(head - 7, head - 1))]]);
-C("heavy", "eth_getLogs 1000 blocks, no filter", () => ["eth_getLogs", [{ fromBlock: hex(head - 1000), toBlock: hex(head) }]]);
+C("heavy", "eth_getLogs 1000 blocks, no filter", () => ["eth_getLogs", [{ fromBlock: hex(head - 999), toBlock: hex(head) }]]);
 C("heavy", "eth_getLogs 10000 blocks, token", () => ["eth_getLogs", [{ fromBlock: hex(head - 9999), toBlock: hex(head), address: token().address }]]);
-C("heavy", "eth_getLogs 1000 blocks, Transfer topic", () => ["eth_getLogs", [{ fromBlock: hex(head - 1000), toBlock: hex(head), topics: [TRANSFER] }]]);
+C("heavy", "eth_getLogs 1000 blocks, Transfer topic", () => ["eth_getLogs", [{ fromBlock: hex(head - 999), toBlock: hex(head), topics: [TRANSFER] }]]);
 C("heavy", "eth_call real calldata latest", () => { const tx = pick(recentCalls.length ? recentCalls : recentTxs); return ["eth_call", [{ from: tx.from, to: tx.to, data: tx.input, value: tx.value }, "latest"]]; });
 C("heavy", "eth_estimateGas real calldata", () => { const tx = pick(recentCalls.length ? recentCalls : recentTxs); return ["eth_estimateGas", [{ from: tx.from, to: tx.to, data: tx.input, value: tx.value }, "latest"]]; });
 C("heavy", "eth_createAccessList", () => { const tx = pick(recentCalls.length ? recentCalls : recentTxs); return ["eth_createAccessList", [{ from: tx.from, to: tx.to, data: tx.input, value: tx.value }, "latest"]]; });
@@ -277,7 +277,8 @@ if (PHASES.includes("calls")) {
     const rows = [["case", "n", "ok", "refused", "err", "p50", "p95", "max", "credits", "r2/call", "resp-cache", "rounds", "hints"]];
     for (const c of CASES.filter((x) => x.cls === cls)) {
       const ss = samples.calls.filter((s) => s.label === c.label);
-      const ms = ss.map((s) => s.ms).sort((a, b) => a - b);
+      // Percentiles over successful answers only; refusals and failures are counted, not timed.
+      const ms = (ss.some((s) => s.ok) ? ss.filter((s) => s.ok) : ss).map((s) => s.ms).sort((a, b) => a - b);
       const tally = cacheTally(ss);
       const ex = execTally(ss);
       rows.push([c.label, ss.length, ss.filter((s) => s.ok).length, ss.filter((s) => s.refused).length, ss.filter((s) => !s.ok && !s.refused).length, fmtMs(percentile(ms, 50)), fmtMs(percentile(ms, 95)), fmtMs(ms[ms.length - 1]), ss[0]?.credits ?? "-", tally.r2ReadsPerCall.toFixed(1), tally.responseHitRate === null ? "-" : `${(tally.responseHitRate * 100).toFixed(0)}%`, ex.rounds, ex.hints]);
@@ -310,7 +311,7 @@ function userSteps() {
     ["confirm: eth_getTransactionReceipt", "eth_getTransactionReceipt", [tx.hash]],
     ["confirm: eth_getTransactionByHash", "eth_getTransactionByHash", [tx.hash]],
     ["confirm: eth_getBlockByNumber latest", "eth_getBlockByNumber", ["latest", false]],
-    ["history: eth_getLogs transfers to me", "eth_getLogs", [{ fromBlock: hex(head - 1000), toBlock: "latest", address: tk.address, topics: [TRANSFER, null, pad32(holder)] }]],
+    ["history: eth_getLogs transfers to me", "eth_getLogs", [{ fromBlock: hex(head - 999), toBlock: "latest", address: tk.address, topics: [TRANSFER, null, pad32(holder)] }]],
     ["history: eth_getBlockByNumber recent", "eth_getBlockByNumber", [hex(between(head - 7, head - 1)), false]],
   ];
 }
@@ -320,14 +321,19 @@ async function userSession(user, deadline, out) {
   while (performance.now() < deadline) {
     const t0 = performance.now();
     let failed = false;
+    let complete = true;
     for (const [step, method, params] of userSteps()) {
-      if (performance.now() >= deadline) break;
+      if (performance.now() >= deadline) {
+        complete = false;
+        break;
+      }
       const r = await call(method, params);
       out.push({ user, step, method, ms: r.ms, ok: r.ok, refused: !r.ok && isRefusal(r), http: r.http, code: r.code, message: r.message, credits: credits(method, params, r.code), archive: r.archive, response: r.response });
       if (!r.ok && !isRefusal(r)) failed = true;
       await new Promise((res) => setTimeout(res, 150 + random() * 450));
     }
-    out.push({ user, step: "session", ms: performance.now() - t0, ok: !failed, credits: 0 });
+    // A session cut by the deadline is reported apart from a complete one.
+    out.push({ user, step: "session", ms: performance.now() - t0, ok: !failed, complete, credits: 0 });
     sessions++;
   }
   return sessions;
@@ -390,6 +396,8 @@ if (PHASES.includes("stress")) {
     windows.stress[plan] = { started: new Date().toISOString(), rps: p.rps };
     const { out, dropped, wall } = await stressAt(p.rps, STRESS_SECONDS);
     windows.stress[plan].ended = new Date().toISOString();
+    // Stages are spaced so each cost window (its run plus a 30s tail) stands alone.
+    await new Promise((r) => setTimeout(r, 35_000));
     samples.stress[plan] = out;
     const ms = out.map((s) => s.ms).sort((a, b) => a - b);
     const ok = out.filter((s) => s.ok).length;
@@ -427,12 +435,13 @@ const econ = planEconomics();
 const md = [];
 md.push(`# nullrpc benchmark ${stamp}`, "", `Target ${t.url} (${t.key ? "internal key" : "keyless"}), head ${head}, archived through ${P}, generation ${status?.generation ?? "?"}.`, "");
 if (samples.calls.length) {
-  md.push("## Calls", "", "Each case repeated " + REPEAT + " times, 4 in flight, shuffled. `r2/call` is the Worker's reported R2 misses per call; `resp-cache` the share of answers served from the response cache.", "");
+  md.push("## Calls", "", "Each case repeated " + REPEAT + " times, 4 in flight, shuffled. p50, p95 and max are over successful answers (refusals and failures are counted in their columns, not timed). `r2/call` is the Worker's reported R2 misses per call; `resp-cache` the share of answers served from the response cache.", "");
   for (const cls of ["normal", "heavy", "deep", "deep-heavy"]) {
     md.push(`### ${cls}`, "", "| case | n | ok | refused | err | p50 | p95 | max | credits | r2/call | resp-cache |", "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
     for (const c of CASES.filter((x) => x.cls === cls)) {
       const ss = samples.calls.filter((s) => s.label === c.label);
-      const ms = ss.map((s) => s.ms).sort((a, b) => a - b);
+      // Percentiles over successful answers only; refusals and failures are counted, not timed.
+      const ms = (ss.some((s) => s.ok) ? ss.filter((s) => s.ok) : ss).map((s) => s.ms).sort((a, b) => a - b);
       const tally = cacheTally(ss);
       md.push(`| ${c.label} | ${ss.length} | ${ss.filter((s) => s.ok).length} | ${ss.filter((s) => s.refused).length} | ${ss.filter((s) => !s.ok && !s.refused).length} | ${fmtMs(percentile(ms, 50))} | ${fmtMs(percentile(ms, 95))} | ${fmtMs(ms[ms.length - 1])} | ${ss[0]?.credits ?? "-"} | ${tally.r2ReadsPerCall.toFixed(1)} | ${tally.responseHitRate === null ? "-" : (tally.responseHitRate * 100).toFixed(0) + "%"} |`);
     }
@@ -448,10 +457,11 @@ if (samples.calls.length) {
   }
 }
 if (samples.user.length) {
-  const sess = samples.user.filter((s) => s.step === "session");
+  const sessAll = samples.user.filter((s) => s.step === "session");
+  const sess = sessAll.filter((s) => s.complete !== false);
   const steps = samples.user.filter((s) => s.step !== "session");
-  const perSession = steps.reduce((s, x) => s + x.credits, 0) / Math.max(1, sess.length);
-  md.push("## Normal user scenario", "", `${USERS} simulated wallet users for ${USER_SECONDS}s, each looping a 15-step session (connect, balances, fee quote, estimate, confirmation, history) with 150 to 600ms of think time between steps. ${sess.length} sessions completed, ${sess.filter((s) => s.ok).length} without a failed step; a session costs about ${perSession.toFixed(0)} credits and takes ${fmtMs(percentile(sess.map((s) => s.ms).sort((a, b) => a - b), 50))} at the median.`, "", "| step | n | ok | refused | err | p50 | p95 | max | credits |", "|---|---:|---:|---:|---:|---:|---:|---:|---:|");
+  const perSession = steps.reduce((s, x) => s + x.credits, 0) / Math.max(1, sessAll.length);
+  md.push("## Normal user scenario", "", `${USERS} simulated wallet users for ${USER_SECONDS}s, each looping a 15-step session (connect, balances, fee quote, estimate, confirmation, history) with 150 to 600ms of think time between steps. ${sess.length} complete sessions (${sessAll.length - sess.length} cut by the deadline, not counted), ${sess.filter((s) => s.ok).length} without a failed step (a refused estimateGas, such as insufficient funds, is a refusal, not a failure); a session costs about ${perSession.toFixed(0)} credits and takes ${fmtMs(percentile(sess.map((s) => s.ms).sort((a, b) => a - b), 50))} at the median.`, "", "| step | n | ok | refused | err | p50 | p95 | max | credits |", "|---|---:|---:|---:|---:|---:|---:|---:|---:|");
   for (const step of [...new Set(steps.map((s) => s.step))]) {
     const ss = steps.filter((s) => s.step === step);
     const ms = ss.map((s) => s.ms).sort((a, b) => a - b);

@@ -515,7 +515,11 @@ func buildLogIndex(src objectSource, archive localArchive, ns string, bundles []
 	}
 	var prev [logSortKey]byte
 	first := true
+	var merged uint64
 	err = mergeSorted(sorters, func(k, _ []byte) error {
+		if merged++; merged%100_000_000 == 0 {
+			fmt.Fprintf(os.Stderr, "{\"log_index_merge\":%d,\"of\":%d,\"s\":%.0f}\n", merged, st.Entries, time.Since(t0).Seconds())
+		}
 		// Equal keys (a 6-byte prefix shared by two fields of a block) are one entry.
 		if !first && string(prev[:]) == string(k) {
 			return nil
