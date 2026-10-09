@@ -1,0 +1,13 @@
+# CPU per case from a wrangler tail capture during this run (bench/cpu.mjs); version f719c29c, eth_call and eth_estimateGas cases only
+
+65 requests in the capture; CPU mean 107ms, p50 41ms, p95 393ms
+
+case                            n  cpu p50  cpu p95  cpu mean  cpu total  wall p50  outcomes
+-----------------------------  --  -------  -------  --------  ---------  --------  --------
+eth_estimateGas replay at n-1   8    200ms    409ms     219ms      1.75s     609ms      ok=8
+eth_call real calldata latest   8     40ms    707ms     205ms      1.64s     372ms      ok=8
+eth_call replay at n-1          7    224ms    311ms     212ms      1.48s     875ms      ok=7
+eth_estimateGas real calldata   8     96ms    342ms     149ms      1.19s     917ms      ok=8
+(untagged)                     18     11ms     72ms      18ms      331ms      89ms     ok=18
+eth_call balanceOf              8     37ms     68ms      40ms      316ms     460ms      ok=8
+eth_estimateGas transfer        8     11ms     92ms      32ms      254ms     245ms      ok=8
