@@ -629,6 +629,18 @@ before it asks: the witness of `n+1` is the state at the end of `n` for every ke
 touched, and the witnesses of `n` and `n-1` name what those blocks touched, checked against the
 window in one `getPinnedMany` at `n` (apps/rpc/src/state-source.ts, `hints`).
 
+**Caches.** The RPC Worker keeps the window's answers per isolate (apps/rpc/src/live.ts,
+`cachesFor`): a value at block `n` under pin `(M, H)` is fixed by `H`, since the hash fixes the
+chain below it, and a "no row" answer stays right after a promotion (the key is then unchanged
+since the new `P` as well, and the archive at the new `P` answers the same), so both are kept
+by pin hash, block and key (32,768 entries; values over 4 KiB, code mostly, are not kept) and
+witnesses by pin hash and block (32 MiB). A `getPinnedMany` then carries only the keys the
+isolate has not seen under that pin: the hints wave of every call at one head is read from the
+shards once per isolate per block, not once per call. The shards are asked under a new pin
+after a `stale` answer, since the pin hash differs. The consequence is the one blocks have: a
+request whose reads all hit the cache under a pin a reorg just removed is answered from that
+branch, consistently, for up to the 2 s the pointers document is cached.
+
 **Promotion race.** A promotion publishes `HEAD.json` first; `/ingest/prune` then prunes the
 shards and sets `P` in `ChainDO` last. Once a shard is pruned, a state read at `n` in
 `P+1 … P′` finds no row there, and a Worker that still holds the old `P` (from `state()` or its
