@@ -88,8 +88,10 @@ logs), then runs:
 
 1. **calls**: each case `--repeat` times (default 8), four in flight, shuffled. Normal is cheap
    at the head, heavy is expensive at the head (full blocks, receipts, wide logs, real calldata
-   through eth_call, estimateGas, access lists and tracers, a batch of 10), deep is cheap at
-   random archive blocks, deep-heavy is expensive there (replays at n-1, 10,000-block logs).
+   through eth_call, estimateGas, access lists and tracers, transaction, block and replay
+   tracers, a batch of 10), deep is cheap at random archive blocks, deep-heavy is expensive
+   there (replays at n-1, deep tracers, 10,000-block logs). `--only <regex>` runs a subset of
+   cases by label.
 2. **user**: `--users` (25) wallet users for `--user-seconds` (60) looping a 15-step session
    with think time: connect, balances including token balanceOf calls, fee quote and gas
    estimate, confirmation reads, transfer history. Reports per-step latency and the credits a

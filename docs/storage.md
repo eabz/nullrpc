@@ -25,6 +25,8 @@ parameters, set per blockchain in "Parameters" at the end.
 {chain-id}-{genesis-hash}/
   HEAD.json
   live/HEAD.json                                    # the live window's pointers (see "Live pointers")
+  live/records/{number:020}-{hash}.bin              # one block record per block above P (see "Live records")
+  live/index/{first:020}-{last:020}-{last-hash}.bin # transaction hashes of the window, named by live/HEAD.json
   manifests/{generation:020}-{sha256}.json
   config/{sha256}.json                              # genesis allocation and fork schedule
   segments/{first:020}-{last:020}-{last-hash}/{content-id}/
@@ -55,9 +57,12 @@ names and digests, so a directory's name changes whenever its content does.
 
 - **`HEAD.json` is the only object that changes**, apart from `live/HEAD.json` (below), which is
   not part of the archive. Every other object is written with `If-None-Match: *` and never
-  rewritten. Writing the same key again must produce the same bytes.
+  rewritten. Writing the same key again must produce the same bytes. The `live/` records and
+  index objects are immutable too (their keys carry a block hash) but, unlike the archive, they
+  are deleted once the blocks are promoted (see "Live records").
 - **Nothing is found by listing.** A reader starts at `HEAD.json`, reads the manifest it names,
-  and reaches every other object through references in the manifest.
+  and reaches every other object through references in the manifest; the live objects are
+  reached through `live/HEAD.json`.
 - **Every reference is checked.** An `ObjectRef` is `{"key", "bytes", "sha256"}`. `key` is the
   object's full key in the bucket, namespace included (`{chain-id}-{genesis-hash}/…`). Readers
   check the size, and the SHA-256 of every frame they read.
@@ -138,6 +143,72 @@ nothing but the saved call. The reader caches the object for 2 s (per isolate an
 edge cache, per data center), so a request may see the head up to about 2 s late. Every live
 read still carries the head it pinned, and a stale answer is always followed by a `state()` call
 to the live Worker, never by another copy of this object (see "Reads above `P`").
+
+The object also lists the window's blocks (two optional members; a daemon that writes neither
+is an older one, and the reader asks the live Worker for blocks as before):
+
+```json
+{
+  "blocks": {"first": 1499905, "hashes": ["…", "…"]},
+  "tx_index": {"key": "…/live/index/00000000000001499905-00000000000001500000-….bin", "bytes": 8232, "sha256": "…"}
+}
+```
+
+`blocks.hashes[i]` is the hash of block `first + i`, the last one the head's, for the newest
+blocks above `P` (at most 1,024: `liveIndexBlocks` in services/internal/core/daemon_records.go;
+a window that has outgrown it lists only its newest part). `tx_index` names the transaction
+index of the same blocks (see "Live records"). The reader ignores the list unless it ends at
+the head and starts above `P`.
+
+### Live records
+
+Every block the daemon writes to the live window also goes to R2, so that the RPC Worker reads
+blocks above `P` (`eth_getBlockByNumber` at `latest`, fees, receipts of recent transactions,
+`eth_call` at the head) from the bucket and its edge cache instead of `ChainDO`, which is one
+object per chain and queues under load.
+
+- `live/records/{number:020}-{hash}.bin` is the block record, uncompressed: the same bytes as
+  `ChainDO`'s section payload and as a `blocks.pack` frame once decompressed. The daemon writes
+  it (`If-None-Match: *`) before it writes the block to the live Worker, so `live/HEAD.json`
+  never lists a block whose record is not there; a write that fails is logged
+  (`live_record_error`) and the block is served by the live Worker until its record is deleted.
+- `live/index/{first:020}-{last:020}-{last-hash}.bin` is the transaction index of blocks
+  `first … last`, written before the `live/HEAD.json` that names it. A 32-byte header, then
+  one 12-byte entry per transaction, sorted by hash:
+
+  | Bytes | Field |
+  |---|---|
+  | 0–7 | `NRPCLIDX` |
+  | 8–9 | format version, `1` |
+  | 10–11 | zero |
+  | 12–19 | `first` |
+  | 20–27 | `last` |
+  | 28–31 | entry count `m` |
+  | 32– | `m` entries: the transaction hash's first 8 bytes, then `number - first` (uint32) |
+
+  Two transactions sharing a prefix (both entries are kept) are told apart by the live Worker.
+
+Both are immutable: a key names a block hash (the head's, for the index), and the chain of
+hashes fixes the bytes. A reorg does not rewrite anything: the next `live/HEAD.json` lists the
+new branch, and the removed blocks' records are deleted an hour later. A promotion likewise
+lists only blocks above the new `P`, and the records at or below it are deleted an hour after
+it (`liveRecordGrace`), long after any reader pinned a document that listed them (a document is
+used for at most a minute, a manifest for 10 s). An index object is deleted 10 minutes after
+the document that named it is replaced (`liveIndexGrace`). The deletions go through the
+daemon's gc.json like compaction's. One live index object per head move is written on top of
+the record and the pointers, about 3 Class A operations per block.
+
+**Reads.** A block read carries the head the request pinned. When that head came from
+`live/HEAD.json`, the Worker takes the block's hash from the document's list (by number, or
+the number from the hash), reads the record through the archive's day-long edge cache, and
+checks the decoded header's hash against the listed one, as it checks the live Worker's answer.
+A transaction lookup reads the index object (checked against `tx_index`'s size and digest,
+parsed once per isolate) and then the block. The list is *complete* when it starts at `P+1`: a
+hash or transaction it lacks is then not in the window, and the Worker goes to the archive
+without asking the live Worker. The live Worker is asked for whatever the objects cannot
+answer: a pin that came from `state()` (after a stale answer; see "Reads above `P`"), a block
+outside the listed range, a missing record, an index that fails its digest, or a transaction
+prefix two entries share.
 
 ### Chain config
 
@@ -396,7 +467,7 @@ R2 range reads on a cache miss. Index roots, filter blocks, code and immutable f
 |---|---|
 | Block, header, receipts by number | 2: offset record, frame |
 | Block or transaction by hash | 2 per index object in parallel, then 2 for the block |
-| `eth_getLogs` | 2 per field per partition per object, in parallel; then 2 per candidate block |
+| `eth_getLogs` | per index object: 2 when it is small (directory ≤ 64 KiB and pack ≤ 256 KiB, read whole), else 2 per field value per partition touched; then 1 per 256 offsets records and 1 per run of candidate blocks (`blocks.pack` in aligned 256 KiB windows, ≤ 2 MiB per read), six reads at a time, under a budget of 256 reads per query |
 | Balance, nonce, storage, code at a block | 1 round of filter blocks, then 2 pages |
 | `eth_call`, `eth_estimateGas` | the state lookup above for each new key, in dependent rounds |
 | Trace of a mined transaction | 2 for the witness, 2 for the block, plus uncached code |
@@ -454,9 +525,9 @@ every write then updates them for the rows it touches, so reads after an ingest 
 | `fence(removed)`, `truncateAbove(n)` | daemon | reorgs |
 | `pruneAtOrBelow(promoted, generation)` | daemon | after a promotion; sets `P` |
 | `state()` | Worker | head, safe, finalized, `P`, generation, shard count (normally read from R2's `live/HEAD.json` instead; see "Live pointers") |
-| `block(number or hash, pin)` | Worker | a block's record, if at or below the pin |
+| `block(number or hash, pin)` | Worker | a block's record, if at or below the pin (normally read from R2 instead; see "Live records") |
 | `witness(number, pin)` | Worker | a block's witness |
-| `txBlock(hash, pin)` | Worker | the block of a transaction hash above `P` |
+| `txBlock(hash, pin)` | Worker | the block of a transaction hash above `P` (normally from the R2 index instead) |
 | `status()`, `history(range)` | dashboard | pipeline status; head and network head once a minute |
 
 `LiveReads` lowercases and checks every pin (`0x` and 64 hex digits, a block number ≥ 0) and
@@ -543,6 +614,14 @@ A state read at block `n`:
    live Worker, which groups the keys by shard and asks every shard once.
 4. `stale` means a reorg removed the pinned head. The Worker reads `state()` from the live
    Worker again (not `live/HEAD.json`, which may still name the removed head) and retries.
+
+Block and transaction reads above `P` follow the same pin but normally never reach a Durable
+Object (see "Live records"): a request pinned to a head that a reorg has just removed reads
+that branch's records, consistently, until its state read reports `stale` and the request
+re-pins through `state()`; from then on its block reads go to the live Worker too, since no
+document lists blocks for a head taken from `state()`. A request that reads only blocks may
+therefore serve the removed branch for up to the 2 s the document is cached, the same lag
+`eth_blockNumber` has.
 
 The executor's reads above `P` go through `getPinnedMany` and the R2 history at `P` together
 (one round takes the slower of the two, not both), and most of a call's keys are answered

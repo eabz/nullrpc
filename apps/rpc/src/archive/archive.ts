@@ -13,15 +13,22 @@ import { ArchiveError, type FrameRef, type Head, type Manifest, type ObjectRef, 
 const HEAD_TTL_MS = 10_000;
 /** Frames larger than this uncompressed are refused (storage.md, "Packs"). */
 export const MAX_FRAME = 8 * 1024 * 1024;
-/** offsets.bin is read in aligned pages of this many records, so neighbours share a read. */
-const OFFSETS_PAGE = 64;
+/** offsets.bin is read in aligned pages of this many records (20 KiB), so neighbours share a read. */
+export const OFFSETS_PAGE = 256;
 const OFFSET_RECORD = 80;
+/**
+ * Coalesced block reads (`planBlockRuns`): blocks.pack is viewed as aligned windows of this many
+ * bytes; a run is the consecutive windows that hold wanted blocks, within one aligned group of
+ * RUN_WINDOWS windows, so the same region reads under the same cache key whatever the query.
+ */
+export const RUN_WINDOW = 256 * 1024;
+export const RUN_WINDOWS = 8;
 
 // Isolate caches, shared across requests. Every entry is immutable (keyed by digest or by an
 // immutable object's key), except the HEAD entry, which expires.
 const heads = new Map<string, { at: number; pin: Promise<Pin> }>();
 const json = new Lru<string, Promise<unknown>>(256);
-const pages = new Lru<string, Promise<Uint8Array>>(2048);
+const pages = new Lru<string, Promise<Uint8Array>>(512);
 
 export async function sha256(bytes: Uint8Array): Promise<Uint8Array> {
   return new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
@@ -115,7 +122,11 @@ export class Archive {
   /** One frame: checked compressed length and SHA-256, decompressed, checked uncompressed length. */
   async frame(f: FrameRef): Promise<Uint8Array> {
     if (f.uncompressed > MAX_FRAME) throw new ArchiveError("frame too large");
-    const compressed = await this.range(f.pack, f.offset, f.compressed);
+    return this.decodeFrame(await this.range(f.pack, f.offset, f.compressed), f);
+  }
+
+  /** `compressed` is frame `f` as read: checks its digest, decompresses, checks the length. */
+  async decodeFrame(compressed: Uint8Array, f: FrameRef): Promise<Uint8Array> {
     if (!equal(await sha256(compressed), f.sha256)) throw new ArchiveError(`frame digest mismatch in ${f.pack.key}`);
     const out = decompress(compressed, new Uint8Array(f.uncompressed));
     if (out.length !== f.uncompressed) throw new ArchiveError(`frame length mismatch in ${f.pack.key}`);
@@ -137,6 +148,11 @@ export class Archive {
       else return seg;
     }
     return null;
+  }
+
+  /** The offsets page holding block `n` of `seg` (page ids count distinct reads). */
+  static offsetsPage(seg: SegmentEntry, n: number): string {
+    return `${seg.meta.sha256}:${Math.floor((n - seg.first) / OFFSETS_PAGE)}`;
   }
 
   private async offsetsRecord(meta: SegmentMeta, n: number): Promise<Uint8Array> {
@@ -173,4 +189,101 @@ export class Archive {
     });
     return { hash: rec.subarray(0, 32), frame };
   }
+
+  // ---- coalesced block reads
+
+  /**
+   * The runs that read archived blocks `numbers` (sorted, in the archive) with the fewest range
+   * reads: per segment, the wanted blocks' offsets records (one read per OFFSETS_PAGE), then
+   * their frames grouped into aligned windows of blocks.pack (RUN_WINDOW). Blocks outside the
+   * pinned archive are left out.
+   */
+  /**
+   * Per block of `numbers` (sorted), whether reading it needs an offsets page no earlier block
+   * needed (one read each, at most); blocks outside the archive need none.
+   */
+  offsetsPages(pin: Pin, numbers: number[]): boolean[] {
+    const ids = new Set<string>();
+    let seg: SegmentEntry | null = null;
+    return numbers.map((n) => {
+      if (!seg || n < seg.first || n > seg.last) seg = this.segment(pin, n);
+      if (!seg) return false;
+      const id = Archive.offsetsPage(seg, n);
+      if (ids.has(id)) return false;
+      ids.add(id);
+      return true;
+    });
+  }
+
+  async planBlockRuns(pin: Pin, numbers: number[]): Promise<BlockRun[]> {
+    const runs: BlockRun[] = [];
+    let seg: SegmentEntry | null = null;
+    let batch: number[] = [];
+    const flush = async () => {
+      if (seg && batch.length) runs.push(...(await this.segmentRuns(seg, batch)));
+      batch = [];
+    };
+    for (const n of numbers) {
+      if (!seg || n < seg.first || n > seg.last) {
+        await flush();
+        seg = this.segment(pin, n);
+        if (!seg) continue;
+      }
+      batch.push(n);
+    }
+    await flush();
+    return runs;
+  }
+
+  private async segmentRuns(seg: SegmentEntry, numbers: number[]): Promise<BlockRun[]> {
+    const meta = await this.json<SegmentMeta>(seg.meta);
+    if (meta.files["offsets.bin"].bytes !== (meta.last - meta.first + 1) * OFFSET_RECORD) throw new ArchiveError("offsets.bin has the wrong size");
+    const pack = meta.files["blocks.pack"];
+    const blocks = await Promise.all(
+      numbers.map(async (n) => {
+        const rec = await this.offsetsRecord(meta, n);
+        const view = new DataView(rec.buffer, rec.byteOffset, rec.byteLength);
+        const f: FrameRef = { pack, offset: Number(view.getBigUint64(32, true)), compressed: view.getUint32(40, true), uncompressed: view.getUint32(44, true), sha256: rec.subarray(48, 80) };
+        if (f.uncompressed > MAX_FRAME) throw new ArchiveError("frame too large");
+        if (f.offset + f.compressed > pack.bytes) throw new ArchiveError(`block ${n} lies outside ${pack.key}`);
+        return { n, hash: rec.subarray(0, 32), frame: f };
+      }),
+    );
+    // Frames are in block order within the pack; sorting by offset keeps runs contiguous anyway.
+    blocks.sort((a, b) => a.frame.offset - b.frame.offset);
+    const runs: BlockRun[] = [];
+    const group = RUN_WINDOW * RUN_WINDOWS;
+    let run: BlockRun | null = null;
+    for (const b of blocks) {
+      const start = Math.floor(b.frame.offset / RUN_WINDOW) * RUN_WINDOW;
+      const end = Math.min(pack.bytes, Math.ceil((b.frame.offset + b.frame.compressed) / RUN_WINDOW) * RUN_WINDOW);
+      if (run && Math.floor(start / group) === Math.floor(run.offset / group) && start <= run.offset + run.length) {
+        run.length = Math.max(run.length, end - run.offset);
+        run.blocks.push(b);
+      } else {
+        run = { pack, offset: start, length: end - start, blocks: [b] };
+        runs.push(run);
+      }
+    }
+    return runs;
+  }
+
+  /** Reads one run (one range read) and returns its blocks' records, checked, in order. */
+  async readRun(run: BlockRun): Promise<{ n: number; hash: Uint8Array; frame: Uint8Array }[]> {
+    const bytes = await this.range(run.pack, run.offset, run.length);
+    return Promise.all(
+      run.blocks.map(async (b) => {
+        const at = b.frame.offset - run.offset;
+        return { n: b.n, hash: b.hash, frame: await this.decodeFrame(bytes.subarray(at, at + b.frame.compressed), b.frame) };
+      }),
+    );
+  }
+}
+
+/** One range read of a blocks.pack covering the frames of `blocks`. */
+export interface BlockRun {
+  pack: ObjectRef;
+  offset: number;
+  length: number;
+  blocks: { n: number; hash: Uint8Array; frame: FrameRef }[];
 }

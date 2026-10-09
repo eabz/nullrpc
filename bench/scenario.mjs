@@ -32,6 +32,8 @@ const USERS = Number(args.users ?? 25);
 const USER_SECONDS = Number(args["user-seconds"] ?? 60);
 const STRESS_SECONDS = Number(args["stress-seconds"] ?? 20);
 const MAX_INFLIGHT = Number(args["max-inflight"] ?? 600);
+/** `--only <regex>` runs only the calls cases whose label matches. */
+const ONLY = args.only ? new RegExp(String(args.only), "i") : null;
 const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
 const OUT = String(args.out ?? join(HERE, "results", stamp));
 mkdirSync(OUT, { recursive: true });
@@ -183,6 +185,13 @@ C("heavy", "eth_estimateGas real calldata", () => { const tx = pick(recentCalls.
 C("heavy", "eth_createAccessList", () => { const tx = pick(recentCalls.length ? recentCalls : recentTxs); return ["eth_createAccessList", [{ from: tx.from, to: tx.to, data: tx.input, value: tx.value }, "latest"]]; });
 C("heavy", "debug_traceCall callTracer", () => { const tx = pick(recentCalls.length ? recentCalls : recentTxs); return ["debug_traceCall", [{ from: tx.from, to: tx.to, data: tx.input, value: tx.value }, "latest", { tracer: "callTracer" }]]; });
 C("heavy", "trace_call", () => { const tx = pick(recentCalls.length ? recentCalls : recentTxs); return ["trace_call", [{ from: tx.from, to: tx.to, data: tx.input, value: tx.value }, ["trace"], "latest"]]; });
+C("heavy", "debug_traceTransaction recent", () => ["debug_traceTransaction", [pick(recentCalls.length ? recentCalls : recentTxs).hash, { tracer: "callTracer" }]]);
+C("heavy", "trace_transaction recent", () => ["trace_transaction", [pick(recentCalls.length ? recentCalls : recentTxs).hash]]);
+C("heavy", "trace_replayTransaction recent", () => ["trace_replayTransaction", [pick(recentCalls.length ? recentCalls : recentTxs).hash, ["trace"]]]);
+C("heavy", "debug_traceBlockByNumber recent", () => ["debug_traceBlockByNumber", [hex(between(head - 7, head - 1)), { tracer: "callTracer" }]]);
+C("heavy", "debug_traceBlockByHash recent", () => ["debug_traceBlockByHash", [pick(recentHashes), { tracer: "callTracer" }]]);
+C("heavy", "trace_block recent", () => ["trace_block", [hex(between(head - 7, head - 1))]]);
+C("heavy", "trace_replayBlockTransactions recent", () => ["trace_replayBlockTransactions", [hex(between(head - 7, head - 1)), ["trace"]]]);
 C("heavy", "debug_getRawBlock recent", () => ["debug_getRawBlock", [hex(between(head - 7, head - 1))]]);
 C("heavy", "debug_getRawReceipts recent", () => ["debug_getRawReceipts", [hex(between(head - 7, head - 1))]]);
 C("heavy", "batch of 10 mixed", () => ["__batch", null]);
@@ -207,6 +216,12 @@ C("deep-heavy", "eth_getLogs 10000 blocks deep, Transfer", () => { const n = Mat
 C("deep-heavy", "eth_call replay at n-1", () => { const tx = pick(deepCalls.length ? deepCalls : deepTxs.length ? deepTxs : recentTxs); return ["eth_call", [{ from: tx.from, to: tx.to ?? tx.from, data: tx.input, value: tx.value, gas: tx.gas }, hex(tx.blockNumber - 1)]]; });
 C("deep-heavy", "eth_estimateGas replay at n-1", () => { const tx = pick(deepCalls.length ? deepCalls : deepTxs.length ? deepTxs : recentTxs); return ["eth_estimateGas", [{ from: tx.from, to: tx.to ?? tx.from, data: tx.input, value: tx.value }, hex(tx.blockNumber - 1)]]; });
 C("deep-heavy", "debug_traceCall replay at n-1", () => { const tx = pick(deepCalls.length ? deepCalls : deepTxs.length ? deepTxs : recentTxs); return ["debug_traceCall", [{ from: tx.from, to: tx.to ?? tx.from, data: tx.input, value: tx.value, gas: tx.gas }, hex(tx.blockNumber - 1), { tracer: "callTracer" }]]; });
+C("deep-heavy", "debug_traceTransaction deep", () => ["debug_traceTransaction", [pick(deepCalls.length ? deepCalls : deepTxs.length ? deepTxs : recentTxs).hash, { tracer: "callTracer" }]]);
+C("deep-heavy", "trace_transaction deep", () => ["trace_transaction", [pick(deepCalls.length ? deepCalls : deepTxs.length ? deepTxs : recentTxs).hash]]);
+C("deep-heavy", "trace_replayTransaction deep", () => ["trace_replayTransaction", [pick(deepCalls.length ? deepCalls : deepTxs.length ? deepTxs : recentTxs).hash, ["trace", "stateDiff"]]]);
+C("deep-heavy", "debug_traceBlockByNumber deep", () => ["debug_traceBlockByNumber", [hex(deepN()), { tracer: "callTracer" }]]);
+C("deep-heavy", "trace_block deep", () => ["trace_block", [hex(deepN())]]);
+C("deep-heavy", "trace_replayBlockTransactions deep", () => ["trace_replayBlockTransactions", [hex(deepN()), ["trace"]]]);
 C("deep-heavy", "debug_getRawBlock deep", () => ["debug_getRawBlock", [hex(deepN())]]);
 C("deep-heavy", "debug_getRawReceipts deep", () => ["debug_getRawReceipts", [hex(deepN())]]);
 
@@ -252,7 +267,7 @@ function execTally(rows) {
 if (PHASES.includes("calls")) {
   log(`\n== calls: ${CASES.length} cases × ${REPEAT}`);
   windows.calls = { started: new Date().toISOString() };
-  const jobs = CASES.flatMap((c) => Array(REPEAT).fill(c));
+  const jobs = CASES.filter((c) => !ONLY || ONLY.test(c.label)).flatMap((c) => Array(REPEAT).fill(c));
   // Mixed order so no class monopolizes the cache or the budget.
   for (let i = jobs.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [jobs[i], jobs[j]] = [jobs[j], jobs[i]]; }
   const pace = limiter(t.key ? 0 : 8);

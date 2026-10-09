@@ -12,6 +12,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -185,7 +186,8 @@ type gcEntry struct {
 
 type gcList struct {
 	path    string
-	Entries []gcEntry `json:"entries"`
+	mu      sync.Mutex // the follower schedules live objects while the promotion loop collects
+	Entries []gcEntry  `json:"entries"`
 }
 
 func loadGC(path string) (*gcList, error) {
@@ -206,7 +208,14 @@ func (g *gcList) save() error {
 
 // schedule adds keys to delete 7 days from now: no request pins a generation that long.
 func (g *gcList) schedule(keys []string) error {
-	due := time.Now().Add(gcDelay)
+	return g.scheduleAfter(keys, gcDelay)
+}
+
+// scheduleAfter adds keys to delete once `delay` has passed (live objects use shorter delays).
+func (g *gcList) scheduleAfter(keys []string, delay time.Duration) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	due := time.Now().Add(delay)
 	seen := map[string]bool{}
 	for _, e := range g.Entries {
 		seen[e.Key] = true
@@ -222,6 +231,8 @@ func (g *gcList) schedule(keys []string) error {
 
 // collect deletes the objects that are due.
 func (g *gcList) collect(r *r2Archive) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	now := time.Now()
 	var keep []gcEntry
 	var due []string
