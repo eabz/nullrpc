@@ -1,0 +1,73 @@
+# CPU per case from a wrangler tail capture during the two after-runs (calls phase and the tracer subset; bench/cpu.mjs); version 77c30c5d (81ff6a4)
+
+395 requests in the capture; CPU mean 198ms, p50 24ms, p95 1.16s
+
+case                                      n  cpu p50  cpu p95  cpu mean  cpu total  wall p50         outcomes
+---------------------------------------  --  -------  -------  --------  ---------  --------  ---------------
+eth_getLogs 1000 blocks, Transfer topic   8    2.22s    2.90s     2.29s     18.33s     4.22s             ok=8
+eth_getLogs 10000 blocks, token           6    1.99s    3.07s     1.82s     10.95s     5.66s             ok=6
+eth_getLogs 1000 blocks deep              5    1.18s    1.81s     1.28s      6.42s     1.74s             ok=5
+trace_replayBlockTransactions deep        8    227ms    1.32s     550ms      4.40s     464ms             ok=8
+trace_call                                7    194ms    1.56s     477ms      3.34s     1.26s             ok=7
+eth_call replay at n-1                    4     74ms    2.78s     792ms      3.17s     592ms             ok=4
+trace_replayBlockTransactions recent      8    350ms    609ms     350ms      2.80s     590ms             ok=8
+debug_traceBlockByNumber deep             5    597ms    878ms     497ms      2.48s     650ms             ok=5
+eth_createAccessList                      7     67ms    1.66s     348ms      2.44s     1.58s             ok=7
+debug_traceCall replay at n-1             9    183ms    585ms     228ms      2.05s     533ms             ok=9
+debug_traceBlockByNumber recent           6    367ms    658ms     335ms      2.01s     753ms             ok=6
+debug_traceBlockByHash recent             6    174ms    727ms     325ms      1.95s     452ms             ok=6
+(untagged)                               51      9ms    215ms      38ms      1.92s      91ms            ok=51
+trace_block recent                        6    192ms    528ms     296ms      1.78s     583ms             ok=6
+trace_replayTransaction deep              8    171ms    468ms     207ms      1.66s     560ms             ok=8
+trace_replayTransaction recent            8    105ms    456ms     191ms      1.53s     480ms             ok=8
+debug_traceTransaction deep               8    107ms    436ms     183ms      1.46s     472ms             ok=8
+trace_transaction deep                    5    213ms    524ms     293ms      1.46s     887ms             ok=5
+debug_traceCall callTracer                4     96ms    667ms     276ms      1.10s     633ms             ok=4
+trace_transaction recent                  7     78ms    428ms     139ms      973ms     424ms             ok=7
+eth_estimateGas real calldata             7     83ms    306ms     123ms      861ms     687ms             ok=7
+eth_maxPriorityFeePerGas                  7     67ms    116ms      72ms      503ms     253ms             ok=7
+debug_traceTransaction recent             5     56ms    240ms      98ms      492ms     323ms             ok=5
+eth_call balanceOf                        4     65ms    300ms     118ms      472ms     642ms             ok=4
+eth_getLogs 10 blocks deep                4     87ms    122ms      82ms      329ms     318ms             ok=4
+eth_call real calldata latest             4     62ms    125ms      82ms      326ms     894ms             ok=4
+trace_block deep                          2     92ms    230ms     161ms      322ms     357ms             ok=2
+eth_gasPrice                              3     83ms    126ms      88ms      264ms     224ms             ok=3
+eth_feeHistory 4 deep                     7     23ms     75ms      36ms      254ms     139ms             ok=7
+eth_estimateGas replay at n-1             3     75ms    116ms      77ms      232ms     846ms  ok=2 canceled=1
+eth_getBlockByHash deep                   6     12ms     65ms      25ms      152ms     314ms             ok=6
+eth_estimateGas transfer                  5     31ms     46ms      29ms      145ms     600ms             ok=5
+eth_getTransactionCount deep              4     31ms     37ms      29ms      115ms     375ms             ok=4
+eth_getTransactionReceipt deep            5     19ms     54ms      23ms      113ms     578ms             ok=5
+eth_getBalance deep                       5     13ms     42ms      22ms      111ms     577ms             ok=5
+debug_getRawBlock recent                  5      4ms     77ms      18ms       92ms     100ms             ok=5
+eth_getLogs 10000 blocks deep, Transfer   4     21ms     26ms      22ms       88ms      51ms             ok=4
+debug_getRawReceipts deep                 5      9ms     46ms      18ms       88ms      35ms             ok=5
+eth_getBlockReceipts recent               6      8ms     24ms      15ms       87ms      34ms             ok=6
+debug_getRawHeader deep                   6      8ms     40ms      14ms       86ms      42ms             ok=6
+eth_getTransactionByHash deep             4     18ms     33ms      22ms       86ms     416ms             ok=4
+eth_getBlockByNumber deep hashes          4      5ms     52ms      21ms       82ms     133ms             ok=4
+eth_getCode deep                          5     10ms     26ms      14ms       71ms     216ms             ok=5
+eth_getBlockByNumber latest hashes        6      6ms     21ms      12ms       70ms      43ms             ok=6
+eth_getStorageAt latest                   5     15ms     23ms      14ms       69ms     252ms             ok=5
+eth_getStorageAt deep                     7      6ms     24ms      10ms       68ms      41ms             ok=7
+eth_getLogs 10 blocks, token              2     21ms     44ms      33ms       65ms     139ms             ok=2
+eth_feeHistory 4                          5      9ms     23ms      12ms       59ms      80ms             ok=5
+debug_getRawReceipts recent               6      6ms     21ms       8ms       50ms     122ms             ok=6
+eth_getBlockReceipts deep                 4      5ms     22ms      13ms       50ms      42ms             ok=4
+eth_getBlockByHash recent                 3      9ms     34ms      16ms       47ms      47ms             ok=3
+eth_getTransactionByBlockNumberAndIndex   5      7ms     15ms       9ms       45ms     119ms             ok=5
+eth_getBlockByNumber recent full          4      5ms     25ms      10ms       40ms     150ms             ok=4
+eth_getTransactionCount latest            7      2ms     25ms       5ms       37ms     225ms             ok=7
+eth_getTransactionReceipt recent          4      4ms     15ms       8ms       30ms      70ms             ok=4
+eth_getTransactionByHash recent           6      5ms      5ms       5ms       27ms     118ms             ok=6
+eth_getCode latest                        4      6ms     12ms       7ms       27ms     448ms             ok=4
+eth_getBlockByNumber recent hashes        5      4ms      6ms       4ms       20ms      26ms             ok=5
+eth_getLogs 1000 blocks, no filter        5      4ms      6ms       4ms       19ms      91ms             ok=5
+debug_getRawBlock deep                    3      7ms      7ms       6ms       18ms      39ms             ok=3
+eth_getBlockTransactionCountByNumber      4      2ms      6ms       4ms       16ms      22ms             ok=4
+web3_clientVersion                        4      1ms      7ms       3ms       12ms      16ms             ok=4
+eth_getBalance latest                     3      4ms      7ms       4ms       12ms     170ms             ok=3
+eth_chainId                               3      3ms      5ms       3ms        9ms     161ms             ok=3
+eth_getBlockByNumber deep full            4      2ms      2ms       2ms        8ms      13ms             ok=4
+net_version                               6      1ms      2ms       1ms        5ms       1ms             ok=6
+eth_blockNumber                           4      0ms      2ms       1ms        4ms       3ms             ok=4

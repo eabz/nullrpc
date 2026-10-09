@@ -2,6 +2,7 @@
 // nearby witnesses hold. The witness of n+1 is exact; those of n and n-1 are checked against
 // the live window in one read; at or below P only the exact kind is used.
 
+import { keccak_256 } from "@noble/hashes/sha3.js";
 import { describe, expect, test } from "vitest";
 import { Archive } from "../src/archive/archive";
 import { MemorySource } from "../src/archive/source";
@@ -18,7 +19,8 @@ const ARCHIVED = fixtures().filter((f) => Number(f.block.number) <= P);
 const A = "0x" + "aa".repeat(20);
 const B = "0x" + "bb".repeat(20);
 const C = "0x" + "cc".repeat(20);
-const CODE_HASH = "0x" + "ee".repeat(32);
+const CODE = Uint8Array.from([0x60, 0x80, 0x60, 0x40, 0x52, 0x00]);
+const CODE_HASH = "0x" + Buffer.from(keccak_256(CODE)).toString("hex");
 const SLOT1 = "0x" + "1".padStart(64, "0");
 const SLOT2 = "0x" + "2".padStart(64, "0");
 const hashOf = (n: number) => "0x" + n.toString(16).padStart(64, "0");
@@ -76,7 +78,11 @@ function fakeLive(head: number) {
   return { api, calls };
 }
 
-const OBJECTS = buildArchive(ARCHIVED, { extra: (b) => ({ witnesses: { first_block: 0, ranges: [witnessRange(b, P, [encodeWitness(W[P]!)])] } }) });
+// The archive holds A's code, so hints that name A carry it.
+const OBJECTS = buildArchive(ARCHIVED, {
+  state: { entries: [{ domain: "code", key: Uint8Array.from(Buffer.from(CODE_HASH.slice(2), "hex")), block: 0, value: CODE }], layers: [[0, P]] },
+  extra: (b) => ({ witnesses: { first_block: 0, ranges: [witnessRange(b, P, [encodeWitness(W[P]!)])] } }),
+});
 
 async function open(head: number) {
   const { api, calls } = fakeLive(head);
@@ -92,7 +98,7 @@ describe("execution hints", () => {
     const { chain, calls, source, state } = await open(P + 3);
     const h = (await state.hints(P + 3))!;
     expect(calls).toEqual(expect.arrayContaining([`witness:${P + 3}`, `witness:${P + 2}`, `many:4@${P + 3}`]));
-    expect(h.keys).toHaveLength(4);
+    expect(h.keys).toHaveLength(5); // four state keys and A's code
     const got = byKey(h);
     // A was not written in the window: its witness value stands; its slot was, so the window's value does.
     expect(got[JSON.stringify({ kind: "account", address: A })]).toEqual({ kind: "account", nonce: 7, balance: "0x70", codeHash: CODE_HASH });
@@ -101,9 +107,10 @@ describe("execution hints", () => {
     expect(got[JSON.stringify({ kind: "account", address: B })]).toEqual({ kind: "account", nonce: 5, balance: "0x200", codeHash: null });
     // C did not exist.
     expect(got[JSON.stringify({ kind: "account", address: C })]).toBeNull();
-    expect(chain.exec.hints).toBe(4);
-    // No state history was read for any of it.
-    expect(source.reads.filter((r) => /accounts|storage|code/.test(r.key))).toHaveLength(0);
+    expect(chain.exec.hints).toBe(5);
+    // No account or slot was read from the state history; only A's code was (by hash, at P).
+    expect(source.reads.filter((r) => /accounts|storage/.test(r.key))).toHaveLength(0);
+    expect(source.reads.filter((r) => /code/.test(r.key)).length).toBeGreaterThan(0);
   });
 
   test("below the head: the next block's witness is exact and wins over the checked ones", async () => {
@@ -129,6 +136,8 @@ describe("execution hints", () => {
     const got = byKey((await state.hints(P - 1))!);
     expect(got[JSON.stringify({ kind: "storage", address: A, slot: SLOT2 })]).toEqual({ kind: "storage", value: "0x5" });
     expect(got[JSON.stringify({ kind: "account", address: A })]).toEqual({ kind: "account", nonce: 7, balance: "0x70", codeHash: CODE_HASH });
+    // The code of the contracts the hints name comes with them.
+    expect(got[JSON.stringify({ kind: "code", hash: CODE_HASH })]).toEqual({ kind: "code", code: "0x" + Buffer.from(CODE).toString("hex") });
     expect(calls).toEqual([]);
   });
 

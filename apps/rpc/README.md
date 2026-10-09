@@ -83,8 +83,9 @@ the same contract and function needed (the shell's profile), and the **witness h
 (`src/state-source.ts`): the pre-state of block n+1 is the state at the end of n for every key
 that block touched, exact as it is; the witnesses of n and n−1 (above P) name what those blocks
 touched, with values from before them, and one read of the live window at n says which of those
-changed since. A call at n mostly touches what the blocks around n touched. Below P only the
-exact kind is used. At most 4096 hinted keys per request.
+changed since, and the code of the contracts the hints name (at most 48) is read in the same
+wave. A call at n mostly touches what the blocks around n touched. Below P only the exact kind
+is used. At most 4096 hinted keys per request.
 
 The archive side of a round (`src/archive/state.ts`) resolves the layer descriptors once per
 request, reads a layer's Bloom filter whole when it is small (so a key costs one filter read,
