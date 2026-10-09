@@ -1,0 +1,7 @@
+9 requests in the capture; CPU mean 12ms, p50 13ms, p95 18ms
+
+case        n  cpu p50  cpu p95  cpu mean  cpu total  wall p50  outcomes
+----------  -  -------  -------  --------  ---------  --------  --------
+layout-1    3     16ms     18ms      16ms       47ms     161ms      ok=3
+layout-2    3     12ms     14ms      12ms       37ms     197ms      ok=3
+(untagged)  3      6ms     14ms       8ms       23ms     215ms      ok=3

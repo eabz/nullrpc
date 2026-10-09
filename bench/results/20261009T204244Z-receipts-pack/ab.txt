@@ -1,0 +1,6 @@
+layout-2 3784755-3784834: 708 ms, 671 logs, hit=2 miss=1, resp miss immutable
+layout-2 3784835-3784914: 229 ms, 654 logs, hit=2 miss=1, resp miss immutable
+layout-2 3784915-3784994: 204 ms, 580 logs, hit=2 miss=1, resp miss immutable
+layout-1 3784665-3784744: 205 ms, 703 logs, hit=3 miss=1, resp miss immutable
+layout-1 3784585-3784664: 282 ms, 655 logs, hit=2 miss=2, resp miss immutable
+layout-1 3784505-3784584: 183 ms, 688 logs, hit=2 miss=1, resp miss immutable
