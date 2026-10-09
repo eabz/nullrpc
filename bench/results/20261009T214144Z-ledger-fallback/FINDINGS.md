@@ -85,10 +85,19 @@ receipts, both unrelated to admission). The same tails were attached throughout.
 | 22:00 (`after-2/report.md`) | 2,198 req/s | 44,784 | 44,514 | 0 | **0** | 0 | 199ms | 1.73s |
 
 The "refused" column of both reports (105 and 270) is the eth_estimateGas "insufficient funds"
-answers of the user mix, as in every run; no request was refused by access. The first run's
-600 errors are the client's own 20s timeouts on a cold uplink (it also dropped 38,994 sends at
-its in-flight cap); the second run, 2,198 req/s achieved, is the highest Scale rate served so far
-and had no error of any kind.
+answers of the user mix, as in every run; no request was refused by access. The second run,
+2,198 req/s achieved, is the highest Scale rate served so far and had no error of any kind.
+
+The first run's 600 errors were on the client, not the new admission path. They are exactly
+the client's in-flight cap (600), all 13 methods of the mix in proportion, all at the client's
+40s fetch timeout, and the last 600 samples to complete: the client's slots filled with stalled
+connections in the minute after the deploy, which is also why it achieved 429 req/s and dropped
+38,994 sends. The server did not hold them: Cloudflare's own numbers for the RPC Worker in the
+21:58 minute are 23,387 requests (the client sent 23,416) with wall p50 7ms, p90 54ms, p99 1.3s;
+600 requests held for 40s would be 2.6% of the minute, far above that p99. The lease path was
+quiet too: every lease call in the window answered 200 within 1.5s, so the 8s lease timeout
+never fired, and an internal line (5M credits reserved) never waits on a renewal. Two minutes
+later the second run, same code, had no timeout at five times the rate.
 
 Lease traffic (`after/tails.txt`, `after/app-analytics.txt`): 0 `lease_error` events in the
 RPC tail for both runs (601 in the 21:42 reproduction); the app answered every lease call 200
