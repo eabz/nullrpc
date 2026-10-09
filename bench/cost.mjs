@@ -108,8 +108,11 @@ for (const [plan, w] of Object.entries(W.stress ?? {})) if (w.ended) windows.pus
 if (!windows.length) throw new Error("report.json has no finished run windows");
 console.log("Analytics are sampled and arrive with a delay of a few minutes; run this at least 5 minutes after the scenario. Windows include 30s of tail for in-flight work.");
 const results = [];
+// `--offline` re-prices from the cost.json a previous pull wrote, without querying again.
+const saved = args.offline ? JSON.parse(readFileSync(join(DIR, "cost.json"), "utf8")).windows : null;
 for (const [label, from, to, n] of windows) {
-  const r = await window(label, from, to, n);
+  const r = saved ? saved.find((w) => w.label === label) : await window(label, from, to, n);
+  if (!r) continue;
   results.push(r);
   console.log(`${label}: ${n} client requests; per request: rpc ${r.units.rpcReq.toFixed(2)}, live calls ${r.units.liveCalls.toFixed(1)}, app calls ${r.units.appCalls.toFixed(2)}, DO ${r.units.doReq.toFixed(1)}, R2 B ${r.units.r2ClassB.toFixed(1)}, cpu ${r.units.cpuMs.toFixed(1)}ms; $${r.per1M.toFixed(2)} per 1M requests = ${Object.entries(r.breakdown).filter(([, v]) => v > 0).map(([k, v]) => `${k} ${((v / r.cost) * 100).toFixed(0)}%`).join(", ")}`);
 }
@@ -117,7 +120,9 @@ for (const [label, from, to, n] of windows) {
 // Margin per plan: the price the quota buys per 1M requests against the measured cost.
 const PLANS = report.economics.plans;
 const mixCredits = report.economics.mixCredits;
-const costRef = results.find((r) => r.label.startsWith("stress")) ?? results.find((r) => r.label === "user") ?? results[0];
+// The reference window is the one with the most client requests: small windows are inflated
+// by whatever else hit the Workers meanwhile (dashboards, other clients).
+const costRef = results.slice().sort((a, b) => b.requests - a.requests)[0];
 const rows = [["plan", "$/mo", "revenue $ per 1M req", "cost $ per 1M req (" + costRef.label + ")", "margin per 1M req", "cost of the full quota", "margin at full quota"]];
 for (const [plan, p] of Object.entries(PLANS)) {
   const reqs = p.included / mixCredits;
