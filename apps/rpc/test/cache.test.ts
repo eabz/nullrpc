@@ -270,8 +270,9 @@ describe("worker headers", () => {
       expect(latest1.response).toBe("bypass");
       expect(latest2.response).toBe("bypass");
       expect(counts(latest1.archive).miss).toBeGreaterThan(0);
-      // The segment meta and the offsets page now sit in the isolate; only the frame is re-read.
-      expect(counts(latest2.archive)).toEqual({ hit: 1, miss: 0 });
+      // The segment meta and the offsets page now sit in the isolate; only the block's two
+      // frames (layout 2: blocks.pack and receipts.pack) are re-read, from the cache.
+      expect(counts(latest2.archive)).toEqual({ hit: 2, miss: 0 });
       // A batch reports counts; invalid items and unknown methods are bypasses.
       const batch = await post([
         { jsonrpc: "2.0", id: "a", method: "eth_getBlockByNumber", params: [f.block.number, false] },

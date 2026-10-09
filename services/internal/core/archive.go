@@ -25,7 +25,8 @@ const (
 	codecHashIndex = 3 // hash index buckets
 	codecLogIndex  = 4 // log index buckets
 	codecWitness   = 5 // witnesses
-	packHeader     = 16
+	// codecReceipts = 6 // receipts frames (segment_split.go)
+	packHeader = 16
 )
 
 func packHeaderBytes(codec uint16) []byte {
@@ -203,12 +204,14 @@ type Anchor struct {
 	Hash   string `json:"hash"`
 }
 
-// BundleMetadata is a segment's meta.json.
+// BundleMetadata is a segment's meta.json. Layout 2 (segment_split.go) stores receipts in
+// their own pack; absent or 1, the whole record is one frame in blocks.pack.
 type BundleMetadata struct {
 	First           uint64               `json:"first"`
 	Last            uint64               `json:"last"`
 	FirstParentHash string               `json:"first_parent_hash"`
 	LastHash        string               `json:"last_hash"`
+	Layout          uint32               `json:"layout,omitempty"`
 	Files           map[string]ObjectRef `json:"files"`
 }
 

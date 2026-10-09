@@ -8,7 +8,7 @@
 // Block and transaction reads in the window normally come from R2 records listed by the pinned
 // head's live/HEAD.json (src/live.ts); the live Worker is asked only for what those cannot answer.
 
-import type { Archive, BlockRun, Pin } from "./archive/archive";
+import type { Archive, BlockRun, Pin, RunBlock } from "./archive/archive";
 import { blockCandidates, transactionCandidates } from "./archive/hashindex";
 import { Lru } from "./archive/lru";
 import { StateHistory, type Domain } from "./archive/state";
@@ -164,17 +164,21 @@ export class Chain {
     return this.archive.offsetsPages(this.pin, numbers);
   }
 
-  /** The coalesced range reads that fetch archived blocks `numbers` (sorted); reads their offsets. */
+  /**
+   * The coalesced range reads that fetch what a log query decodes of archived blocks `numbers`
+   * (sorted): receipts frames where the segment stores them apart, whole records otherwise.
+   * Reads their offsets.
+   */
   planArchived(numbers: number[]): Promise<BlockRun[]> {
-    return this.archive.planBlockRuns(this.pin, numbers);
+    return this.archive.planBlockRuns(this.pin, numbers, "receipts");
   }
 
   /**
-   * Reads planned runs `wave` at a time, in order, and hands every block's checked frame to
-   * `each` in block order; the next wave is in flight while a wave is decoded. `each`
-   * returning false stops.
+   * Reads planned runs `wave` at a time, in order, and hands every block's checked frame (a
+   * record or a receipts frame, by its `kind`) to `each` in block order; the next wave is in
+   * flight while a wave is decoded. `each` returning false stops.
    */
-  async readArchived(runs: BlockRun[], wave: number, each: (block: { n: number; hash: Uint8Array; frame: Uint8Array }) => boolean | void): Promise<void> {
+  async readArchived(runs: BlockRun[], wave: number, each: (block: RunBlock) => boolean | void): Promise<void> {
     const read = (i: number) => Promise.all(runs.slice(i, i + wave).map((r) => this.archive.readRun(r)));
     let pending = runs.length ? read(0) : null;
     for (let i = 0; pending; i += wave) {

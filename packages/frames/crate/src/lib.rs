@@ -64,7 +64,8 @@ pub extern "C" fn nullrpc_decompress(src: *const u8, src_len: usize, dst: *mut u
 /// 32-byte hash from the offsets record. Returns the JSON's length in bytes (0 when no log is
 /// accepted) or a negative code: -1 malformed record, -2 header with too few fields, -3 the
 /// header does not hash to `hash`, -4 receipts and transactions differ in number, -5 an integer
-/// outside JavaScript's safe range, -6 malformed filter.
+/// outside JavaScript's safe range, -6 malformed filter, -7 (receipts frames) the frame's
+/// number differs from the offsets record's.
 #[unsafe(no_mangle)]
 pub extern "C" fn nullrpc_frame_logs(frame: *const u8, frame_len: usize, hash: *const u8, filter: *const u8, filter_len: usize) -> i32 {
     if frame.is_null() || hash.is_null() || filter.is_null() {
@@ -87,7 +88,33 @@ pub extern "C" fn nullrpc_frame_logs(frame: *const u8, frame_len: usize, hash: *
     })
 }
 
-/// Where the last `nullrpc_frame_logs` output starts (valid until the next call into the module).
+/// `nullrpc_frame_logs` for a layout-2 receipts frame (docs/storage.md, "Block bundles"):
+/// `number` is the block's number from the offsets record (a JavaScript number, exact below
+/// 2^53), which the frame must agree with (-7 otherwise).
+#[unsafe(no_mangle)]
+pub extern "C" fn nullrpc_receipts_logs(frame: *const u8, frame_len: usize, hash: *const u8, number: f64, filter: *const u8, filter_len: usize) -> i32 {
+    if frame.is_null() || hash.is_null() || filter.is_null() || !(number >= 0.0 && number <= 9007199254740991.0) {
+        return -1;
+    }
+    // SAFETY: the ranges are inside buffers from `nullrpc_alloc` that the caller still owns.
+    let (frame, hash, filter) = unsafe { (std::slice::from_raw_parts(frame, frame_len), std::slice::from_raw_parts(hash, 32), std::slice::from_raw_parts(filter, filter_len)) };
+    let filter = match logs::parse_filter(filter) {
+        Ok(f) => f,
+        Err(e) => return e.code(),
+    };
+    OUT.with(|cell| {
+        let mut out = cell.borrow_mut();
+        out.clear();
+        match logs::receipts_logs(frame, hash, number as u64, &filter, &mut out) {
+            Ok(_) if out.len() > i32::MAX as usize => -1,
+            Ok(_) => out.len() as i32,
+            Err(e) => e.code(),
+        }
+    })
+}
+
+/// Where the last `nullrpc_frame_logs` or `nullrpc_receipts_logs` output starts (valid until
+/// the next call into the module).
 #[unsafe(no_mangle)]
 pub extern "C" fn nullrpc_out_ptr() -> *const u8 {
     OUT.with(|cell| cell.borrow().as_ptr())

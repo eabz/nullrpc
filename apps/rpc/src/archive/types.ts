@@ -24,7 +24,9 @@ export interface SegmentMeta {
   last: number;
   first_parent_hash: string;
   last_hash: string;
-  files: { "blocks.pack": ObjectRef; "offsets.bin": ObjectRef };
+  /** Absent or 1: one record frame per block in blocks.pack, 80-byte offsets records. 2: the block frame in blocks.pack and the receipts frame in receipts.pack, 128-byte records (storage.md, "Block bundles"). */
+  layout?: number;
+  files: { "blocks.pack": ObjectRef; "offsets.bin": ObjectRef; "receipts.pack"?: ObjectRef };
 }
 
 export interface IndexPart {

@@ -4,7 +4,8 @@
 // Every query runs under a read budget (READ_BUDGET archive reads per request, well inside the
 // Worker's per-request Cache API limit): the index reads are costed from the manifest before any
 // is issued, candidate blocks are fetched in coalesced range reads (src/archive/archive.ts,
-// planBlockRuns) WAVE at a time and decoded only as far as their logs need, and a query that
+// planBlockRuns) WAVE at a time and decoded only as far as their logs need (of a layout-2
+// segment only the receipts frames are read and decoded at all), and a query that
 // would exceed the budget, the block or the log limit is refused with -32005 and the range that
 // would fit, before the expensive reads start. Live-window blocks are one live call each (no
 // Cache API), bounded by MAX_BLOCKS with the candidates.
@@ -12,7 +13,7 @@
 import { logCandidates, logIndexCost, logIndexRangeFor, type Group } from "../archive/logindex";
 import type { Chain } from "../chain";
 import { parseData } from "../eth/hex";
-import { blockLogs, frameLogs, logMatches, type BlockRecord } from "../eth/record";
+import { blockLogs, frameLogs, logMatches, receiptsLogs, type BlockRecord } from "../eth/record";
 import { blockRef, invalidParams, RpcError, type Handler } from "../rpc";
 
 /** The widest block range a query may span (credits.json, eth_getLogs.max_blocks). */
@@ -150,7 +151,7 @@ export async function getLogs(chain: Chain, raw: unknown, budget = READ_BUDGET):
     state.overflow = n;
     return false;
   };
-  await chain.readArchived(runs, WAVE, (b) => take(b.n, frameLogs(b.frame, b.hash, f)));
+  await chain.readArchived(runs, WAVE, (b) => take(b.n, b.kind === "receipts" ? receiptsLogs(b.frame, b.hash, b.n, f) : frameLogs(b.frame, b.hash, f)));
   if (state.overflow === null) {
     await chain.readBlocks(live, LIVE_WAVE, (rec: BlockRecord) => take(rec.block.header.number, blockLogs(rec).filter((l) => logMatches(l.address, l.topics, f)).map((l) => l.json)));
   }
