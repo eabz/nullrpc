@@ -83,6 +83,11 @@ async function window(label, from, to, requests) {
     r2OperationsAdaptiveGroups(limit:100,filter:{datetime_geq:$from,datetime_leq:$to,bucketName_in:$buckets}){dimensions{actionType} sum{requests}}}}}`, { ...vars, buckets: [BUCKET] });
   const scripts = Object.fromEntries((w.workersInvocationsAdaptive ?? []).map((x) => [x.dimensions.scriptName, { requests: x.sum.requests, errors: x.sum.errors, subrequests: x.sum.subrequests, cpuMs: x.sum.cpuTimeUs / 1000, cpuP50: x.quantiles.cpuTimeP50 / 1000, cpuP99: x.quantiles.cpuTimeP99 / 1000 }]));
   const doReq = (d.inv ?? []).reduce((s, x) => s + x.sum.requests, 0);
+  // Per Durable Object class: which object the load lands on (requests and busy wall time).
+  const byClass = (d.inv ?? []).map((x) => {
+    const per = (d.per ?? []).find((p) => p.dimensions.namespaceId === x.dimensions.namespaceId);
+    return { name: ns.find((m) => m.id === x.dimensions.namespaceId)?.name ?? x.dimensions.namespaceId, requests: x.sum.requests, wallMs: x.sum.wallTime / 1000, durationGbS: (per?.sum.duration ?? 0) * (128 / 1024) };
+  }).sort((a, b) => b.requests - a.requests);
   const doGbS = (d.per ?? []).reduce((s, x) => s + x.sum.duration, 0) * (128 / 1024);
   const rowsRead = (d.per ?? []).reduce((s, x) => s + x.sum.rowsRead, 0);
   const rowsWritten = (d.per ?? []).reduce((s, x) => s + x.sum.rowsWritten, 0);
@@ -96,7 +101,7 @@ async function window(label, from, to, requests) {
   const cost = workersReq * PRICE.workersReq + cpuMs * PRICE.cpuMs + doReq * PRICE.doReq + doGbS * PRICE.doGbS + classA * PRICE.r2ClassA + classB * PRICE.r2ClassB + rowsRead * PRICE.doRowsRead + rowsWritten * PRICE.doRowsWritten;
   const n = requests || scripts[RPC]?.requests || 1;
   const breakdown = { "Workers requests": workersReq * PRICE.workersReq, "Workers CPU": cpuMs * PRICE.cpuMs, "DO requests": doReq * PRICE.doReq, "DO duration": doGbS * PRICE.doGbS, "DO rows": rowsRead * PRICE.doRowsRead + rowsWritten * PRICE.doRowsWritten, "R2 Class B": classB * PRICE.r2ClassB, "R2 Class A": classA * PRICE.r2ClassA };
-  return { label, from, to, requests: n, scripts, doReq, doGbS, rowsRead, rowsWritten, r2ClassA: classA, r2ClassB: classB, cost, per1M: (cost / n) * 1e6, breakdown, units: { rpcReq: workersReq / n, liveCalls: (scripts[LIVE]?.requests ?? 0) / n, appCalls: (scripts[APP]?.requests ?? 0) / n, cpuMs: cpuMs / n, doReq: doReq / n, r2ClassB: classB / n, rowsRead: rowsRead / n } };
+  return { label, from, to, requests: n, scripts, doReq, byClass, doGbS, rowsRead, rowsWritten, r2ClassA: classA, r2ClassB: classB, cost, per1M: (cost / n) * 1e6, breakdown, units: { rpcReq: workersReq / n, liveCalls: (scripts[LIVE]?.requests ?? 0) / n, appCalls: (scripts[APP]?.requests ?? 0) / n, cpuMs: cpuMs / n, doReq: doReq / n, r2ClassB: classB / n, rowsRead: rowsRead / n } };
 }
 
 const windows = [];
@@ -115,6 +120,7 @@ for (const [label, from, to, n] of windows) {
   if (!r) continue;
   results.push(r);
   console.log(`${label}: ${n} client requests; per request: rpc ${r.units.rpcReq.toFixed(2)}, live calls ${r.units.liveCalls.toFixed(1)}, app calls ${r.units.appCalls.toFixed(2)}, DO ${r.units.doReq.toFixed(1)}, R2 B ${r.units.r2ClassB.toFixed(1)}, cpu ${r.units.cpuMs.toFixed(1)}ms; $${r.per1M.toFixed(2)} per 1M requests = ${Object.entries(r.breakdown).filter(([, v]) => v > 0).map(([k, v]) => `${k} ${((v / r.cost) * 100).toFixed(0)}%`).join(", ")}`);
+  if (r.byClass?.length) console.log(`  DO by class: ${r.byClass.map((c) => `${c.name.replace(/^nullrpc-/, "")} ${c.requests} req (${(c.requests / n).toFixed(2)}/req, busy ${(c.wallMs / 1000).toFixed(1)}s)`).join("; ")}`);
 }
 
 // Margin per plan: the price the quota buys per 1M requests against the measured cost.

@@ -41,9 +41,10 @@ after a reorg, a block the document does not list, or a missing object ([docs/st
 "Live records").
 
 State reads in the window (`getPinned`, `getPinnedMany`) and witnesses are cached per isolate
-under the pinned head's hash (`cachesFor` in `src/live.ts`): a value under one head never
-changes, so a repeated read at the same block, including the executor's hints wave for every
-call at the head, reaches no state shard after the first ([docs/storage.md](../../docs/storage.md),
+under the pinned head's hash (`cachesFor` in `src/live.ts`), and batches of 32 keys or more
+(the executor's hints wave) and witnesses are shared per data center through the edge cache
+under the same pin hash: a value under one head never changes, so the hints wave of every call
+at the head reaches the state shards once per data center per block ([docs/storage.md](../../docs/storage.md),
 "Reads above P", "Caches").
 
 ## eth_getLogs

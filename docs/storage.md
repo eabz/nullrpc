@@ -635,11 +635,18 @@ chain below it, and a "no row" answer stays right after a promotion (the key is 
 since the new `P` as well, and the archive at the new `P` answers the same), so both are kept
 by pin hash, block and key (32,768 entries; values over 4 KiB, code mostly, are not kept) and
 witnesses by pin hash and block (32 MiB). A `getPinnedMany` then carries only the keys the
-isolate has not seen under that pin: the hints wave of every call at one head is read from the
-shards once per isolate per block, not once per call. The shards are asked under a new pin
-after a `stale` answer, since the pin hash differs. The consequence is the one blocks have: a
-request whose reads all hit the cache under a pin a reorg just removed is answered from that
-branch, consistently, for up to the 2 s the pointers document is cached.
+isolate has not seen under that pin. Under load a data center runs many isolates, each warming
+on its own, so the answers are also shared per data center through the edge cache
+(`caches.default`, the cache the pointers use): a batch of 32 keys or more (the hints wave,
+the same thousand keys for every call at one head) is stored whole under the digest of its
+key list, pin hash and block, and each witness under pin hash and block, for an hour (an entry
+goes unused once the head moves). The hints wave of every call at one head is then read from
+the shards once per data center per block, not once per call or per isolate; a batch under 32
+keys (the executor's dependent rounds, mostly keys of one call) goes to the isolate cache and
+the shards only. The shards are asked under a new pin after a `stale` answer, since the pin
+hash differs. The consequence is the one blocks have: a request whose reads all hit a cache
+under a pin a reorg just removed is answered from that branch, consistently, for up to the
+2 s the pointers document is cached.
 
 **Promotion race.** A promotion publishes `HEAD.json` first; `/ingest/prune` then prunes the
 shards and sets `P` in `ChainDO` last. Once a shard is pruned, a state read at `n` in

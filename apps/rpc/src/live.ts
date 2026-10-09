@@ -266,6 +266,22 @@ export function cachesFor(api: LiveApi): LiveCaches {
   return c;
 }
 
+/**
+ * The data center's share of the same answers, through the edge cache the pointers use: a
+ * batch of at least STATE_EDGE_BATCH_MIN keys (the executor's hints wave, the same thousand
+ * keys for every call at one head) is stored whole under the digest of its key list, pin and
+ * block, and witnesses under pin and block. Both are fixed by the pin hash, so entries are
+ * kept an hour and simply go unused once the head moves. One isolate's shard call then
+ * answers every isolate in the data center for that block.
+ */
+export const STATE_EDGE_BATCH_MIN = 32;
+export const STATE_EDGE_TTL_S = 3600;
+const EDGE_ORIGIN = "https://live-state.nullrpc.invalid";
+
+async function digest(parts: string[]): Promise<string> {
+  return toHex(await sha256(new TextEncoder().encode(parts.join("\n"))));
+}
+
 const toHex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 
 function fromHex(hex: string): Uint8Array {
@@ -422,27 +438,44 @@ export class Live {
    */
   async stateValues(keys: { domain: 1 | 2 | 3; key: Uint8Array }[], n: number, pin: BlockId): Promise<(Uint8Array | null)[]> {
     const caches = cachesFor(this.api);
+    const hexes = keys.map((k) => toHex(k.key));
+    const ids = keys.map((k, i) => `${pin.hash}:${n}:${k.domain}:${hexes[i]}`);
+    const remember = (i: number, value: Uint8Array | null) => {
+      if (value === null || value.length <= STATE_CACHE_MAX_VALUE) caches.values.set(ids[i]!, value);
+    };
+    // A large batch (the hints wave) is shared per data center under the digest of its keys.
+    const cache = this.pointers?.cache;
+    const edgeUrl = cache && keys.length >= STATE_EDGE_BATCH_MIN ? `${EDGE_ORIGIN}/${this.pointers!.prefix}/state/${pin.hash}/${n}/${await digest(ids)}` : null;
+    if (edgeUrl) {
+      const shared = await this.edgeGet(cache!, edgeUrl);
+      if (shared) {
+        const values = shared.map((v) => (v === null ? null : fromHex(v)));
+        if (values.length === keys.length) {
+          values.forEach((v, i) => remember(i, v));
+          caches.hits += keys.length;
+          return values;
+        }
+      }
+    }
     const out: (Uint8Array | null)[] = new Array(keys.length);
-    // The keys the cache lacks (a key asked twice in one call is read once).
-    const missing: { domain: number; key: string; id: string; at: number[] }[] = [];
+    // The keys the isolate's cache lacks (a key asked twice in one call is read once).
+    const missing: { domain: number; key: string; at: number[] }[] = [];
     const byId = new Map<string, number>();
     keys.forEach((k, i) => {
-      const hex = toHex(k.key);
-      const id = `${pin.hash}:${n}:${k.domain}:${hex}`;
-      const cached = caches.values.get(id);
+      const cached = caches.values.get(ids[i]!);
       if (cached !== undefined) {
         caches.hits++;
         out[i] = cached;
         return;
       }
-      const j = byId.get(id);
+      const j = byId.get(ids[i]!);
       if (j !== undefined) {
         missing[j]!.at.push(i);
         return;
       }
       caches.misses++;
-      byId.set(id, missing.length);
-      missing.push({ domain: k.domain, key: hex, id, at: [i] });
+      byId.set(ids[i]!, missing.length);
+      missing.push({ domain: k.domain, key: hexes[i]!, at: [i] });
     });
     const batches: Promise<void>[] = [];
     for (let i = 0; i < missing.length; i += LIVE_BATCH) {
@@ -453,15 +486,33 @@ export class Live {
           if (r.values.length !== slice.length) throw new Error("the live window answered the wrong number of values");
           r.values.forEach((v, j) => {
             const value = v.block === null || v.value === null ? null : fromHex(v.value);
-            const m = slice[j]!;
-            if (value === null || value.length <= STATE_CACHE_MAX_VALUE) caches.values.set(m.id, value);
-            for (const at of m.at) out[at] = value;
+            for (const at of slice[j]!.at) {
+              out[at] = value;
+              remember(at, value);
+            }
           });
         }),
       );
     }
     await Promise.all(batches);
+    if (edgeUrl) this.edgePut(cache!, edgeUrl, JSON.stringify(out.map((v) => (v === null ? null : toHex(v)))));
     return out;
+  }
+
+  /** A shared answer from the edge cache: the stored JSON array, or null when absent or damaged. */
+  private async edgeGet(cache: PointerCache, url: string): Promise<(string | null)[] | null> {
+    try {
+      const hit = await cache.match(url);
+      if (!hit) return null;
+      const v = (await hit.json()) as unknown;
+      return Array.isArray(v) && v.every((x) => x === null || typeof x === "string") ? (v as (string | null)[]) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private edgePut(cache: PointerCache, url: string, body: string): void {
+    cache.put(url, new Response(body, { headers: { "content-type": "application/json", "cache-control": `public, max-age=${STATE_EDGE_TTL_S}` } })).catch(() => {});
   }
 
   /** A block's witness bytes in the window, or null; from the isolate's cache after the first read under a pin. Throws StaleError. */
@@ -474,10 +525,23 @@ export class Live {
       return cached;
     }
     caches.misses++;
+    // The data center may have it from another isolate (fixed by the pin hash, like the values).
+    const cache = this.pointers?.cache;
+    const edgeUrl = cache ? `${EDGE_ORIGIN}/${this.pointers!.prefix}/witness/${pin.hash}/${n}` : null;
+    if (edgeUrl) {
+      const shared = await this.edgeGet(cache!, edgeUrl);
+      if (shared && shared.length === 1) {
+        const stored = shared[0];
+        const witness = stored == null ? null : fromHex(stored);
+        caches.witnesses.set(id, witness, witness ? witness.length : 0);
+        return witness;
+      }
+    }
     const r = await this.api.witness(n, pin);
     if (r?.stale) throw new StaleError();
     const witness = r ? fromHex(r.witness) : null;
     caches.witnesses.set(id, witness, witness ? witness.length : 0);
+    if (edgeUrl) this.edgePut(cache!, edgeUrl, JSON.stringify([r ? r.witness : null]));
     return witness;
   }
 

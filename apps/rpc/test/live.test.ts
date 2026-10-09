@@ -410,6 +410,79 @@ describe("state source over the live window", () => {
     expect(await other.witness(head.number)).toEqual(Uint8Array.from([0xab, 0xcd]));
     expect(witnesses()).toBe(2);
   });
+
+  /** A stand-in for caches.default shared by the isolates of one data center. */
+  class EdgeCache implements PointerCache {
+    readonly store = new Map<string, { body: string; headers: [string, string][] }>();
+    puts = 0;
+    async match(key: string) {
+      const e = this.store.get(key);
+      return e ? new Response(e.body, { headers: e.headers }) : undefined;
+    }
+    async put(key: string, response: Response) {
+      this.puts++;
+      this.store.set(key, { body: await response.text(), headers: [...response.headers] });
+    }
+  }
+  /** A Live over `api` with the edge cache, as openChain builds it (the pointers object is absent: state() goes to the binding). */
+  async function isolate(api: LiveApi, cache: PointerCache) {
+    const archive = new Archive(new MemorySource(ARCHIVE), PREFIX);
+    const now = Date.now() + Math.random() * 1e12;
+    await archive.pin(now, true);
+    return Chain.open(archive, new Live(api, { source: new MemorySource(new Map()), prefix: PREFIX, cache }), now);
+  }
+  // A hints-sized wave: 40 accounts, only A among them with a row in the window.
+  const WAVE = [{ domain: "accounts" as const, key: A }, ...Array.from({ length: 39 }, (_, i) => ({ domain: "accounts" as const, key: Uint8Array.from({ length: 20 }, () => 0x10 + i) }))];
+
+  test("a large batch is shared through the edge cache: a second isolate makes no shard call", async () => {
+    const edge = new EdgeCache();
+    const first = liveState();
+    const a = await isolate(first.api, edge);
+    const values = await a.liveValues(WAVE, first.head.number);
+    expect(values[0]).toEqual(encodeAccount(5, 50n, HASH_NEW));
+    expect(values.slice(1).every((v) => v === null)).toBe(true);
+    expect(first.calls).toHaveLength(1);
+    expect(edge.puts).toBe(1);
+    // The put runs after the answer (ctx.waitUntil in the Worker): let it land.
+    await new Promise((r) => setTimeout(r, 0));
+    expect([...edge.store.keys()][0]).toMatch(new RegExp(`^https://live-state\\.nullrpc\\.invalid/${PREFIX}/state/${first.head.hash}/${first.head.number}/[0-9a-f]{64}$`));
+    // Another isolate (its own binding object, cold cache) in the same data center.
+    const second = liveState();
+    const b = await isolate(second.api, edge);
+    expect(await b.liveValues(WAVE, second.head.number)).toEqual(values);
+    expect(second.calls).toHaveLength(0);
+    expect(cachesFor(second.api).hits).toBe(WAVE.length);
+    // Its entries are now in the isolate cache too: a smaller read of one of them makes no call either.
+    expect(await b.liveValues([WAVE[0]!], second.head.number)).toEqual([values[0]]);
+    expect(second.calls).toHaveLength(0);
+    // A batch under the threshold, or at another block, is not shared.
+    expect(await b.liveValues(WAVE.slice(0, 8), second.head.number - 1)).toHaveLength(8);
+    expect(second.calls).toHaveLength(1);
+    expect(edge.puts).toBe(1);
+    // A damaged entry is ignored and rewritten.
+    edge.store.set([...edge.store.keys()][0]!, { body: "[1,2", headers: [] });
+    const third = liveState();
+    const c = await isolate(third.api, edge);
+    expect(await c.liveValues(WAVE, third.head.number)).toEqual(values);
+    expect(third.calls).toHaveLength(1);
+    expect(edge.puts).toBe(2);
+  });
+
+  test("witnesses are shared through the edge cache, including a block without one", async () => {
+    const edge = new EdgeCache();
+    const first = liveState();
+    const a = await isolate(first.api, edge);
+    expect(await a.witness(first.head.number)).toEqual(Uint8Array.from([0xab, 0xcd]));
+    expect(await a.witness(first.head.number - 1)).toBeNull();
+    expect(first.witnesses()).toBe(2);
+    expect(edge.puts).toBe(2);
+    await new Promise((r) => setTimeout(r, 0));
+    const second = liveState();
+    const b = await isolate(second.api, edge);
+    expect(await b.witness(second.head.number)).toEqual(Uint8Array.from([0xab, 0xcd]));
+    expect(await b.witness(second.head.number - 1)).toBeNull();
+    expect(second.witnesses()).toBe(0);
+  });
 });
 
 describe("page and status", () => {
