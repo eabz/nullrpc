@@ -7,7 +7,7 @@ import { decompress } from "@nullrpc/frames";
 import { equal } from "../eth/hex";
 import { joinRecord } from "../eth/record";
 import { Lru } from "./lru";
-import { shared } from "../shared";
+import { shared, type Settled } from "../shared";
 import type { Source } from "./source";
 import { ArchiveError, type FrameRef, type Head, type Manifest, type ObjectRef, type SegmentEntry, type SegmentMeta } from "./types";
 
@@ -98,6 +98,11 @@ export class Archive {
   /** The archive's namespace in the bucket (`{chain-id}-{genesis-hash}`). */
   get namespace(): string {
     return this.prefix;
+  }
+
+  /** `key` through an isolate cache of settled values and this request's reads in flight (src/shared.ts). */
+  shared<V>(settled: Settled<string, V>, key: string, read: () => Promise<V>): Promise<V> {
+    return shared(settled, this.pending, key, read);
   }
 
   /** The bucket key of `ref`: as written, or namespaced when a writer left the namespace off. */

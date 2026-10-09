@@ -13,8 +13,8 @@ import { ArchiveError, type HashIndexObject, type IndexPart } from "./types";
 const DIRECTORY_RECORD = 56;
 /** Directory records are read in aligned pages of this many (7 KiB), so neighbouring buckets share a read. */
 export const DIRECTORY_PAGE = 128;
-/** Directory pages per isolate, by directory digest and page number (immutable). Exported for tests. */
-export const directoryPages = new Lru<string, Promise<Uint8Array>>(512);
+/** Directory pages per isolate, by directory digest and page number (immutable; settled values only, src/shared.ts). Exported for tests. */
+export const directoryPages = new Lru<string, Uint8Array>(512);
 
 export interface Candidate {
   block: number;
@@ -62,15 +62,12 @@ async function directoryRecord(archive: Archive, part: IndexPart, bucket: number
   if ((bucket + 1) * DIRECTORY_RECORD > part.directory.bytes) throw new ArchiveError("hash index directory is too short");
   const page = Math.floor(bucket / DIRECTORY_PAGE);
   const id = directoryPage(part, bucket);
-  let p = directoryPages.get(id);
-  if (!p) {
+  const whole = await archive.shared(directoryPages, id, () => {
     const start = page * DIRECTORY_PAGE * DIRECTORY_RECORD;
-    p = archive.range(part.directory, start, Math.min(DIRECTORY_PAGE * DIRECTORY_RECORD, part.directory.bytes - start));
-    directoryPages.set(id, p);
-    p.catch(() => directoryPages.delete(id));
-  }
+    return archive.range(part.directory, start, Math.min(DIRECTORY_PAGE * DIRECTORY_RECORD, part.directory.bytes - start));
+  });
   const at = (bucket % DIRECTORY_PAGE) * DIRECTORY_RECORD;
-  return (await p).subarray(at, at + DIRECTORY_RECORD);
+  return whole.subarray(at, at + DIRECTORY_RECORD);
 }
 
 async function lookupObject(archive: Archive, obj: HashIndexObject, part: IndexPart, key: number, keyBytes: number, withIndex: boolean): Promise<Candidate[]> {
