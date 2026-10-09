@@ -8,6 +8,8 @@ no dependencies. Targets come from [apps/networks.json](../apps/networks.json) (
 |---|---|
 | `verify.mjs` | Asks nullrpc and a public reference node the same questions and reports every difference: blocks, transactions, receipts, raw encodings, logs, state, fees and execution, sampled from the archive, the live window and the head. |
 | `load.mjs` | Runs a weighted mix of methods from N concurrent workers and reports per-method p50/p90/p99, throughput, rate limits and errors. `--stress` ramps concurrency until the endpoint degrades. |
+| `scenario.mjs` | The benchmark suite: every method in four classes (normal, heavy, deep, deep-heavy), a simulated wallet-user scenario, and the user mix at each plan's rate cap, priced in credits with the plan economics. Writes `results/<stamp>/report.md`. |
+| `cost.mjs` | Cloudflare's own metrics for a scenario's run windows (Workers requests and CPU, Durable Object requests, R2 operations) priced into $ per 1M requests and the margin per plan. Writes `cost.md` next to the report. |
 | `lib.mjs` | Shared: argument parsing, the timed JSON-RPC client, hex normalization, deep diff, percentiles. |
 
 ## Keys
@@ -69,6 +71,35 @@ whose error rate exceeds `--max-errors` (percent, default 2), whose p99 exceeds 
 stage is the answer. 429s are counted separately from errors.
 
 `--json FILE` writes every stage with per-method percentiles.
+
+## Scenario suite
+
+```bash
+export NULLRPC_KEY=nr_…                       # a key on the internal plan: no rate or credit limits
+node bench/scenario.mjs --chain 560048        # calls, user and stress phases, about 5 minutes
+node bench/cost.mjs --report bench/results/<stamp>   # 5+ minutes later, once analytics settle
+```
+
+`scenario.mjs` builds its corpus from the chain (recent and random deep blocks, their
+transactions and contract calls, the busiest token contracts and holders from recent Transfer
+logs), then runs:
+
+1. **calls**: each case `--repeat` times (default 8), four in flight, shuffled. Normal is cheap
+   at the head, heavy is expensive at the head (full blocks, receipts, wide logs, real calldata
+   through eth_call, estimateGas, access lists and tracers, a batch of 10), deep is cheap at
+   random archive blocks, deep-heavy is expensive there (replays at n-1, 10,000-block logs).
+2. **user**: `--users` (25) wallet users for `--user-seconds` (60) looping a 15-step session
+   with think time: connect, balances including token balanceOf calls, fee quote and gas
+   estimate, confirmation reads, transfer history. Reports per-step latency and the credits a
+   session costs, so a plan's quota reads in sessions.
+3. **stress**: the user mix sent open-loop at each plan's rps cap (`--plans`, default
+   free,builder,growth,scale) for `--stress-seconds` (20) through the one internal key, so the
+   question is what the platform sustains at that rate, not what the limiter allows.
+
+Every sample carries its credits (apps/app/src/credits.json, the table the Worker charges) and
+the Worker's cache headers. The report ends with the plan economics: requests a quota buys,
+hours at the cap to spend it, revenue per 1M requests and per 1M credits. `cost.mjs` adds the
+cost side from Cloudflare's metrics for the exact windows, so each plan's margin is measured.
 
 ## Results
 
