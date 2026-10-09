@@ -37,17 +37,20 @@ binding, never from the cached object, so a request never mixes two branches.
 The log index (`src/archive/logindex.ts`) narrows an archived range to candidate blocks; every
 candidate is read and filtered exactly, and live-window blocks are read directly. A query runs
 under fixed limits (`src/methods/logs.ts`): a span of at most 10,000 blocks (`MAX_RANGE`),
-at most 1,000 blocks read after narrowing (`MAX_BLOCKS`), at most 10,000 logs (`MAX_LOGS`) and a
-budget of 256 reads (`READ_BUDGET`: index records and frames, offsets pages, block runs and
-live-window blocks, each one range read or one live call). The budget keeps a request well inside
-the Worker's per-request subrequest and Cache API limits, so a wide query is refused rather than
-cut off with an HTTP 503.
+at most 1,000 blocks read after narrowing (`MAX_BLOCKS`, candidates and live-window blocks
+together), at most 10,000 logs (`MAX_LOGS`) and a budget of 256 archive reads (`READ_BUDGET`:
+index records and frames, offsets pages and block runs, each one range read). The budget keeps a
+request well inside the Worker's per-request Cache API limit, so a wide query is refused rather
+than cut off with an HTTP 503. Live-window blocks are one live call each (no Cache API), 16 in
+flight, bounded by `MAX_BLOCKS`.
 
 Reads are planned before they are issued: the index cost follows from the manifest (a small index
 object is read whole, two reads whatever the filter; a large one costs two reads per field value
 and partition, identical reads shared), candidate blocks are fetched in coalesced range reads of
 `blocks.pack` (aligned 256 KiB windows, up to 2 MiB per read, so the same region reads under the
-same edge-cache key whatever the query), six reads in flight at a time. A query over any limit is
+same edge-cache key whatever the query), six reads in flight at a time with the next wave read
+while one is decoded, and a block's frame is decoded only as far as its logs need (the header,
+the receipts, and the hash of a transaction with a matching log). A query over any limit is
 refused with `-32005` and, in the message and `error.data` (`{fromBlock, toBlock}`), the range
 starting at its `fromBlock` that would fit; without a fitting range (too many addresses or topics
 for the index) the message says to narrow the range or add filters.

@@ -109,6 +109,53 @@ function logsJson(rec: BlockRecord, index: number, firstLogIndex: number) {
 }
 
 /** Every log of the block with its transaction and block positions, for eth_getLogs. */
+/**
+ * The logs of a stored record that `want` accepts, as eth_getLogs returns them, decoding only
+ * what they need: the header, the receipts, and the hash of a transaction with an accepted log
+ * (never the other transactions). `hash` is the block's hash from the offsets record, checked
+ * against the header. Equivalent to filtering blockLogs(decodeRecord(frame)).
+ */
+export function frameLogs(frame: Uint8Array, hash: Uint8Array, want: (address: Uint8Array, topics: Uint8Array[]) => boolean): Record<string, unknown>[] {
+  const top = list(decode(frame));
+  const block = list(decode(bytes(top[0])));
+  const header = list(block[0]);
+  if (header.length < 15) throw new Error("header has too few fields");
+  const number = toNumber(bytes(header[8]));
+  if (!equalBytes(keccak(block[0]!.raw), hash)) throw new Error(`block ${number} does not match its offsets record`);
+  const txs = list(block[1]);
+  const receipts = list(top[2]);
+  if (receipts.length !== txs.length) throw new Error("receipts do not match the transactions");
+  const blockNumber = quantity(number);
+  const blockHash = data(hash);
+  const blockTimestamp = quantity(toNumber(bytes(header[11])));
+  const out: Record<string, unknown>[] = [];
+  let logIndex = 0;
+  for (let i = 0; i < receipts.length; i++) {
+    const logs = list(list(receipts[i])[3]);
+    let transactionHash: string | null = null;
+    for (let j = 0; j < logs.length; j++) {
+      const [address, topics, payload] = list(logs[j]);
+      const a = bytes(address);
+      const t = list(topics).map((x) => bytes(x));
+      if (want(a, t)) {
+        if (transactionHash === null) {
+          const tx = txs[i]!;
+          transactionHash = data(keccak(tx.list ? tx.raw : tx.value));
+        }
+        out.push({ address: data(a), topics: t.map((x) => data(x)), data: data(bytes(payload)), blockNumber, blockHash, blockTimestamp, transactionHash, transactionIndex: quantity(i), logIndex: quantity(logIndex + j), removed: false });
+      }
+    }
+    logIndex += logs.length;
+  }
+  return out;
+}
+
+function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
 export function blockLogs(rec: BlockRecord): { address: Uint8Array; topics: Uint8Array[]; json: Record<string, unknown> }[] {
   const out: { address: Uint8Array; topics: Uint8Array[]; json: Record<string, unknown> }[] = [];
   let logIndex = 0;

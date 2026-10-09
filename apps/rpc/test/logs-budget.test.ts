@@ -91,10 +91,6 @@ describe("candidate blocks are read in coalesced runs", () => {
     // The run starts at a window boundary and covers both frames.
     expect(runs[0]!.offset % (256 * 1024)).toBe(0);
     expect(runs[0]!.length).toBeGreaterThan(0);
-    // Blocks read for the query are in the request's block cache: no further reads.
-    const before = source.reads.length;
-    expect(await chain.block(20_000_001)).not.toBeNull();
-    expect(source.reads.length).toBe(before);
   });
 
   test("results keep block order across runs and a topic filter", async () => {
@@ -140,7 +136,7 @@ describe("the read budget refuses early with the range that fits", () => {
     expect(await getLogs(chain, { fromBlock: hex(20_000_000), toBlock: hex(20_000_001) }, 2)).toEqual(scan((l) => inRange(l, 20_000_000, 20_000_001)));
   });
 
-  test("live-window blocks count one read each; the fitting range ends before the first that does not fit", async () => {
+  test("live-window blocks are live calls outside the archive budget, bounded by MAX_BLOCKS with the fitting range", async () => {
     const archived = FIXTURES.filter((f) => Number(f.block.number) <= 20_000_001);
     const window = FIXTURES.filter((f) => Number(f.block.number) > 20_000_001);
     const id = (f: Fixture): BlockId => ({ number: Number(f.block.number), hash: f.block.hash });
@@ -159,21 +155,22 @@ describe("the read budget refuses early with the range that fits", () => {
       },
     } as unknown as LiveApi;
     const objects = buildArchive(archived, { extra: (b) => ({ log_index: logIndex(b, archived) }) });
-    const chain = await Chain.open(new Archive(new MemorySource(objects), PREFIX), new Live(api), later());
-    // 12 live blocks under a budget of 10: the 11th (23,000,000) does not fit.
-    await expect(getLogs(chain, { fromBlock: hex(22_999_990), toBlock: hex(23_000_001) }, 10)).rejects.toMatchObject({
-      code: -32005,
-      message: `query needs more than 10 reads; narrow the range to ${hex(22_999_990)}-${hex(22_999_999)}`,
-      data: { fromBlock: hex(22_999_990), toBlock: hex(22_999_999) },
-    });
-    expect(calls).toEqual([]);
-    expect(await getLogs(chain, { fromBlock: hex(22_999_990), toBlock: hex(23_000_001) }, 12)).toEqual(scan((l) => inRange(l, 22_999_990, 23_000_001)));
+    const source = new MemorySource(objects);
+    const chain = await Chain.open(new Archive(source, PREFIX), new Live(api), later());
+    // 12 live blocks under an archive budget of 1: no archive read, 12 live calls.
+    const before = source.reads.length;
+    expect(await getLogs(chain, { fromBlock: hex(22_999_990), toBlock: hex(23_000_001) }, 1)).toEqual(scan((l) => inRange(l, 22_999_990, 23_000_001)));
     expect(calls).toHaveLength(12);
-    // More blocks than MAX_BLOCKS: the fitting range ends before the 1,001st block.
+    expect(source.reads.length).toBe(before);
+    // Live logs filtered like archived ones.
+    expect(await getLogs(chain, { fromBlock: hex(22_999_990), toBlock: hex(23_000_001), topics: [TRANSFER] }, 1)).toEqual(scan((l) => l.topics[0] === TRANSFER && inRange(l, 22_999_990, 23_000_001)));
+    // More blocks than MAX_BLOCKS: the fitting range ends before the 1,001st block, nothing read.
+    calls.length = 0;
     await expect(getLogs(chain, { fromBlock: hex(22_999_000), toBlock: hex(23_000_001) })).rejects.toMatchObject({
       code: -32005,
       data: { fromBlock: hex(22_999_000), toBlock: hex(22_999_000 + MAX_BLOCKS - 1) },
     });
+    expect(calls).toEqual([]);
   });
 
   test("the range limit names the range that fits", async () => {

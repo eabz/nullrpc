@@ -141,18 +141,17 @@ export class Chain {
   }
 
   /**
-   * Reads planned runs `wave` at a time, in order, and hands every block to `each` in block
-   * order (decoded records join the request's block cache). `each` returning false stops.
+   * Reads planned runs `wave` at a time, in order, and hands every block's checked frame to
+   * `each` in block order; the next wave is in flight while a wave is decoded. `each`
+   * returning false stops.
    */
-  async readArchived(runs: BlockRun[], wave: number, each: (rec: BlockRecord) => boolean | void): Promise<void> {
-    for (let i = 0; i < runs.length; i += wave) {
-      const found = await Promise.all(runs.slice(i, i + wave).map((r) => this.archive.readRun(r)));
-      for (const run of found)
-        for (const b of run) {
-          const rec = this.archiveRecord(b.n, b);
-          this.blocks.set(b.n, Promise.resolve(rec));
-          if (each(rec) === false) return;
-        }
+  async readArchived(runs: BlockRun[], wave: number, each: (block: { n: number; hash: Uint8Array; frame: Uint8Array }) => boolean | void): Promise<void> {
+    const read = (i: number) => Promise.all(runs.slice(i, i + wave).map((r) => this.archive.readRun(r)));
+    let pending = runs.length ? read(0) : null;
+    for (let i = 0; pending; i += wave) {
+      const found = await pending;
+      pending = i + wave < runs.length ? read(i + wave) : null;
+      for (const run of found) for (const b of run) if (each(b) === false) return;
     }
   }
 

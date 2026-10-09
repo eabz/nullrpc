@@ -1,0 +1,3080 @@
+{
+ "target": {
+  "url": "https://hoodi.nullrpc.dev",
+  "chainId": 560048,
+  "keyed": true
+ },
+ "head": 3783168,
+ "archived_through": 3782923,
+ "generation": 168,
+ "windows": {
+  "calls": {
+   "started": "2026-10-09T13:36:13.643Z",
+   "ended": "2026-10-09T13:37:04.632Z"
+  }
+ },
+ "cases": [
+  {
+   "cls": "normal",
+   "label": "eth_chainId"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_blockNumber"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_gasPrice"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_maxPriorityFeePerGas"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_feeHistory 4"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getBlockByNumber latest hashes"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getBlockByNumber recent hashes"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getBlockByHash recent"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getBlockTransactionCountByNumber"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getBalance latest"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getTransactionCount latest"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getCode latest"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getStorageAt latest"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getTransactionByHash recent"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getTransactionReceipt recent"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getTransactionByBlockNumberAndIndex"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getLogs 10 blocks, token"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_call balanceOf"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_estimateGas transfer"
+  },
+  {
+   "cls": "normal",
+   "label": "web3_clientVersion"
+  },
+  {
+   "cls": "normal",
+   "label": "net_version"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_getBlockByNumber recent full"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_getBlockReceipts recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_getLogs 1000 blocks, no filter"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_getLogs 10000 blocks, token"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_getLogs 1000 blocks, Transfer topic"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_call real calldata latest"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_estimateGas real calldata"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_createAccessList"
+  },
+  {
+   "cls": "heavy",
+   "label": "debug_traceCall callTracer"
+  },
+  {
+   "cls": "heavy",
+   "label": "trace_call"
+  },
+  {
+   "cls": "heavy",
+   "label": "debug_getRawBlock recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "debug_getRawReceipts recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "batch of 10 mixed"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getBlockByNumber deep hashes"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getBlockByHash deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getBalance deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getTransactionCount deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getCode deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getStorageAt deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getTransactionByHash deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getTransactionReceipt deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getLogs 10 blocks deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_feeHistory 4 deep"
+  },
+  {
+   "cls": "deep",
+   "label": "debug_getRawHeader deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "eth_getBlockByNumber deep full"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "eth_getBlockReceipts deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "eth_getLogs 1000 blocks deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "eth_getLogs 10000 blocks deep, Transfer"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "eth_call replay at n-1"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "eth_estimateGas replay at n-1"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "debug_traceCall replay at n-1"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "debug_getRawBlock deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "debug_getRawReceipts deep"
+  }
+ ],
+ "samples": {
+  "calls": [
+   {
+    "cls": "heavy",
+    "label": "eth_getBlockReceipts recent",
+    "method": "eth_getBlockReceipts",
+    "ms": 74.99850000000015,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionReceipt deep",
+    "method": "eth_getTransactionReceipt",
+    "ms": 193.1039169999999,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_estimateGas real calldata",
+    "method": "eth_estimateGas",
+    "ms": 5746.136708000001,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": 3,
+    "message": "execution reverted",
+    "credits": 50,
+    "archive": "hit=63 miss=22",
+    "response": "bypass",
+    "params": [
+     {
+      "from": "0xd811d399cdb07867ca8f0b17ae092b3ebf3f0252",
+      "to": "0xba9f82c3580eb807d693040736fa7f5411ac17cf",
+      "data": "0xc4d2d59a00000000000000000000000000000000000000000000000000000000003ebd060000000000000000000000000000000000000000000000000000098ed6cea49e00000000000000000000000000000000000000000000000000000000000000520000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006f8b4a8ace4ee00",
+      "value": "0x0"
+     },
+     "latest"
+    ]
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionReceipt deep",
+    "method": "eth_getTransactionReceipt",
+    "ms": 417.5965000000001,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionByHash recent",
+    "method": "eth_getTransactionByHash",
+    "ms": 92.86066700000038,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_call balanceOf",
+    "method": "eth_call",
+    "ms": 707.969916,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=24 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_call real calldata latest",
+    "method": "eth_call",
+    "ms": 3933.5494590000003,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": 3,
+    "message": "execution reverted",
+    "credits": 30,
+    "archive": "hit=43 miss=16",
+    "response": "bypass",
+    "params": [
+     {
+      "from": "0x824e38c94df5ded62c35889bb5bd7b35daec5fec",
+      "to": "0x76c9cf548b4179f8901cda1f8623568b58215e62",
+      "data": "0x1128956500000000000000000000000061d5c7a08e9182a09782d3d06ce4179a08c0fc570000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000014000000000000000000000000000000000000000000000000000000000000001c0000000000000000000000000000000000000000000000000000000000000008d0163ea8aaf0877b0f04e4217b4c3931a78ca35df4b97e2fa2d483cb9ccb7845f0b6ac8eda500000001000000010011b3ef2691c00f4576e2ba4ecd120b2c102b21478388a1c99f66420f5511d637373564626463393731180b3abc1adf56d82fc94e49078c0267a18e51ff0000000000000000000000000000000000000000000000000000000000006ac8eda2000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000060000e9c76cb2154723c504988d51e0baea4b255f51cb21ff221beee4087cba2b000000000000000000000000000000000000000000000000000000000965a79000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000041c03bd8de2dbe05e31e89d4a2ded6b430659f3290618136b05d2e8e4dd0d2fdd8617a360bbc7640bce43ff1c308ea779bdbcdf841319267b8f18b79f0102c88ea0100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004162da278dea9a57d655f7addfc8edb8cd330a4477b0d5461b27b293a729827caf2063d915fea0e3a238aafbd1938c3fcff9cdf99e2cd83200e2bcf05e1a2f3fc0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000417bbcdb2fef51ad0b442726659f10df5e04215c5c4958364f5479fbd1fca08dcc5f60bf9dbf832f0fedd80a93f0cd299589ea5d7b0cceba8afa994c8868f2074e01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000041e418edabde863272902db6a3924be98c4da744ddcdd4d5b39ed1684c65c84b8b29d1c8c50a55ec3642bd3e7a1fbaacb7792dc61253bb37c4f23a09cbb76bf5d10000000000000000000000000000000000000000000000000000000000000000",
+      "value": "0x0"
+     },
+     "latest"
+    ]
+   },
+   {
+    "cls": "heavy",
+    "label": "batch of 10 mixed",
+    "method": "batch[10]",
+    "ms": 665.3912909999999,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 150,
+    "archive": "hit=40 miss=0",
+    "response": "hit=0 miss=3 bypass=7"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getLogs 10000 blocks, token",
+    "method": "eth_getLogs",
+    "ms": 80.95449999999983,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query matches more than 1000 blocks; narrow the range or add filters",
+    "credits": 95,
+    "archive": "hit=14 miss=0",
+    "response": "bypass",
+    "params": [
+     {
+      "fromBlock": "0x3992f1",
+      "toBlock": "0x39ba00",
+      "address": "0x2117b8c1d6f1396292a6a1803c01c593596cdfd0"
+     }
+    ]
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getBlockReceipts recent",
+    "method": "eth_getBlockReceipts",
+    "ms": 130.88508300000012,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_call balanceOf",
+    "method": "eth_call",
+    "ms": 574.414667,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=3 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_blockNumber",
+    "method": "eth_blockNumber",
+    "ms": 53.39075000000048,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getBlockReceipts recent",
+    "method": "eth_getBlockReceipts",
+    "ms": 477.2905840000003,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=1 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByNumber recent hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 71.69341700000041,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionReceipt recent",
+    "method": "eth_getTransactionReceipt",
+    "ms": 120.16970899999978,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_estimateGas transfer",
+    "method": "eth_estimateGas",
+    "ms": 199.2699160000002,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_feeHistory 4",
+    "method": "eth_feeHistory",
+    "ms": 125.28883299999961,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_blockNumber",
+    "method": "eth_blockNumber",
+    "ms": 61.06854199999998,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getCode latest",
+    "method": "eth_getCode",
+    "ms": 321.42133300000023,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_feeHistory 4 deep",
+    "method": "eth_feeHistory",
+    "ms": 141.36091599999963,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=7 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getLogs 10 blocks deep",
+    "method": "eth_getLogs",
+    "ms": 76.46879200000058,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "normal",
+    "label": "web3_clientVersion",
+    "method": "web3_clientVersion",
+    "ms": 59.12175000000025,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 5,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBlockByNumber deep hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 60.48604199999954,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_getRawBlock deep",
+    "method": "debug_getRawBlock",
+    "ms": 249.7027079999998,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_getRawReceipts deep",
+    "method": "debug_getRawReceipts",
+    "ms": 63.85441600000013,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getLogs 1000 blocks, no filter",
+    "method": "eth_getLogs",
+    "ms": 52.96758399999999,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query matches more than 1000 blocks; narrow the range or add filters",
+    "credits": 55,
+    "archive": "hit=0 miss=0",
+    "response": "bypass",
+    "params": [
+     {
+      "fromBlock": "0x39b618",
+      "toBlock": "0x39ba00"
+     }
+    ]
+   },
+   {
+    "cls": "normal",
+    "label": "eth_estimateGas transfer",
+    "method": "eth_estimateGas",
+    "ms": 204.95091700000012,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_getRawReceipts recent",
+    "method": "debug_getRawReceipts",
+    "ms": 111.35091700000066,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getStorageAt latest",
+    "method": "eth_getStorageAt",
+    "ms": 263.9847499999996,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=16 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getBlockReceipts deep",
+    "method": "eth_getBlockReceipts",
+    "ms": 70.10112499999923,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_getRawReceipts recent",
+    "method": "debug_getRawReceipts",
+    "ms": 166.00429199999962,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockTransactionCountByNumber",
+    "method": "eth_getBlockTransactionCountByNumber",
+    "ms": 78.86999999999989,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getLogs 1000 blocks, Transfer topic",
+    "method": "eth_getLogs",
+    "ms": 7270.363333,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 55,
+    "archive": "hit=600 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_feeHistory 4 deep",
+    "method": "eth_feeHistory",
+    "ms": 133.22633399999995,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=8 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionByBlockNumberAndIndex",
+    "method": "eth_getTransactionByBlockNumberAndIndex",
+    "ms": 70.30766700000004,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_call balanceOf",
+    "method": "eth_call",
+    "ms": 556.7401250000003,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=3 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getLogs 1000 blocks deep",
+    "method": "eth_getLogs",
+    "ms": 84.94937499999924,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_blockNumber",
+    "method": "eth_blockNumber",
+    "ms": 64.79204100000061,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_chainId",
+    "method": "eth_chainId",
+    "ms": 65.69287499999973,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 5,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionReceipt recent",
+    "method": "eth_getTransactionReceipt",
+    "ms": 92.21220800000083,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getLogs 1000 blocks, Transfer topic",
+    "method": "eth_getLogs",
+    "ms": 7250.708374999999,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 55,
+    "archive": "hit=600 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionCount latest",
+    "method": "eth_getTransactionCount",
+    "ms": 308.96791700000085,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_getRawBlock recent",
+    "method": "debug_getRawBlock",
+    "ms": 96.22099999999955,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_maxPriorityFeePerGas",
+    "method": "eth_maxPriorityFeePerGas",
+    "ms": 285.7888330000005,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_estimateGas transfer",
+    "method": "eth_estimateGas",
+    "ms": 433.91212500000074,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getLogs 10 blocks deep",
+    "method": "eth_getLogs",
+    "ms": 75.28604200000154,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getBlockByNumber deep full",
+    "method": "eth_getBlockByNumber",
+    "ms": 60.227624999999534,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getLogs 10 blocks, token",
+    "method": "eth_getLogs",
+    "ms": 194.27599999999984,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_getRawBlock recent",
+    "method": "debug_getRawBlock",
+    "ms": 193.78449999999975,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_getRawBlock deep",
+    "method": "debug_getRawBlock",
+    "ms": 213.90679199999977,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionCount deep",
+    "method": "eth_getTransactionCount",
+    "ms": 330.416541999999,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=3",
+    "response": "miss"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_getRawReceipts deep",
+    "method": "debug_getRawReceipts",
+    "ms": 70.96125000000029,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getStorageAt latest",
+    "method": "eth_getStorageAt",
+    "ms": 292.26504100000056,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=3 miss=1",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getLogs 10 blocks deep",
+    "method": "eth_getLogs",
+    "ms": 86.3411670000005,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockTransactionCountByNumber",
+    "method": "eth_getBlockTransactionCountByNumber",
+    "ms": 74.14579199999935,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getBlockReceipts deep",
+    "method": "eth_getBlockReceipts",
+    "ms": 75.66729200000009,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getCode deep",
+    "method": "eth_getCode",
+    "ms": 73.47708299999977,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getLogs 10000 blocks deep, Transfer",
+    "method": "eth_getLogs",
+    "ms": 100.18575000000055,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query matches more than 1000 blocks; narrow the range or add filters",
+    "credits": 95,
+    "archive": "hit=2 miss=0",
+    "response": "bypass",
+    "params": [
+     {
+      "fromBlock": "0x37beb4",
+      "toBlock": "0x37e5c3",
+      "topics": [
+       "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getLogs 10 blocks, token",
+    "method": "eth_getLogs",
+    "ms": 358.52691699999923,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "trace_call",
+    "method": "trace_call",
+    "ms": 3980.6882499999992,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=78 miss=1",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "web3_clientVersion",
+    "method": "web3_clientVersion",
+    "ms": 67.1864999999998,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 5,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_chainId",
+    "method": "eth_chainId",
+    "ms": 59.662624999999025,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 5,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getLogs 1000 blocks deep",
+    "method": "eth_getLogs",
+    "ms": 4599.52,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query returns more than 10000 logs; narrow the range or add filters",
+    "credits": 50,
+    "archive": "hit=1017 miss=0",
+    "response": "bypass",
+    "params": [
+     {
+      "fromBlock": "0x29968c",
+      "toBlock": "0x299a73"
+     }
+    ]
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_call replay at n-1",
+    "method": "eth_call",
+    "ms": 375.6294170000001,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=33 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_getRawReceipts deep",
+    "method": "debug_getRawReceipts",
+    "ms": 64.2549170000002,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getLogs 1000 blocks, no filter",
+    "method": "eth_getLogs",
+    "ms": 53.11870799999997,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query matches more than 1000 blocks; narrow the range or add filters",
+    "credits": 55,
+    "archive": "hit=0 miss=0",
+    "response": "bypass",
+    "params": [
+     {
+      "fromBlock": "0x39b618",
+      "toBlock": "0x39ba00"
+     }
+    ]
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionByHash recent",
+    "method": "eth_getTransactionByHash",
+    "ms": 187.79541599999902,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getStorageAt latest",
+    "method": "eth_getStorageAt",
+    "ms": 195.50025000000096,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_traceCall callTracer",
+    "method": "debug_traceCall",
+    "ms": 3739.672917,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=77 miss=1",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionCount deep",
+    "method": "eth_getTransactionCount",
+    "ms": 501.2156250000007,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=2",
+    "response": "miss"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionCount deep",
+    "method": "eth_getTransactionCount",
+    "ms": 542.8682079999999,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=4 miss=2",
+    "response": "miss"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getStorageAt latest",
+    "method": "eth_getStorageAt",
+    "ms": 460.08687499999905,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=22 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByHash recent",
+    "method": "eth_getBlockByHash",
+    "ms": 89.35429099999965,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "miss"
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_getRawBlock recent",
+    "method": "debug_getRawBlock",
+    "ms": 76.77537500000108,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getLogs 10 blocks, token",
+    "method": "eth_getLogs",
+    "ms": 151.26691700000083,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_estimateGas real calldata",
+    "method": "eth_estimateGas",
+    "ms": 512.9226670000007,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=33 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getLogs 10000 blocks, token",
+    "method": "eth_getLogs",
+    "ms": 331.6970829999991,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query matches more than 1000 blocks; narrow the range or add filters",
+    "credits": 95,
+    "archive": "hit=15 miss=0",
+    "response": "bypass",
+    "params": [
+     {
+      "fromBlock": "0x3992f1",
+      "toBlock": "0x39ba00",
+      "address": "0x1cc686914390972f2d377715bef114e6e207e8c4"
+     }
+    ]
+   },
+   {
+    "cls": "normal",
+    "label": "eth_gasPrice",
+    "method": "eth_gasPrice",
+    "ms": 64.07620899999893,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "batch of 10 mixed",
+    "method": "batch[10]",
+    "ms": 212.09433400000125,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 220,
+    "archive": "hit=1 miss=0",
+    "response": "hit=0 miss=0 bypass=10"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBalance deep",
+    "method": "eth_getBalance",
+    "ms": 592.0110000000004,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=2",
+    "response": "miss"
+   },
+   {
+    "cls": "heavy",
+    "label": "trace_call",
+    "method": "trace_call",
+    "ms": 2402.4740410000013,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=79 miss=1",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_createAccessList",
+    "method": "eth_createAccessList",
+    "ms": 4240.811666,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=130 miss=1",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionByHash deep",
+    "method": "eth_getTransactionByHash",
+    "ms": 67.50287500000013,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getBlockReceipts recent",
+    "method": "eth_getBlockReceipts",
+    "ms": 190.90529100000094,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_maxPriorityFeePerGas",
+    "method": "eth_maxPriorityFeePerGas",
+    "ms": 238.58616699999948,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionReceipt deep",
+    "method": "eth_getTransactionReceipt",
+    "ms": 187.01187500000015,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "normal",
+    "label": "net_version",
+    "method": "net_version",
+    "ms": 53.428666999996494,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 5,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getBlockByNumber deep full",
+    "method": "eth_getBlockByNumber",
+    "ms": 67.78224999999657,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_getRawReceipts recent",
+    "method": "debug_getRawReceipts",
+    "ms": 88.82225000000108,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_call replay at n-1",
+    "method": "eth_call",
+    "ms": 2647.796124999997,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=354 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockTransactionCountByNumber",
+    "method": "eth_getBlockTransactionCountByNumber",
+    "ms": 71.40729199999987,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBlockByHash deep",
+    "method": "eth_getBlockByHash",
+    "ms": 79.33979199999885,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionByBlockNumberAndIndex",
+    "method": "eth_getTransactionByBlockNumberAndIndex",
+    "ms": 87.99962499999674,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getStorageAt deep",
+    "method": "eth_getStorageAt",
+    "ms": 56.98741700000028,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceCall replay at n-1",
+    "method": "debug_traceCall",
+    "ms": 434.7717909999992,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=61 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "batch of 10 mixed",
+    "method": "batch[10]",
+    "ms": 366.2692089999982,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 210,
+    "archive": "hit=3 miss=0",
+    "response": "hit=0 miss=1 bypass=9"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_estimateGas replay at n-1",
+    "method": "eth_estimateGas",
+    "ms": 1973.6663750000007,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=338 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_estimateGas replay at n-1",
+    "method": "eth_estimateGas",
+    "ms": 150.4055840000001,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=17 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getBlockReceipts deep",
+    "method": "eth_getBlockReceipts",
+    "ms": 77.78837500000009,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionByHash recent",
+    "method": "eth_getTransactionByHash",
+    "ms": 118.04879100000107,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBlockByNumber deep hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 56.22775000000183,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_call replay at n-1",
+    "method": "eth_call",
+    "ms": 2002.793375000001,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=339 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_gasPrice",
+    "method": "eth_gasPrice",
+    "ms": 232.4995409999974,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionReceipt deep",
+    "method": "eth_getTransactionReceipt",
+    "ms": 219.91112499999872,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "normal",
+    "label": "net_version",
+    "method": "net_version",
+    "ms": 48.15883399999802,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 5,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getBlockByNumber recent full",
+    "method": "eth_getBlockByNumber",
+    "ms": 214.93616699999984,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getLogs 1000 blocks, no filter",
+    "method": "eth_getLogs",
+    "ms": 53.44895899999756,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query matches more than 1000 blocks; narrow the range or add filters",
+    "credits": 55,
+    "archive": "hit=0 miss=0",
+    "response": "bypass",
+    "params": [
+     {
+      "fromBlock": "0x39b618",
+      "toBlock": "0x39ba00"
+     }
+    ]
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getBlockByNumber deep full",
+    "method": "eth_getBlockByNumber",
+    "ms": 62.17474999999831,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBlockByHash deep",
+    "method": "eth_getBlockByHash",
+    "ms": 64.18379199999981,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getStorageAt deep",
+    "method": "eth_getStorageAt",
+    "ms": 58.66749999999956,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "normal",
+    "label": "web3_clientVersion",
+    "method": "web3_clientVersion",
+    "ms": 49.40987500000119,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 5,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBalance latest",
+    "method": "eth_getBalance",
+    "ms": 186.0673339999994,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_estimateGas real calldata",
+    "method": "eth_estimateGas",
+    "ms": 3973.9097079999992,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": 3,
+    "message": "execution reverted",
+    "credits": 50,
+    "archive": "hit=77 miss=0",
+    "response": "bypass",
+    "params": [
+     {
+      "from": "0x39ae33894892f325f3dcef62f748c9ef60e8f9db",
+      "to": "0x89f88373077e955ac8e3e37cfdff24e27160e1ab",
+      "data": "0xe7ad199300000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000002e0000000000000000000000000000000000000000000000000000aa87bee5380000000000000000000000000000000000000000000000000000000000000000540000000000000000000000000fb893d812062f831726911e25f1191c5029ae80b00000000000000000000000000000000000000000000000000000000000005807f9dd6771eb23a915782db37bfb18d637bfbe4cac1572503101c8b2c2e6f2b830000000000000000000000004ae1953ebc409192df87b75ed5e84c7e1338c7100000000000000000000000004ae1953ebc409192df87b75ed5e84c7e1338c7100000000000000000000000000000000000000000000000000000000000000000e359f5697e43b86e609f65207884d0a118692b581911592bf11dae58e596a9c0000000000000000000000000000000000000000000000000000aa87bee538000000000000000000000000000000000000000000000000000000000000071d59a000000000000000000000000000000000000000000000000000000006ac8fba7000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000fa0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000041429a26f1fc0664a261c85b61968cfaab3a7a78411e05580b9a7ebb5b153d652b0cc7916306623c77026907e897c51d3b04298c1256469802206f2e0a131127141c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020a6e8211a8cf8972760135137607693063710b7381af671d7bbad68a61990b250000000000000000000000000152dc5df5910028d7fa78f4eb01bca114c7f9fce000000000000000000000000152dc5df5910028d7fa78f4eb01bca114c7f9fce0000000000000000000000000000000000000000000000000000000000000000e359f5697e43b86e609f65207884d0a118692b581911592bf11dae58e596a9c0000000000000000000000000000000000000000000000000000000000eddd4f8000000000000000000000000000000000000000000000000016345785d8a0000000000000000000000000000000000000000000000000000000000006ac8f3ee000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000fa0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001a0000000000000000000000000000000000000000000000000000000000000004152041deb58f61b573eee04ceed647091a533269ad8a7c0b98128ab0e5b409b9949acdfae19e7530eaaf25a7efb922f628778544fd738722e57b4808b2dbc6f451b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000722cca0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000fb893d812062f831726911e25f1191c5029ae80b",
+      "value": "0x0"
+     },
+     "latest"
+    ]
+   },
+   {
+    "cls": "normal",
+    "label": "eth_chainId",
+    "method": "eth_chainId",
+    "ms": 54.007165999999415,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 5,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByNumber latest hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 100.23070799999914,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_chainId",
+    "method": "eth_chainId",
+    "ms": 58.10062499999913,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 5,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getLogs 1000 blocks, Transfer topic",
+    "method": "eth_getLogs",
+    "ms": 8816.521541999999,
+    "ok": false,
+    "refused": false,
+    "http": 503,
+    "code": 0,
+    "message": "non-JSON (503)",
+    "credits": 55,
+    "params": [
+     {
+      "fromBlock": "0x39b618",
+      "toBlock": "0x39ba00",
+      "topics": [
+       "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_createAccessList",
+    "method": "eth_createAccessList",
+    "ms": 2833.407959,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=40 miss=3",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_traceCall callTracer",
+    "method": "debug_traceCall",
+    "ms": 1928.8799160000017,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=1 miss=10",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByHash recent",
+    "method": "eth_getBlockByHash",
+    "ms": 178.37587500000154,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "miss"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getLogs 1000 blocks, no filter",
+    "method": "eth_getLogs",
+    "ms": 63.22337499999776,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query matches more than 1000 blocks; narrow the range or add filters",
+    "credits": 55,
+    "archive": "hit=0 miss=0",
+    "response": "bypass",
+    "params": [
+     {
+      "fromBlock": "0x39b618",
+      "toBlock": "0x39ba00"
+     }
+    ]
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getCode deep",
+    "method": "eth_getCode",
+    "ms": 73.14091700000063,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=2 miss=0",
+    "response": "miss"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getLogs 10 blocks, token",
+    "method": "eth_getLogs",
+    "ms": 156.18112499999916,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionByBlockNumberAndIndex",
+    "method": "eth_getTransactionByBlockNumberAndIndex",
+    "ms": 99.29858299999978,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_getRawBlock deep",
+    "method": "debug_getRawBlock",
+    "ms": 60.117167000000336,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceCall replay at n-1",
+    "method": "debug_traceCall",
+    "ms": 645.4913749999978,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=75 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_getRawReceipts deep",
+    "method": "debug_getRawReceipts",
+    "ms": 69.46725000000151,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getLogs 10000 blocks deep, Transfer",
+    "method": "eth_getLogs",
+    "ms": 73.58466599999883,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query matches more than 1000 blocks; narrow the range or add filters",
+    "credits": 95,
+    "archive": "hit=2 miss=0",
+    "response": "bypass",
+    "params": [
+     {
+      "fromBlock": "0x1012d1",
+      "toBlock": "0x1039e0",
+      "topics": [
+       "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "deep",
+    "label": "debug_getRawHeader deep",
+    "method": "debug_getRawHeader",
+    "ms": 63.866791999997076,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionByHash deep",
+    "method": "eth_getTransactionByHash",
+    "ms": 59.27241700000013,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_maxPriorityFeePerGas",
+    "method": "eth_maxPriorityFeePerGas",
+    "ms": 215.16875000000073,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionCount latest",
+    "method": "eth_getTransactionCount",
+    "ms": 177.9975000000013,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBalance deep",
+    "method": "eth_getBalance",
+    "ms": 354.39500000000044,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=2 miss=1",
+    "response": "miss"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getLogs 10000 blocks deep, Transfer",
+    "method": "eth_getLogs",
+    "ms": 75.96025000000009,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query matches more than 1000 blocks; narrow the range or add filters",
+    "credits": 95,
+    "archive": "hit=2 miss=0",
+    "response": "bypass",
+    "params": [
+     {
+      "fromBlock": "0x1012d1",
+      "toBlock": "0x1039e0",
+      "topics": [
+       "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "normal",
+    "label": "eth_feeHistory 4",
+    "method": "eth_feeHistory",
+    "ms": 105.71529200000077,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceCall replay at n-1",
+    "method": "debug_traceCall",
+    "ms": 321.04108300000007,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=29 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "trace_call",
+    "method": "trace_call",
+    "ms": 437.70866699999897,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=5 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_feeHistory 4 deep",
+    "method": "eth_feeHistory",
+    "ms": 99.06725000000006,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=7 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByNumber latest hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 135.52512500000012,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBalance latest",
+    "method": "eth_getBalance",
+    "ms": 203.23912500000006,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "trace_call",
+    "method": "trace_call",
+    "ms": 304.4109580000004,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_createAccessList",
+    "method": "eth_createAccessList",
+    "ms": 95.96900000000096,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_gasPrice",
+    "method": "eth_gasPrice",
+    "ms": 300.838499999998,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getBlockReceipts deep",
+    "method": "eth_getBlockReceipts",
+    "ms": 105.1418339999982,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_estimateGas transfer",
+    "method": "eth_estimateGas",
+    "ms": 265.90416600000026,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getLogs 10000 blocks, token",
+    "method": "eth_getLogs",
+    "ms": 165.54841600000145,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query matches more than 1000 blocks; narrow the range or add filters",
+    "credits": 95,
+    "archive": "hit=14 miss=0",
+    "response": "bypass",
+    "params": [
+     {
+      "fromBlock": "0x3992f1",
+      "toBlock": "0x39ba00",
+      "address": "0x1cc686914390972f2d377715bef114e6e207e8c4"
+     }
+    ]
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_estimateGas replay at n-1",
+    "method": "eth_estimateGas",
+    "ms": 633.5364169999993,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=66 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionReceipt recent",
+    "method": "eth_getTransactionReceipt",
+    "ms": 88.12379200000214,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_feeHistory 4",
+    "method": "eth_feeHistory",
+    "ms": 175.9897090000013,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_call replay at n-1",
+    "method": "eth_call",
+    "ms": 251.85599999999977,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=25 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByNumber recent hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 100.98662500000137,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getLogs 10000 blocks deep, Transfer",
+    "method": "eth_getLogs",
+    "ms": 82.80679099999907,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query matches more than 1000 blocks; narrow the range or add filters",
+    "credits": 95,
+    "archive": "hit=2 miss=0",
+    "response": "bypass",
+    "params": [
+     {
+      "fromBlock": "0x2338e3",
+      "toBlock": "0x235ff2",
+      "topics": [
+       "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByNumber latest hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 130.40045800000007,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBalance deep",
+    "method": "eth_getBalance",
+    "ms": 451.36891599999944,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=2",
+    "response": "miss"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getBlockByNumber deep full",
+    "method": "eth_getBlockByNumber",
+    "ms": 67.29949999999735,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByNumber recent hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 113.35245900000155,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "debug_getRawHeader deep",
+    "method": "debug_getRawHeader",
+    "ms": 67.15991700000086,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getLogs 1000 blocks deep",
+    "method": "eth_getLogs",
+    "ms": 7270.916915999998,
+    "ok": false,
+    "refused": false,
+    "http": 503,
+    "code": 0,
+    "message": "non-JSON (503)",
+    "credits": 50,
+    "params": [
+     {
+      "fromBlock": "0x242e65",
+      "toBlock": "0x24324c"
+     }
+    ]
+   },
+   {
+    "cls": "normal",
+    "label": "net_version",
+    "method": "net_version",
+    "ms": 48.566209000000526,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 5,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getLogs 10 blocks deep",
+    "method": "eth_getLogs",
+    "ms": 85.01145800000086,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "deep",
+    "label": "debug_getRawHeader deep",
+    "method": "debug_getRawHeader",
+    "ms": 84.3548750000009,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBlockByHash deep",
+    "method": "eth_getBlockByHash",
+    "ms": 58.60258299999987,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_blockNumber",
+    "method": "eth_blockNumber",
+    "ms": 53.11650000000009,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_feeHistory 4",
+    "method": "eth_feeHistory",
+    "ms": 145.8866659999985,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getCode deep",
+    "method": "eth_getCode",
+    "ms": 58.87070799999856,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBlockByNumber deep hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 74.7041250000002,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "deep",
+    "label": "debug_getRawHeader deep",
+    "method": "debug_getRawHeader",
+    "ms": 57.72283299999981,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_traceCall callTracer",
+    "method": "debug_traceCall",
+    "ms": 449.7585829999989,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=5 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getStorageAt deep",
+    "method": "eth_getStorageAt",
+    "ms": 67.13845800000126,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionByHash deep",
+    "method": "eth_getTransactionByHash",
+    "ms": 56.33441600000151,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_createAccessList",
+    "method": "eth_createAccessList",
+    "ms": 1867.6099170000016,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=1 miss=8",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_getRawBlock deep",
+    "method": "debug_getRawBlock",
+    "ms": 59.085917000000336,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_call balanceOf",
+    "method": "eth_call",
+    "ms": 536.4558749999997,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=3 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_getRawBlock recent",
+    "method": "debug_getRawBlock",
+    "ms": 169.23608299999978,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_feeHistory 4 deep",
+    "method": "eth_feeHistory",
+    "ms": 90.3661659999998,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=7 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionCount latest",
+    "method": "eth_getTransactionCount",
+    "ms": 195.23804100000052,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getCode deep",
+    "method": "eth_getCode",
+    "ms": 69.08950000000186,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_estimateGas real calldata",
+    "method": "eth_estimateGas",
+    "ms": 1288.8322919999991,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": 3,
+    "message": "execution reverted",
+    "credits": 50,
+    "archive": "hit=1 miss=5",
+    "response": "bypass",
+    "params": [
+     {
+      "from": "0xc479c8b56e9d243801e212e633aa8c3081a08ece",
+      "to": "0x13090f92dd97d5eb6e2c42f3a4709a3a923236d4",
+      "data": "0xde5e0b9a000a485f2aea9272a9bb7a314383f234cfb40422f11ffeb6f66bf92341dab19500000000000000000000000000000000000000000000000000000000003a3adc00000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000002a00000000000000000000000000000000000000000000000000000000000000380000000000101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001c000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000014000000000000000000000000000000000000000000000000000000000000001600000000000000000000000000000000000000000000000000000000000000180000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000010e12a797120759c000000000000000000000000000000000000000000000000000000985aeab36e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006a551feb4fc464743ae0e0343d6b5bdd1bf62ffe9b1c7c2fb63fa08979874f6f266e9ac750c9f0433420ed914940b61303d97a653b58afe4b132797854ec6548f6e9c8b81935e242499ef09c4b42a6128bff8413dbbd661eab164b8d47e8bc652ccbce255a38fcf05133bd8ad10f410e9f78a21a3b0f90a70b360f0566549ac5686f027a57f530418481ec3f63b74ddf6a91642fc569c0e8155b7c17a0d41ecc427286ea91b17bead6a788b34053e6bc1c2d24c2fe158d3e3e3fc09d3c22a43fd00000000000000000000000000000000000000000000000000000000000000064562a077d2e3825f3ba46888b1e4932b56bca73d8acc05749b6f5f3d740f5d2b1f30630f869e83f8052417eb5735b893cdf57cea1db2090f49dc5441f66caf2d5a04555b118301918f46d32c92a44b5b11138c79ad0dc8504abae3dda893fe0c09720263c744b8fb617cbc1dd5121cdc98f3be1a57739e37f0cda75e4633d4d11ddfa92b5cfe52aa35471f652a20b8f98e179ed96b5e3a98e35936aeb789b70c25b925ec03a2f2a2573db66e533121c93074af43e71a454198be2585248ace51",
+      "value": "0x0"
+     },
+     "latest"
+    ]
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_estimateGas replay at n-1",
+    "method": "eth_estimateGas",
+    "ms": 704.0457080000015,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 50,
+    "archive": "hit=82 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getCode latest",
+    "method": "eth_getCode",
+    "ms": 351.71979199999987,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=3 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByNumber latest hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 83.88912499999788,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_call real calldata latest",
+    "method": "eth_call",
+    "ms": 25293.004958999998,
+    "ok": false,
+    "refused": false,
+    "http": 200,
+    "code": -32005,
+    "message": "execution exceeded its time budget (timeout)",
+    "credits": 30,
+    "archive": "hit=445 miss=30",
+    "response": "bypass",
+    "params": [
+     {
+      "from": "0xe7c9c8804b954a95429b6f5c631aea899ebabcfb",
+      "to": "0x5c2a019cb863b67bc1f749056a64c6424d017825",
+      "data": "0x731bfd8400000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000001360000000000000000000000000000000000000000000000000000000000000264000000000000000000000000000000000000000000000000000000000000039200000000000000000000000000000000000000000000000000000000000000096ff064b881a0c0fff844177f881a313ff894bfc6093d33b5514e34d7faa41b7ef0b43555ace6b39aae1b894097d0a9fc17f504c62fea598fa206cc6f5088e6e45ee62665949c883f9e0f6f002eac32e00bd59dfe6c34e92a91c37d6a8322d6489057702f36a95d62dffc7f6a121ad53458ce83b25464c9846baa841808fee4f2fd7f402a699378a97cf4b1f46fb772a465535d2fead1457bcb27b58312638e2645727b0491521b7971cfce6f3b65c96bebc704619e1340d90c2b8a5f9e99d8e918eb6660573f5b4d20aaa061371033891224e5fadc80278e61228dc8937629bc0989c41cff8749970bc88fde35b631ac9a502e8b4401f591c5775a7968b8c3aaeb4b2a82b96eabbf746992ac923dd0564b13fd74a357308110e549a4f6bbecf9a48bad65af24c280d7ed70aa303042a48b2d71a6745e57019fcbf63552675c66f13ec3ae6d9a65df1ae5953598775a86c251d530770729433b0e40d1f2141afd649cc5432cf7a153292d28f2cd81750a7a0ba2859c05ce8a6b9b76577126278996e9af1e550308c0cac217ed61202728ed504b9299a42511147400acc4ccd249fa0cfefabac19e371465620cae3084d025097d52e19ad70365316a7825c8eb382ebc2c513234e2d3046f246a801c4bd13461fc7c3446963583fd5feb6fd91288270fc0d354c0975ef05da5c9853edfff5d9967edfc8efed31780e02079e460b6c1c6578301a20d006835ee40e8e264ce3cc42e79008bcfd046ec8ec149b6a770cf673a81e7ad8ba5344023ecc26c35073d8b4a12448f3614194a363f57bab3836c702757fa9cc437f7a89cf5c6b75428568d4ecebe4749be536ef8590fa9369c3944bb65b4d0390e01887c3ee73e63cca96dc02284d8e1d4de261db2e2b5015a816267a55c406de7935b770f890bc384a4edb0f4de69067f34bbe101920eb2a27401f0de93ec87bf774f5b17095dd03bab6c691b8dff7ecfa8bb8155541d4952b52d0c6412c205f91d5e0d4f0d56f7b7885588485a735071b7fdb7628240051ae2b1b43ec7f6691d6bf679978bab5c093fa45ee74c0baac6cc75649dc59cc21d3cee9ef626e0e51af00f547361de8015348d47d9189f1c12c69297dbe06e98bb5160a9630e8b9343f7fccdecf67bf1a59fe8d2b58e4e8d3246a74f5cd6d6fed5d1a54d1883f9671d8c8e5f8adc57d9e086a16ceb0d9c854fe8d7ed5c2369daabee9d95d048d2a009f6286570e4ad419dbba8490ef0fc549cb6cc524f7d1ec3a56601e2aa61d4354b3e5dbcb86733bac211c073a4eee116953811ef480216a78fa062e57bcf79ec1579df888e32a3f07cc899dc60a904a55e6d5b9d83e5bfb7564f6993c04cda85f392b2692bf0e068a0207c9693bab10d3ba31c84e9430ef718ab2066928f31a8a233c10292a8eba187040ac68bf33657d4e04a257a23510c3896df098ac2087ddd7401a9a9f19e0d60d4f07bb17b4d06d091d71e66304f0fcf9bcf47f254faee2e1252a89ca72caae3e13f8fb802b48d5656914e2871df6cc7b01aa24a5f3a7c6a9e4c8653f585a4076e7f740e72a66bab9decab3e4ba4a51562c03d7a88d6c4e746533bd35d9f7ce1aa75edffbd08c0dbec4e217d008cfa9089cd14ca937acd80d09a8a03075b17303c48cdd13f71ff32b061ef426f6278bbca5e34d2f9b8f4a05d531b5cc03e06624285b7a00eb20e5b23dfdf53e498644d7dc42830bdc608af07e9ec99655daee76f66168c5a7222b2ff96ee07b48b2722ec5f3d8462b1cf323f17cd65568a8349b94a47e414db695620043be926eb5fbfd91879a0c0be4e43cacda1599ac414205651f4a62b614b6be9e5318a182c33eb03ce172a7f43b8b5dd8ec0eb6423e0f0e45ca7b1a010c75b63f6960eae6110da114c115470c37c508a1a2671e4e52886a803f144f2558a40f3f140879b9e08aeec60e8fa56daa19deab088e966efdaa1a2f9784886365d82dd88b2ff610e04c634e206e050be40b9737e839f937d3aca3a5a9845ee91edb4228c71f6bb66a5b7692672906cbedad5b67ba80d7e4361725ef6b8fa45eb9dd04b335529420e01a7fddc423dcf5971b10c864242661b0854827fea55e6f28d43f91d264d58fe15c10c3c616edf761b05752b7dbe696995fec0b1e54988edaee794d878464e57ba591bda84bcad85305d53b74f4c6b0fe84e6eba79f95967a08a863922bb9939b55df5a5e4f369b4443144ef50423db3bf805a198a79988d38e643bf64ef94f3b5a92ad9d453178b9fe4e18e9f6ef3fdf854252ad4fb80199af0b523008e2b2a98c8b127db982ca4995d2cc466cec3706824736278b61f03487ed9d331307ee74d1c0003be01f3739f0ff5036e49c55522182c6b315fa9d0b617f458c8907773f6ff5e6373264377457d4b6c6f77b0fd89cc39283825be5f7084de8784af965b4c7a47af453f9af318a08252e6f451438800702a30cd886c1d2bee963f931f7665a8837f165a53b80ce190586d16e08bf38e04f05dc138a232aeb4988fabbebf51aee78cb1f99b030f9f0452ed5deb965e44a93e602155b9269256d0635743814466f1e64eec001e33810dee609d65249b5b7caf6f7f68370e4e85d5be28c621470481578b32016cea5e33cee66371dc9b04fa9eb3c8f83a7b654c673670cdb19b8dcbc506859029d5381dd6ed6bf6e1119c25993259f2b24186c73b321420cae1b66b4538e498cf784e3d7cb2275cbde0b5f315ebab6137cdff49c581751df89755afbbe5c07bb8d60a6a2444dadc3b74ae3305a67aa808b10b541551d8e29cab6eb176690c976e080d4c2d90554db2135a924b55461a7f322e1572acf91800e9ab6034f175300a6397e8e67fca9cf2ec694d2de1d795d4911f5d4dd826315f5f780b44572c4e8e9637838099a1efc6b60a116ae075275c5d952d1448a78eea45cd2cd0c189c6c17a71744aafaf8f193ef0cf88ee5984f687129d782695a0cadbb64adee6e57dda3dcd125d23ce97b7d6aad32e7c6b6509d71049dc07f83bf0eae978843fee6572496966c921fb08dc356d3800561923915d5b900e7008259698ea4706be18f1c9f6e4132e179ef93d36be6743b9157192e87784b75a7b81e7ee451cb8dbbb9911235d8d5968c18405ef8643315119ab67822390eb58ad6c23261e3b431ea59ea90c69aead976d8bb52ce88a133106010158cd6c92c119fc8fae14a49e3601a2a7941583dde41d6a5862bd0f1a998368ce61358a9eaac68bf9a5c2cec8b1066821f985fec3ffb3a9960ff16f6af51a26a0a54a9db2512981fd50e52e771cd3dbc9a6d5516805fa7c23fcd8afce0906b0175d8b12a43373fdc4cee75ffa1976cb90915859810b01bfe692173b64a1151772f32e8424a42a56ec7be47efc1591f6169301ca4c06729ce0c410211c0c722530bd74f307559797125eb11eba070770931f602d094f2056ba044acaccf7e549b440dd954fe0abc9c1400d3bee5685b5d20400364ebf8c0bec5125f0a21aed0b0275dec50e7a8e94787c50111abe5c986d3b9ba292e406496aa64203678e968ac02b19be1c235671c8b37ff4d17c3c4b4f2d33fb32903be79eb624178fecb2efb613b14452819522f2eb1ba2aa6dfcac361b906c77566714e2d45f07adf61bf42f7418aa9ab6169fa1959ee2b97a578f88d012e9b2baa765eb8e840e1bcd7aa5f1f833a103310a82afceae1d3cf77c3fda3d0406d2516366821943cb943f562686f106c38e23674397b4eaa02b125428f8dd526a6ebf44ab0afbed0f5c3f70b56eb8bd1a3adbb05a95eb94cdc5cbac8ecba90dab51679434ea0ad804cccdbdf8865096b6b5617e367916c2f7bee583c5dc86e68e2105a74a4d189aa21e5fb872bca816956dccb275bb55c5fb7fb65a4cf999aefbbfc63624c55e1bea96c857970c7a3f9985afd87631d6cb51195f82a54224f25fa2806f77c890c38ed3d56e8a697c7b95f6ae2d88208743688063356eaeb9928d3e3841c93ddd02828ffb672e999d81c44f1d086445418967e451226e4cdc946c4c3ff61f80da3f283c467d26fb0a14639565948d11a09b947fac62db0e83932dcdfb4a7c725d053405f49445abda9cfcec94b53d6afaed239b051cd9a8deff31569ae7a583d424ee6c0f766526478380c18c2c84d782e5d98602b250dddd30d526b4ae66d170e1ab204ab0567531798d3bbd09737f6c3c66f86722b7c5df9a9b428c411118533bf6cbc5386ba3ec96162762ffa01a8803020d7ce1f64e066f00e7e0e66dd2be620c9de4cf9a0f795b385bae85a0b3c45623ace1c3ea1545d538487411de88545198296db02e40667f02a303f6ad1407a7d11647fecc439148a8820d51e342dcec0368433c440baf94c509c9a214e9e0fda8de32d9198e3bd14279b3758023a009d594cae4731a1fdaa54ff45a64d405a4227a3c18e9ee22444f144e499ac2562b3a0426f36919df210de1acf2bfab256dbc0a85efef41dc2f5b31e444230834c983524a861a3432e035353f5041ee29e3e880b54afe880d9998567ffdf6774f8c334413e5868a467a91bc940f4ceec9bea408d88ecc565ed3a5e16ce4abf087fe2f3a3bb323613a70749fb2d7e8d7eb5d9186ffa32e4a9b85bcb507b4b58637ec49459acac226b60d094ff773af258b99602a57e84806349677419ce158a7f991877c8d8a47eb436b4c2496daa622cb0da8ab7af1d081d9a092ae9eb6e37a9921d983d7eb62243109fcb650c1d4b8bd61e23a6844528fc3ee375be2631522a8e746fa87c4dfe7c43644b088e77c26310993cfedee9038e4b55968e7aaa8ef441323f14ee1118f187340da7592cddab836b8440724f0f737a65adea74bdf2ab11ee96d1c810a96e3a40744a221916d1a2aae611b49875f42c4c624f6ebeffd6db054beb9d9ce319c7e69c0d0838032905f5ffb3c307eb8ab49f9fd01c4c3e901f891152ec697dc02894210296af591995c15d02178f0e93fd63196d13329c5f5a0bdfb7b2c3269b714c5f29c727866880df31f81b4c25a0475acbd36bc81e415584812f0f32e999627c9c16e607f9fca19cb47099dc377f6c5ca05978019025607b47a2db7b9e87c39881aed58d423e52b329ae7fbcbe1b549ff1d1bd0456bb562bb18c5629e260be27e6e9c4f898b855c3a4ec585207d934d90b3d0b997ebc0714b012401218e81a927404fabdf7f7614af8349fe5ade5d5a5664382c19527e2f412e45792cf10cb067715c57caa1c1c6333a138b0b62d63a9c96e7b640a65b34dcce7c4135b8eaaf28631ffc0a54e814cbee742c03f79e76dfab291d1884a63a2a8aaf5f2f49234a2f29491ae56e4809353ad6c2cec9949eff5e912a4d0373b46a6715fd3469321aa561a6489f3dfb1b2cfb048ab8e9db088391e5be6ae980dce4728cdb16e6bc5c7de8ffce9f8460a71c52536aedcdc5c255eddc478be5393ac521ec764dd2b94303cbea78536300e3f0de9318a0d12216d15f0d176032ac385824885eff7c3ed1496b009cbc16fcf6933dc2a9ad8f287ed528bdc603e39d98d49d8959316295b8792141381835c202df77f1b84ffe5a4b28cc434adb5a031fb234e09fc97cb28659b6bfcff414ef2a4c963fb43e5f22a6b801ca30412e28febb4d4ae92a2cebb7f093273ac0f50d077673187b2142ef3cff8a77799a3f207126ff02c5520adb14bfd1265e5a3ee8c368e7104de4c9d0c2024c674eca9c4f3e9c42143d37c96ddcbec04fcc0ec32b6a858ff55654e077bc86e7bd3c70bd3e1d98770bf879317e8a9cd85fdd58f5dd0cb319d387a323034631d79554726f45f74dc6e8c157fc4e3617bc0cfbf35142565174397b323a631946ca4e52826747b5166cceb21b905c446dc893b53d49c7a5d35c6ff64ce9356eae1d1d477e72968e5f01598840405d7de3a2378ac3e391195cee2dc39566802a6bac77d416a551ce10d5f21bf43e555d1d998659bbbdf1f8710d2662d9f23d9314fc7d5aeff1c56e06eef226da8e027a20c5662a268f8f75df1d2f08b18210ca71ce16282f2aad44832fbb00e4b42c7d81f9cd86a63bd5c6fe995eed9f68489b4d27014460fb36f10846c5041ab987371bdb6a6e95672ef0f456d24f2159ccdd6329ce0d60a3bd0c77f0b4ed5b653722ca298d921d2abf960d06f8d4badbf4317dcb53a41b23f59a19edc868ef11e300dfcb2c1d8cc0bfa4e18000ee5516fe22513bea720a4e62771d649ca4dd54582789a3282021c898548be7fb915c13c498257743135dfeadeddabacd1e2d2384e5ed0e368e0f590ff320c1508d494019fd97ffaa34ebeaeb1b808ed0583b3b0019bde46a5cd59b9169ae89ed58e382c48c2bf19a383f7b436583e011794293a04faa440816f3354501fe46138a7c873cbb5656c51298d3bb038c9c26279a3e99e2ed8f58a63ba4c4e4531ff962383ae9eeb3bbf5c821b105dc0c906483287353c40ce291666435685700246e7e459c90c54fa25c367696c2e9d4c9b3ede6d08720ab6a375881158f3888eda49fa47303d1ffb2b2f94414001f155ceeeb012c5fd20194295068c9667bf0d0b5c5c041ca0b74707bab8443969de94444ac43f397a4899b47ab2d6f28789faa54b80d5d7ae4193129c375105b99a095e5a10afc2c8bbf3df0b1e32bc503a3cf6ba5838b1136378773ec4f14cf87f4eb7d83304da6f3b65ad2325f436071432df0baa8fb94594db1d88ecf1339c6394aea66efafa2ac1660efc39ab00f336673a3c4ea8266e2f02373ff76c13253beea9906f80bbfbef12b9ec5e9661391400000000000000000000000000000000000000000000000000000000000000960000000000000000000000000000000000000000000000000000000005f5e1000000000000000000000000000000000000000000000000000000003a0de1b94000000000000000000000000000000000000000000000000000000789f4dc6b0000000000000000000000000000000000000000000000000000000007bbc4adc000000000000000000000000000000000000000000000000000000005660d8ac00000000000000000000000000000000000000000000000000000000c5d01b300000000000000000000000000000000000000000000000000000000060558a7e0000000000000000000000000000000000000000000000000000000083ad86ac000000000000000000000000000000000000000000000000000000010d0d385c00000000000000000000000000000000000000000000000000000000877136c6000000000000000000000000000000000000000000000000000000008fa796c800000000000000000000000000000000000000000000000000000000341cf334000000000000000000000000000000000000000000000000000000007b7b714c00000000000000000000000000000000000000000000000000000001b1536580000000000000000000000000000000000000000000000000000000008ce025e0000000000000000000000000000000000000000000000000000000003edbd2d6000000000000000000000000000000000000000000000000000000008d07b9b600000000000000000000000000000000000000000000000000000000d769438000000000000000000000000000000000000000000000000000000001611ce190000000000000000000000000000000000000000000000000000000006cc09d440000000000000000000000000000000000000000000000000000000038160b2e000000000000000000000000000000000000000000000000000000005fa0d1d8000000000000000000000000000000000000000000000000000000002957e0a80000000000000000000000000000000000000000000000000000000029020c000000000000000000000000000000000000000000000000000000000000848f8c0000000000000000000000000000000000000000000000000000000114058b78000000000000000000000000000000000000000000000000000000000008133c800000000000000000000000000000000000000000000000000000000016a524c0000000000000000000000000000000000000000000000000000000001faee38000000000000000000000000000000000000000000000000000000004c5a8240000000000000000000000000000000000000000000000000000000003d36c6c00000000000000000000000000000000000000000000000000000000001278db80000000000000000000000000000000000000000000000000000000006516e800000000000000000000000000000000000000000000000000000000668706480000000000000000000000000000000000000000000000000000000017cfe2e0000000000000000000000000000000000000000000000000000000000008c93e400000000000000000000000000000000000000000000000000000000070889800000000000000000000000000000000000000000000000000000000c7c7a57000000000000000000000000000000000000000000000000000000001c7f03318000000000000000000000000000000000000000000000000000000001fd33d5c00000000000000000000000000000000000000000000000000000000005f4c05400000000000000000000000000000000000000000000000000000000350c5280000000000000000000000000000000000000000000000000000000000000021a00000000000000000000000000000000000000000000000000000000005d9a1c000000000000000000000000000000000000000000000000000000001cc9fec000000000000000000000000000000000000000000000000000000006641680400000000000000000000000000000000000000000000000000000000000526494000000000000000000000000000000000000000000000000000000002bedba40000000000000000000000000000000000000000000000000000000000428678000000000000000000000000000000000000000000000000000000002ed597f000000000000000000000000000000000000000000000000000000000002e099240000000000000000000000000000000000000000000000000000000002eec1c000000000000000000000000000000000000000000000000000000000034731fc00000000000000000000000000000000000000000000000000000003ebaebfc0000000000000000000000000000000000000000000000000000000000e3ed9c000000000000000000000000000000000000000000000000000000000007bcfb4000000000000000000000000000000000000000000000000000000000075826c0000000000000000000000000000000000000000000000000000000011c31e80000000000000000000000000000000000000000000000000000000000b9034800000000000000000000000000000000000000000000000000000000030feb980000000000000000000000000000000000000000000000000000000000ac9d740000000000000000000000000000000000000000000000000000000000000018600000000000000000000000000000000000000000000000000000005c81a4000000000000000000000000000000000000000000000000000000000002d0062c000000000000000000000000000000000000000000000000000000000003ec8ed000000000000000000000000000000000000000000000000000000000b34a700000000000000000000000000000000000000000000000000000000000baeb90000000000000000000000000000000000000000000000000000000000022545480000000000000000000000000000000000000000000000000000000000b3bed800000000000000000000000000000000000000000000000000000000009754a0000000000000000000000000000000000000000000000000000000000501ee38000000000000000000000000000000000000000000000000000000004003f08000000000000000000000000000000000000000000000000000000000014a10e00000000000000000000000000000000000000000000000000000000083f6f580000000000000000000000000000000000000000000000000000000000008806c00000000000000000000000000000000000000000000000000000000066544a00000000000000000000000000000000000000000000000000000000000354c9200000000000000000000000000000000000000000000000000000000000a802f0000000000000000000000000000000000000000000000000000000005f4ccd4000000000000000000000000000000000000000000000000000000000112c6300000000000000000000000000000000000000000000000000000000004c89a0c000000000000000000000000000000000000000000000000000000001556a58000000000000000000000000000000000000000000000000000000000299aa2800000000000000000000000000000000000000000000000000000000004cad90c0000000000000000000000000000000000000000000000000000000006acfc00000000000000000000000000000000000000000000000000000000000cfe6a800000000000000000000000000000000000000000000000000000000006560260000000000000000000000000000000000000000000000000000000000af79e0000000000000000000000000000000000000000000000000000000000014ab5b800000000000000000000000000000000000000000000000000000000000c385000000000000000000000000000000000000000000000000000000000000bbede0000000000000000000000000000000000000000000000000000000003080680000000000000000000000000000000000000000000000000000000000000014c00000000000000000000000000000000000000000000000000000000043ff6c00000000000000000000000000000000000000000000000000000000002e0f74800000000000000000000000000000000000000000000000000000000000013b300000000000000000000000000000000000000000000000000000000006498bc0000000000000000000000000000000000000000000000000000000000199b4f000000000000000000000000000000000000000000000000000000000082acbc00000000000000000000000000000000000000000000000000000000042371f80000000000000000000000000000000000000000000000000000000003c45a9c0000000000000000000000000000000000000000000000000000000002146d2c00000000000000000000000000000000000000000000000000000002aff4f1800000000000000000000000000000000000000000000000000000000000023f560000000000000000000000000000000000000000000000000000000070889800000000000000000000000000000000000000000000000000000000000000002500000000000000000000000000000000000000000000000000000000008094040000000000000000000000000000000000000000000000000000000005e93b800000000000000000000000000000000000000000000000000000000077bee840000000000000000000000000000000000000000000000000000000000c7516400000000000000000000000000000000000000000000000000000000001bec7c800000000000000000000000000000000000000000000000000000000004bebba0000000000000000000000000000000000000000000000000000000000258aac0000000000000000000000000000000000000000000000000000000000366da20000000000000000000000000000000000000000000000000000000000073b1a0000000000000000000000000000000000000000000000000000000000000a81000000000000000000000000000000000000000000000000000000000c75164000000000000000000000000000000000000000000000000000000000027fcd740000000000000000000000000000000000000000000000000000000000bac548000000000000000000000000000000000000000000000000000000000054d65c000000000000000000000000000000000000000000000000000000065c385740000000000000000000000000000000000000000000000000000000024cfbb96000000000000000000000000000000000000000000000000000000004cb056e8000000000000000000000000000000000000000000000000000000005a135e3e000000000000000000000000000000000000000000000000000000001cd0abbc00000000000000000000000000000000000000000000000000000000e8119e4e000000000000000000000000000000000000000000000000000000009809d54200000000000000000000000000000000000000000000000000000000424119040000000000000000000000000000000000000000000000000000000070fde54c00000000000000000000000000000000000000000000000000000000461b4ad60000000000000000000000000000000000000000000000000000000013f5c978000000000000000000000000000000000000000000000000000000003b49ba0c000000000000000000000000000000000000000000000000000000018cdbc88200000000000000000000000000000000000000000000000000000000160807a8000000000000000000000000000000000000000000000000000000002faabd5e000000000000000000000000000000000000000000000000000000012845b7e800000000000000000000000000000000000000000000000000000000279a82fc0000000000000000000000000000000000000000000000000000000020c390cc0000000000000000000000000000000000000000000000000000000007c18cc80000000000000000000000000000000000000000000000000000000049d9a3c000000000000000000000000000000000000000000000000000000000321d4dc20000000000000000000000000000000000000000000000000000000055a21c8c000000000000000000000000000000000000000000000000000000002b5cc4e00000000000000000000000000000000000000000000000000000000020db6850000000000000000000000000000000000000000000000000000000004eda6c9c00000000000000000000000000000000000000000000000000000000f2a42566000000000000000000000000000000000000000000000000000000005124a5da0000000000000000000000000000000000000000000000000000000027ed7b38000000000000000000000000000000000000000000000000000000000a98ba02000000000000000000000000000000000000000000000000000000002b3a6fd000000000000000000000000000000000000000000000000000000000000000096000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed84000000000000000000000000000000000000000000000000000000006ac8ed840000000000000000000000000000000000000000000000000000000000000096000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001",
+      "value": "0x0"
+     },
+     "latest"
+    ]
+   },
+   {
+    "cls": "heavy",
+    "label": "batch of 10 mixed",
+    "method": "batch[10]",
+    "ms": 424.71987499999886,
+    "ok": false,
+    "refused": false,
+    "http": 200,
+    "credits": 205,
+    "archive": "hit=5 miss=0",
+    "response": "hit=0 miss=3 bypass=7",
+    "message": "insufficient funds for gas * price + value: address 0x275cC3d451085b3A80E98fcA40A7A9eAE3762dBf have 0 want 1"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByNumber recent hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 73.84683399999994,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getCode latest",
+    "method": "eth_getCode",
+    "ms": 350.2830419999991,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=3 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "web3_clientVersion",
+    "method": "web3_clientVersion",
+    "ms": 59.87858299999789,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 5,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionByBlockNumberAndIndex",
+    "method": "eth_getTransactionByBlockNumberAndIndex",
+    "ms": 69.69712499999878,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByHash recent",
+    "method": "eth_getBlockByHash",
+    "ms": 188.96329200000037,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "miss"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBlockByHash deep",
+    "method": "eth_getBlockByHash",
+    "ms": 53.71270899999945,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getCode latest",
+    "method": "eth_getCode",
+    "ms": 339.9352089999993,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "eth_getLogs 1000 blocks deep",
+    "method": "eth_getLogs",
+    "ms": 7206.608500000002,
+    "ok": false,
+    "refused": false,
+    "http": 503,
+    "code": 0,
+    "message": "non-JSON (503)",
+    "credits": 50,
+    "params": [
+     {
+      "fromBlock": "0x1e6e34",
+      "toBlock": "0x1e721b"
+     }
+    ]
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBalance deep",
+    "method": "eth_getBalance",
+    "ms": 460.80583299999853,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=3",
+    "response": "miss"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getBlockByNumber recent full",
+    "method": "eth_getBlockByNumber",
+    "ms": 76.32191600000078,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getBlockByNumber deep hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 56.57854199999929,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBalance latest",
+    "method": "eth_getBalance",
+    "ms": 186.27216599999883,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionCount deep",
+    "method": "eth_getTransactionCount",
+    "ms": 526.4174170000006,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=2",
+    "response": "miss"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_call real calldata latest",
+    "method": "eth_call",
+    "ms": 738.1314170000005,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=41 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_getRawReceipts recent",
+    "method": "debug_getRawReceipts",
+    "ms": 213.62670899999648,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionCount latest",
+    "method": "eth_getTransactionCount",
+    "ms": 194.77458300000217,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep-heavy",
+    "label": "debug_traceCall replay at n-1",
+    "method": "debug_traceCall",
+    "ms": 2278.9576659999984,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=367 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getTransactionByHash deep",
+    "method": "eth_getTransactionByHash",
+    "ms": 64.97354199999972,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit"
+   },
+   {
+    "cls": "heavy",
+    "label": "debug_traceCall callTracer",
+    "method": "debug_traceCall",
+    "ms": 3271.328333999998,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 40,
+    "archive": "hit=54 miss=12",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getBlockByNumber recent full",
+    "method": "eth_getBlockByNumber",
+    "ms": 201.609375,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_gasPrice",
+    "method": "eth_gasPrice",
+    "ms": 226.4028330000001,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBalance latest",
+    "method": "eth_getBalance",
+    "ms": 218.5711250000022,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionReceipt recent",
+    "method": "eth_getTransactionReceipt",
+    "ms": 78.50424999999814,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss"
+   },
+   {
+    "cls": "deep",
+    "label": "eth_getStorageAt deep",
+    "method": "eth_getStorageAt",
+    "ms": 93.91854199999943,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=3 miss=0",
+    "response": "miss"
+   },
+   {
+    "cls": "normal",
+    "label": "net_version",
+    "method": "net_version",
+    "ms": 51.41145900000265,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 5,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_maxPriorityFeePerGas",
+    "method": "eth_maxPriorityFeePerGas",
+    "ms": 268.8082080000022,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getLogs 1000 blocks, Transfer topic",
+    "method": "eth_getLogs",
+    "ms": 6113.421708000002,
+    "ok": false,
+    "refused": false,
+    "http": 503,
+    "code": 0,
+    "message": "non-JSON (503)",
+    "credits": 55,
+    "params": [
+     {
+      "fromBlock": "0x39b618",
+      "toBlock": "0x39ba00",
+      "topics": [
+       "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+      ]
+     }
+    ]
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockTransactionCountByNumber",
+    "method": "eth_getBlockTransactionCountByNumber",
+    "ms": 77.50520900000265,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionByHash recent",
+    "method": "eth_getTransactionByHash",
+    "ms": 89.1441249999989,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getBlockByNumber recent full",
+    "method": "eth_getBlockByNumber",
+    "ms": 72.74479200000496,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "bypass"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByHash recent",
+    "method": "eth_getBlockByHash",
+    "ms": 103.79429099999834,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "miss"
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_call real calldata latest",
+    "method": "eth_call",
+    "ms": 2133.935875000003,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": 3,
+    "message": "execution reverted",
+    "credits": 30,
+    "archive": "hit=37 miss=0",
+    "response": "bypass",
+    "params": [
+     {
+      "from": "0x40b4e1832d98044cf0672a988bc38cd94070b320",
+      "to": "0xba9f82c3580eb807d693040736fa7f5411ac17cf",
+      "data": "0xc4d2d59a00000000000000000000000000000000000000000000000000000000003ebd060000000000000000000000000000000000000000000000000000098ed6cea49e00000000000000000000000000000000000000000000000000000000000000520000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006f8b4a8ace4ee00",
+      "value": "0x0"
+     },
+     "latest"
+    ]
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_getLogs 10000 blocks, token",
+    "method": "eth_getLogs",
+    "ms": 80.53974999999627,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": -32005,
+    "message": "query matches more than 1000 blocks; narrow the range or add filters",
+    "credits": 95,
+    "archive": "hit=14 miss=0",
+    "response": "bypass",
+    "params": [
+     {
+      "fromBlock": "0x3992f1",
+      "toBlock": "0x39ba00",
+      "address": "0x18aeafe83fcbfaced8e714d86d75c0afd37ec614"
+     }
+    ]
+   }
+  ],
+  "user": [],
+  "stress": {}
+ },
+ "stress": [],
+ "economics": {
+  "mixCredits": 20,
+  "plans": {
+   "public": {
+    "price": 0,
+    "included": 10000000,
+    "rps": 10
+   },
+   "free": {
+    "price": 0,
+    "included": 20000000,
+    "rps": 20
+   },
+   "builder": {
+    "price": 19,
+    "included": 600000000,
+    "rps": 250
+   },
+   "growth": {
+    "price": 89,
+    "included": 3000000000,
+    "rps": 1000
+   },
+   "scale": {
+    "price": 599,
+    "included": 20000000000,
+    "rps": 3000
+   }
+  }
+ }
+}
