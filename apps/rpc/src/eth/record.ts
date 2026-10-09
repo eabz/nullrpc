@@ -255,13 +255,17 @@ export function blockLogs(rec: BlockRecord): { address: Uint8Array; topics: Uint
   return out;
 }
 
-/** Receipt `i`: gasUsed and logIndex need only the earlier receipts' gas and log counts. */
-export function receiptResult(rec: BlockRecord, i: number): Record<string, unknown> | null {
+/**
+ * Receipt `i`: gasUsed and logIndex need only the earlier receipts' gas and log counts.
+ * `firstLogIndex` is the block-wide index of the receipt's first log when the caller already
+ * knows it (receiptsResult keeps a running count); otherwise it is counted here.
+ */
+export function receiptResult(rec: BlockRecord, i: number, firstLogIndex?: number): Record<string, unknown> | null {
   const tx = rec.block.txs[i];
   const r = rec.receipts[i];
   if (!tx || !r) return null;
-  let logIndex = 0;
-  for (let j = 0; j < i; j++) logIndex += rec.receipts[j]!.logs.length;
+  let logIndex = firstLogIndex ?? 0;
+  if (firstLogIndex === undefined) for (let j = 0; j < i; j++) logIndex += rec.receipts[j]!.logs.length;
   const previous = i > 0 ? rec.receipts[i - 1]!.cumulativeGasUsed : 0n;
   const h = rec.block.header;
   const to = recipient(tx);
@@ -292,5 +296,11 @@ export function receiptResult(rec: BlockRecord, i: number): Record<string, unkno
 
 /** Every receipt of the block, in order. */
 export function receiptsResult(rec: BlockRecord): Record<string, unknown>[] {
-  return rec.block.txs.map((_, i) => receiptResult(rec, i)!);
+  // One pass: the running log index is carried instead of recounted per receipt.
+  let logIndex = 0;
+  return rec.block.txs.map((_, i) => {
+    const out = receiptResult(rec, i, logIndex)!;
+    logIndex += rec.receipts[i]!.logs.length;
+    return out;
+  });
 }
