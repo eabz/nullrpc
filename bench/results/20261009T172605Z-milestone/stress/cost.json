@@ -1,0 +1,292 @@
+{
+ "windows": [
+  {
+   "label": "stress free",
+   "from": "2026-10-09T17:26:09.858Z",
+   "to": "2026-10-09T17:27:13.162Z",
+   "requests": 420,
+   "scripts": {
+    "nullrpc-live-560048": {
+     "requests": 5219,
+     "errors": 0,
+     "subrequests": 10315,
+     "cpuMs": 10515.577,
+     "cpuP50": 0.807,
+     "cpuP99": 22.818
+    },
+    "nullrpc-app": {
+     "requests": 1856,
+     "errors": 0,
+     "subrequests": 0,
+     "cpuMs": 6666.009,
+     "cpuP50": 2.97,
+     "cpuP99": 11.251
+    },
+    "nullrpc-rpc-560048": {
+     "requests": 5233,
+     "errors": 0,
+     "subrequests": 7028,
+     "cpuMs": 378691.15,
+     "cpuP50": 12.209,
+     "cpuP99": 862.662
+    }
+   },
+   "doReq": 10360,
+   "doGbS": 0.120392736,
+   "rowsRead": 190481,
+   "rowsWritten": 41,
+   "r2ClassA": 17,
+   "r2ClassB": 1578,
+   "cost": 0.011918920629199999,
+   "per1M": 28.378382450476188,
+   "breakdown": {
+    "Workers requests": 0.0015699,
+    "Workers CPU": 0.007917454720000001,
+    "DO requests": 0.0015539999999999998,
+    "DO duration": 0.0000015049092000000001,
+    "DO rows": 0.00023148100000000002,
+    "R2 Class B": 0.00056808,
+    "R2 Class A": 0.0000765
+   },
+   "units": {
+    "rpcReq": 12.459523809523809,
+    "liveCalls": 12.426190476190476,
+    "appCalls": 4.419047619047619,
+    "cpuMs": 942.5541333333334,
+    "doReq": 24.666666666666668,
+    "r2ClassB": 3.757142857142857,
+    "rowsRead": 453.5261904761905
+   }
+  },
+  {
+   "label": "stress builder",
+   "from": "2026-10-09T17:26:43.165Z",
+   "to": "2026-10-09T17:28:01.683Z",
+   "requests": 4727,
+   "scripts": {
+    "nullrpc-live-560048": {
+     "requests": 14183,
+     "errors": 251,
+     "subrequests": 29132,
+     "cpuMs": 54787.088,
+     "cpuP50": 0.787,
+     "cpuP99": 43.426
+    },
+    "nullrpc-app": {
+     "requests": 6599,
+     "errors": 0,
+     "subrequests": 0,
+     "cpuMs": 15537.724,
+     "cpuP50": 1.887,
+     "cpuP99": 9.626
+    },
+    "nullrpc-rpc-560048": {
+     "requests": 13504,
+     "errors": 0,
+     "subrequests": 20696,
+     "cpuMs": 953552.414,
+     "cpuP50": 9.345,
+     "cpuP99": 790.656
+    }
+   },
+   "doReq": 28200,
+   "doGbS": 1.81071248,
+   "rowsRead": 759533,
+   "rowsWritten": 154,
+   "r2ClassA": 26,
+   "r2ClassB": 4043,
+   "cost": 0.03126739142599999,
+   "per1M": 6.614637492278399,
+   "breakdown": {
+    "Workers requests": 0.0040512,
+    "Workers CPU": 0.02047754452,
+    "DO requests": 0.004229999999999999,
+    "DO duration": 0.000022633906000000003,
+    "DO rows": 0.000913533,
+    "R2 Class B": 0.0014554799999999999,
+    "R2 Class A": 0.000117
+   },
+   "units": {
+    "rpcReq": 2.8567801988576265,
+    "liveCalls": 3.0004231013327693,
+    "appCalls": 1.3960228474719696,
+    "cpuMs": 216.6019094563148,
+    "doReq": 5.965728792045695,
+    "r2ClassB": 0.8552993441929342,
+    "rowsRead": 160.67971229109372
+   }
+  },
+  {
+   "label": "stress growth",
+   "from": "2026-10-09T17:27:31.692Z",
+   "to": "2026-10-09T17:28:46.701Z",
+   "requests": 8609,
+   "scripts": {
+    "nullrpc-live-560048": {
+     "requests": 20287,
+     "errors": 251,
+     "subrequests": 40965,
+     "cpuMs": 61779.434,
+     "cpuP50": 0.74,
+     "cpuP99": 40.125
+    },
+    "nullrpc-app": {
+     "requests": 7793,
+     "errors": 0,
+     "subrequests": 0,
+     "cpuMs": 18326.185,
+     "cpuP50": 1.993,
+     "cpuP99": 7.494
+    },
+    "nullrpc-rpc-560048": {
+     "requests": 22213,
+     "errors": 0,
+     "subrequests": 28094,
+     "cpuMs": 1281909.096,
+     "cpuP50": 5.738,
+     "cpuP99": 731.957
+    }
+   },
+   "doReq": 39321,
+   "doGbS": 1.768526448,
+   "rowsRead": 599925,
+   "rowsWritten": 85,
+   "r2ClassA": 19,
+   "r2ClassB": 4666,
+   "cost": 0.0422746358806,
+   "per1M": 4.910516422418399,
+   "breakdown": {
+    "Workers requests": 0.0066638999999999995,
+    "Workers CPU": 0.0272402943,
+    "DO requests": 0.00589815,
+    "DO duration": 0.0000221065806,
+    "DO rows": 0.0006849250000000001,
+    "R2 Class B": 0.00167976,
+    "R2 Class A": 0.0000855
+   },
+   "units": {
+    "rpcReq": 2.5802067603670578,
+    "liveCalls": 2.35648739691021,
+    "appCalls": 0.9052154721802764,
+    "cpuMs": 158.20823730979205,
+    "doReq": 4.5674294343129285,
+    "r2ClassB": 0.5419909397142525,
+    "rowsRead": 69.685793936578
+   }
+  },
+  {
+   "label": "stress scale",
+   "from": "2026-10-09T17:28:16.712Z",
+   "to": "2026-10-09T17:29:44.984Z",
+   "requests": 13456,
+   "scripts": {
+    "nullrpc-live-560048": {
+     "requests": 11022,
+     "errors": 0,
+     "subrequests": 21685,
+     "cpuMs": 16809.234,
+     "cpuP50": 0.712,
+     "cpuP99": 12.214
+    },
+    "nullrpc-app": {
+     "requests": 3027,
+     "errors": 0,
+     "subrequests": 0,
+     "cpuMs": 9418.254,
+     "cpuP50": 2.729,
+     "cpuP99": 9.173
+    },
+    "nullrpc-rpc-560048": {
+     "requests": 13525,
+     "errors": 0,
+     "subrequests": 14081,
+     "cpuMs": 690763.242,
+     "cpuP50": 4.778,
+     "cpuP99": 703.998
+    }
+   },
+   "doReq": 21217,
+   "doGbS": 2.03958984,
+   "rowsRead": 601116,
+   "rowsWritten": 175,
+   "r2ClassA": 25,
+   "r2ClassB": 2202,
+   "cost": 0.023286695473,
+   "per1M": 1.7305808169589774,
+   "breakdown": {
+    "Workers requests": 0.0040574999999999995,
+    "Workers CPU": 0.0143398146,
+    "DO requests": 0.0031825499999999997,
+    "DO duration": 0.000025494873,
+    "DO rows": 0.0007761160000000001,
+    "R2 Class B": 0.00079272,
+    "R2 Class A": 0.0001125
+   },
+   "units": {
+    "rpcReq": 1.005127824019025,
+    "liveCalls": 0.8191141498216409,
+    "appCalls": 0.22495541022592153,
+    "cpuMs": 53.2840911117717,
+    "doReq": 1.576768727705113,
+    "r2ClassB": 0.16364447086801426,
+    "rowsRead": 44.67271105826397
+   }
+  }
+ ],
+ "plans": [
+  [
+   "plan",
+   "$/mo",
+   "revenue $ per 1M req",
+   "cost $ per 1M req (stress scale)",
+   "margin per 1M req",
+   "cost of the full quota",
+   "margin at full quota"
+  ],
+  [
+   "public",
+   0,
+   "0.000",
+   "1.731",
+   "-1.731",
+   "0.83",
+   "-0.83"
+  ],
+  [
+   "free",
+   0,
+   "0.000",
+   "1.731",
+   "-1.731",
+   "1.67",
+   "-1.67"
+  ],
+  [
+   "builder",
+   19,
+   "0.658",
+   "1.731",
+   "-1.073",
+   "49.98",
+   "-30.98"
+  ],
+  [
+   "growth",
+   89,
+   "0.616",
+   "1.731",
+   "-1.114",
+   "249.92",
+   "-160.92"
+  ],
+  [
+   "scale",
+   599,
+   "0.622",
+   "1.731",
+   "-1.108",
+   "1666.12",
+   "-1067.12"
+  ]
+ ]
+}
