@@ -40,6 +40,12 @@ cache (immutable, a day) with the pinned head's document, verifying each record'
 after a reorg, a block the document does not list, or a missing object ([docs/storage.md](../../docs/storage.md),
 "Live records").
 
+State reads in the window (`getPinned`, `getPinnedMany`) and witnesses are cached per isolate
+under the pinned head's hash (`cachesFor` in `src/live.ts`): a value under one head never
+changes, so a repeated read at the same block, including the executor's hints wave for every
+call at the head, reaches no state shard after the first ([docs/storage.md](../../docs/storage.md),
+"Reads above P", "Caches").
+
 ## eth_getLogs
 
 The log index (`src/archive/logindex.ts`) narrows an archived range to candidate blocks; every

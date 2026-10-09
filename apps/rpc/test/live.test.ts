@@ -4,7 +4,7 @@ import { Archive } from "../src/archive/archive";
 import { MemorySource } from "../src/archive/source";
 import { Chain } from "../src/chain";
 import type { BlockId, LiveApi, LiveState, PointerCache } from "../src/live";
-import { Live, POINTERS_KEY, POINTERS_MAX_AGE_MS } from "../src/live";
+import { cachesFor, Live, POINTERS_KEY, POINTERS_MAX_AGE_MS } from "../src/live";
 import { METHODS } from "../src/methods";
 import { renderPage, statusBody } from "../src/page/page";
 import { ChainStateSource } from "../src/state-source";
@@ -233,11 +233,12 @@ describe("state source over the live window", () => {
   });
 
   /** A live window where A changed (nonce 5, now with CODE_NEW), A's slot 2 was written and B is untouched. */
-  function liveState(opts: { staleOnce?: boolean } = {}) {
+  function liveState(opts: { staleOnce?: boolean; reorgedHead?: BlockId } = {}) {
     let stale = opts.staleOnce ?? false;
     const head = id(WINDOW.at(-1)!);
     const calls: { keys: { domain: number; key: string }[]; n: number; pin: BlockId }[] = [];
     let states = 0;
+    let witnesses = 0;
     const window: Record<string, { block: number; value: string }> = {
       [`1:${h(A).slice(2)}`]: { block: head.number - 1, value: Buffer.from(encodeAccount(5, 50n, HASH_NEW)).toString("hex") },
       [`2:${h(A).slice(2)}${h(SLOT2).slice(2)}`]: { block: head.number, value: "09" },
@@ -247,15 +248,17 @@ describe("state source over the live window", () => {
     const api: LiveApi = {
       async state() {
         states++;
-        return state;
+        // After a reorg the live Worker names another head (same number, another hash).
+        return opts.reorgedHead && states > 1 ? { ...state, head: opts.reorgedHead, safe: opts.reorgedHead } : state;
       },
       async block(key, pin) {
         const f = WINDOW.find((w) => (typeof key === "number" ? Number(w.block.number) === key : w.block.hash === key.toLowerCase()));
         if (!f || Number(f.block.number) > pin.number) return null;
         return { stale: false, number: Number(f.block.number), hash: f.block.hash, record: recHex(f) };
       },
-      async witness() {
-        return null;
+      async witness(n, pin) {
+        witnesses++;
+        return n === head.number && n <= pin.number ? { stale: false, witness: "abcd" } : null;
       },
       async txBlock() {
         return null;
@@ -281,7 +284,7 @@ describe("state source over the live window", () => {
         return { stale: false, slots: {} };
       },
     };
-    return { api, calls, head, states: () => states };
+    return { api, calls, head, states: () => states, witnesses: () => witnesses };
   }
 
   const KEYS = [
@@ -355,6 +358,57 @@ describe("state source over the live window", () => {
     ]);
     expect(calls).toHaveLength(0);
     await expect(src.read([KEYS[0]], Number(WINDOW.at(-1)!.block.number) + 1)).rejects.toThrow("block out of range");
+  });
+
+  test("repeated reads under one pin are answered from the isolate's cache, across requests", async () => {
+    const { api, calls, head } = liveState();
+    const src = await source(api);
+    expect(await src.read([...KEYS], head.number)).toEqual(AT_HEAD);
+    expect(await src.read([...KEYS], head.number)).toEqual(AT_HEAD);
+    expect(calls).toHaveLength(1);
+    // Another block height is another answer; a key asked twice in one round is read once.
+    expect(await src.read([KEYS[0], KEYS[2], KEYS[0]], head.number - 1)).toEqual([AT_HEAD[0], { kind: "storage", value: "0x0" }, AT_HEAD[0]]);
+    expect(calls).toHaveLength(2);
+    expect(calls[1]!.keys).toHaveLength(2);
+    // A later request on the same binding (the same isolate) starts warm: no shard call at all.
+    const next = await source(api);
+    expect(await next.read([...KEYS], head.number)).toEqual(AT_HEAD);
+    expect(calls).toHaveLength(2);
+    const { hits, misses } = cachesFor(api);
+    expect(hits).toBeGreaterThanOrEqual(KEYS.length - 1 + 1);
+    expect(misses).toBe(7 + 2);
+  });
+
+  test("a stale pin's retry reads under the new head; the removed head's entries are never served for it", async () => {
+    const reorged: BlockId = { number: Number(WINDOW.at(-1)!.block.number), hash: `0x${"cd".repeat(32)}` };
+    const { api, calls, head, states } = liveState({ staleOnce: true, reorgedHead: reorged });
+    const src = await source(api);
+    expect(await src.read([...KEYS], head.number)).toEqual(AT_HEAD);
+    expect(calls).toHaveLength(2);
+    expect(states()).toBe(2);
+    expect(calls[0]!.pin).toEqual(head);
+    expect(calls[1]!.pin).toEqual(reorged);
+    // The retry's answers are cached under the new head: the next read makes no call.
+    expect(await src.read([...KEYS], head.number)).toEqual(AT_HEAD);
+    expect(calls).toHaveLength(2);
+  });
+
+  test("a witness is read from the live Worker once per pin and block", async () => {
+    const { api, head, witnesses } = liveState();
+    const archive = new Archive(new MemorySource(ARCHIVE), PREFIX);
+    const now = Date.now() + Math.random() * 1e12;
+    await archive.pin(now, true);
+    const chain = await Chain.open(archive, new Live(api), now);
+    expect(await chain.witness(head.number)).toEqual(Uint8Array.from([0xab, 0xcd]));
+    expect(await chain.witness(head.number)).toEqual(Uint8Array.from([0xab, 0xcd]));
+    expect(witnesses()).toBe(1);
+    // A block without one is remembered too.
+    expect(await chain.witness(head.number - 1)).toBeNull();
+    expect(await chain.witness(head.number - 1)).toBeNull();
+    expect(witnesses()).toBe(2);
+    const other = await Chain.open(archive, new Live(api), now + 1);
+    expect(await other.witness(head.number)).toEqual(Uint8Array.from([0xab, 0xcd]));
+    expect(witnesses()).toBe(2);
   });
 });
 
