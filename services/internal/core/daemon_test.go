@@ -304,3 +304,21 @@ func TestNotReadyAtTip(t *testing.T) {
 		}
 	}
 }
+
+func TestEmptyAccount(t *testing.T) {
+	for _, c := range []struct {
+		wa   *witnessAccount
+		want bool
+	}{
+		{&witnessAccount{exists: true}, true},
+		{&witnessAccount{exists: true, balance: []byte{0, 0}}, true},
+		{&witnessAccount{exists: true, balance: []byte{1}}, false},
+		{&witnessAccount{exists: true, nonce: 1}, false},
+		{&witnessAccount{exists: true, hasCode: true}, false},
+		{nil, false},
+	} {
+		if got := emptyAccount(c.wa); got != c.want {
+			t.Errorf("emptyAccount(%+v) = %v, want %v", c.wa, got, c.want)
+		}
+	}
+}

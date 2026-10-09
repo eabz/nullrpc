@@ -147,7 +147,10 @@ only within its prune distance. That distance is the furthest the daemon can fal
 
 The diff is each changed key's value after the block. Selfdestruct removes only an account
 created in the same transaction (EIP-6780), so a removed account's storage is exactly the slots
-the diff holds; an account that existed before the block and is removed stops the daemon.
+the diff holds. An account that existed before the block can still be removed by being touched
+while empty (EIP-161: no nonce, balance or code), which the daemon accepts once
+`debug_storageRangeAt` shows it held no storage at the start of the block. Any other removal of
+an account that existed before the block stops the daemon.
 
 ### Verify
 

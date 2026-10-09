@@ -25,6 +25,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -244,8 +245,19 @@ func blockDiff(rpc *rpcClient, n, timestamp uint64, h *blockHeaderJSON, wit *blo
 				if !inPost {
 					acc := base(a)
 					if acc.existed {
-						// EIP-6780: only an account created in the same transaction can be removed.
-						return nil, fmt.Errorf("account %x that existed before the block was removed", a)
+						// EIP-6780: selfdestruct removes only an account created in the same
+						// transaction. EIP-161: a transaction that touches an empty account (no
+						// nonce, balance or code) removes it; the diff cannot list its storage, so
+						// that must be empty too.
+						if wa := wit.accounts[a]; !emptyAccount(wa) {
+							if wa == nil {
+								return nil, fmt.Errorf("account %x that existed before the block was removed; the witness lacks it", a)
+							}
+							return nil, fmt.Errorf("account %x that existed before the block was removed, not empty before it (nonce %d, balance 0x%x, code %v)", a, wa.nonce, wa.balance, wa.hasCode)
+						}
+						if err := checkNoStorage(rpc, h.Hash, a); err != nil {
+							return nil, fmt.Errorf("empty account %x removed: %w", a, err)
+						}
 					}
 					*acc = diffAccount{}
 					changed[a] = true
@@ -353,6 +365,29 @@ func blockDiff(rpc *rpcClient, n, timestamp uint64, h *blockHeaderJSON, wit *blo
 		return bytes.Compare(out[i].Key, out[j].Key) < 0
 	})
 	return out, nil
+}
+
+// emptyAccount tells whether an account is empty in the EIP-161 sense: no nonce, balance or code.
+func emptyAccount(wa *witnessAccount) bool {
+	return wa != nil && wa.nonce == 0 && len(trimLeadingZeros(wa.balance)) == 0 && !wa.hasCode
+}
+
+// checkNoStorage fails unless account a holds no storage at the start of the block blockHash.
+func checkNoStorage(rpc *rpcClient, blockHash string, a [20]byte) error {
+	raw, err := rpc.call("debug_storageRangeAt", blockHash, 0, "0x"+hex.EncodeToString(a[:]), "0x"+strings.Repeat("0", 64), 1)
+	if err != nil {
+		return err
+	}
+	var r struct {
+		Storage map[string]json.RawMessage `json:"storage"`
+	}
+	if err := json.Unmarshal(raw, &r); err != nil {
+		return err
+	}
+	if len(r.Storage) > 0 {
+		return errors.New("it holds storage, which the diff cannot remove")
+	}
+	return nil
 }
 
 func addressOf(h string) ([20]byte, error) {
