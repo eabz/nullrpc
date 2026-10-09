@@ -72,7 +72,8 @@ first). A dependency round is a function call plus the state reads over the requ
 view: one call to the live window above P and the archive at P, read together (the window's
 answer wins where it has a row). The executor's per-isolate caches (bytecode, witnesses, hints
 and account and storage values per block hash, the profile of each callee and function), its
-25 s budget and 300-round limit live in the package; a round is synchronous, and a round that
+25 s budget (a hard stop raced against every wait), its executed-gas budget (the CPU bound)
+and 300-round limit live in the package; a round is synchronous, and a round that
 took 10 ms or more is followed by a turn of the event loop so the isolate's other requests
 proceed.
 

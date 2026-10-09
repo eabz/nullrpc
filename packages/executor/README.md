@@ -41,7 +41,12 @@ with -32000 for blocks where they are active.
 Limits: calls ≤ 1024 state reads, 5M gas by default (capped at 5M and the block gas limit;
 `eth_estimateGas` searches up to the EIP-7825 cap); traces ≤ 4096 reads and ≤ 256 rounds, 250M
 replayed gas, struct logs ≤ 50k entries / 8 MiB; `debug_traceCall`/`trace_call` default to geth's
-50M gas cap; 25 s per request (`TIMEOUT_MS`), 300 rounds (`MAX_ROUNDS`).
+50M gas cap; 500M gas executed per request including exploring and discarded runs (the CPU
+budget: a Worker's clock does not advance during synchronous code, and about 300M gas run per
+CPU second under a tracer); 25 s per request (`TIMEOUT_MS`), a hard stop: every wait of the
+round loop (a state wave, a witness, a turn of the event loop) races the budget's timer, so a
+stalled read answers `-32005` when the budget ends, not when the read does; 300 rounds
+(`MAX_ROUNDS`).
 
 ## Commands
 

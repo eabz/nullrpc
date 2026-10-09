@@ -74,7 +74,10 @@ impl Limits {
     pub const TRACE_STATE_READS: usize = 4096;
     pub const DEFAULT_ROUNDS: usize = 256;
     pub const DEFAULT_GAS: u64 = 250_000_000;
-    pub const DEFAULT_EXECUTED_GAS: u64 = 1_000_000_000;
+    /// The CPU budget: a Worker's clock does not move during synchronous code, so gas is what
+    /// bounds a request's execution time. About 300M gas per CPU second under a tracer, so a
+    /// few seconds; the heaviest call measured (153 dependent rounds) executed 240M.
+    pub const DEFAULT_EXECUTED_GAS: u64 = 500_000_000;
     pub const DEFAULT_EXPLORE_GAS: u64 = 30_000_000;
     pub const DEFAULT_STEPS: u64 = 25_000_000;
     pub const DEFAULT_STRUCT_LOGS: u64 = 50_000;

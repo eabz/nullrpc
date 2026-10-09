@@ -263,26 +263,42 @@ if (args.call) cases = [{ label: "call", ...JSON.parse(String(args.call)) }];
 else if (args.cases) cases = JSON.parse(readFileSync(String(args.cases), "utf8")).filter((c) => Array.isArray(c.params) && (!args.filter || new RegExp(String(args.filter)).test(c.label)));
 else throw new Error("--cases FILE or --call JSON");
 const BLOCK_PARAM = { eth_call: 1, eth_estimateGas: 1, eth_createAccessList: 1, debug_traceCall: 1, trace_call: 2 };
+const BY_TX = new Set(["debug_traceTransaction", "trace_transaction", "trace_replayTransaction"]);
+const BY_BLOCK = new Set(["debug_traceBlockByNumber", "debug_traceBlockByHash", "trace_block", "trace_replayBlockTransactions"]);
 
 const head = num(await call(t.url, "eth_blockNumber", []));
 console.log(`target ${t.url} head ${head}; state from ${STATE}`);
 const results = [];
 for (const c of cases) {
-  const at = BLOCK_PARAM[c.method];
-  if (at === undefined) {
-    console.log(`${c.label}: ${c.method} is not a call-style method, skipped`);
-    continue;
+  // The block the request runs on: a call's block parameter, a traced transaction's block, or
+  // the traced block itself (mined-transaction traces take the block's witness in a round).
+  let M;
+  let txIndex;
+  if (BY_TX.has(c.method)) {
+    const tx = await state("eth_getTransactionByHash", [c.params[0]]);
+    if (!tx?.blockNumber) throw new Error(`${c.label}: transaction not found`);
+    M = num(tx.blockNumber);
+    txIndex = num(tx.transactionIndex);
+  } else if (BY_BLOCK.has(c.method)) {
+    const tag = c.params[0];
+    M = typeof tag === "string" && tag.length === 66 ? num((await state("eth_getBlockByHash", [tag, false])).number) : tag === "latest" ? head : num(tag);
+  } else {
+    const at = BLOCK_PARAM[c.method];
+    if (at === undefined) {
+      console.log(`${c.label}: ${c.method} is not served by the executor, skipped`);
+      continue;
+    }
+    const tag = c.params[at] ?? "latest";
+    M = tag === "latest" || tag === "pending" ? head : num(tag);
   }
-  const tag = c.params[at] ?? "latest";
-  const M = tag === "latest" || tag === "pending" ? head : num(tag);
   const rec = await record(M);
-  const request = { method: c.method, params: c.params, chain: CHAIN, block: rec };
+  const request = { method: c.method, params: c.params, chain: CHAIN, block: rec, ...(txIndex === undefined ? {} : { txIndex }) };
   const plain = await run(request, null);
   const s = summary(plain);
-  const line = (name, s, extra = "") => console.log(`${c.label} @${M} ${name}: rounds ${s.rounds}, wasm ${fmtMs(s.wasm)}, io ${fmtMs(s.io)}, executions ${s.usage.executions ?? "?"}, keys per round [${s.keys}]${extra}`);
+  const line = (name, s, extra = "") => console.log(`${c.label} @${M} ${name}: rounds ${s.rounds}, wasm ${fmtMs(s.wasm)}, io ${fmtMs(s.io)}, executions ${s.usage.executions ?? "?"}, executed gas ${s.usage.executed_gas ?? "?"}, keys per round [${s.keys}]${extra}`);
   line("plain", s, "error" in plain.response ? ` -> error ${plain.response.error.code} ${String(plain.response.error.message).slice(0, 60)}` : "");
   const entry = { label: c.label, method: c.method, block: M, plain: { ...s, response: plain.response, read: plain.read.length, keys: plain.read } };
-  if (args.hints) {
+  if (args.hints && !BY_TX.has(c.method) && !BY_BLOCK.has(c.method)) {
     const h = await hints(M, head).catch((e) => (console.log(`  (no hints: ${e.message})`), null));
     if (!h) {
       results.push(entry);

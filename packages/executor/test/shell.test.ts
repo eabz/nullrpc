@@ -177,11 +177,13 @@ describe("rounds and the event loop", () => {
     const timers = vi.spyOn(globalThis, "setTimeout");
     try {
       let t = 0;
+      // Besides the budget timer, one zero-delay timer: the turn after the slow round.
+      const turns = () => timers.mock.calls.filter((c) => c[1] === 0).length;
       await execute(request(), state(), session({ missing: KEYS.slice(0, 1), at: 1 }).session, () => (t += 20));
-      expect(timers).toHaveBeenCalledTimes(1);
+      expect(turns()).toBe(1);
       timers.mockClear();
       await execute(request(), state(), session({ missing: KEYS.slice(0, 1), at: 1 }).session, () => t);
-      expect(timers).not.toHaveBeenCalled();
+      expect(turns()).toBe(0);
     } finally {
       timers.mockRestore();
     }
@@ -327,5 +329,24 @@ describe("profiles", () => {
     const t = rounds([{ missing: [{ kind: "blockHash", number: 5 }], at: 43 }]);
     await execute({ ...call(43), params: [{ to: B, data: "0x12345678" }, "latest"] }, again, t.session);
     expect(keysOf(t.inputs[1]!)).toEqual(["b:5"]);
+  });
+});
+
+describe("time budget", () => {
+  it("a stalled state read answers the time-budget error when the budget ends, not when the read does", async () => {
+    const stalled = new CountingState(TABLE);
+    stalled.read = () => new Promise(() => {});
+    const t0 = Date.now();
+    const out = await execute({ method: "eth_call", params: [], chain: chain(906), block: record(50).record }, stalled, session({ missing: [{ kind: "blockHash", number: 5 }], at: 50 }).session, Date.now, 60);
+    expect(out).toEqual({ error: { code: -32005, message: "execution exceeded its time budget (timeout)" } });
+    expect(Date.now() - t0).toBeLessThan(2000);
+  });
+
+  it("a stalled witness read too", async () => {
+    const stalled = new CountingState(TABLE);
+    stalled.witness = () => new Promise(() => {});
+    const witnessWanted = () => ({ run: () => JSON.stringify({ witness: 60, hash: "0x" + "60".repeat(32) }), usage: () => "" });
+    const out = await execute({ method: "debug_traceTransaction", params: [], chain: chain(906), block: record(61).record, txIndex: 0 }, stalled, witnessWanted, Date.now, 60);
+    expect(out).toEqual({ error: { code: -32005, message: "execution exceeded its time budget (timeout)" } });
   });
 });

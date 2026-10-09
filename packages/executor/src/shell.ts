@@ -29,8 +29,9 @@ type Round =
 const READ_BATCH = 256;
 /** Rounds a request may take (the executor's own limit is 256 dependent read rounds). */
 export const MAX_ROUNDS = 300;
-/** Wall-clock budget of one request. */
+/** Wall-clock budget of one request: a hard stop, every wait of the loop races it. */
 export const TIMEOUT_MS = 25_000;
+const TIMED_OUT = Symbol("timed out");
 /** A round that ran this long is followed by a turn of the event loop before the next one. */
 const YIELD_AFTER_MS = 10;
 /** Methods that run a call on a block's post-state, where the source's hints apply. */
@@ -185,6 +186,8 @@ const EMPTY_CODE_HASH = "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad
 function failure(message: string): ExecResponse {
   return { error: { code: -32000, message } };
 }
+
+const timedOut = (): ExecResponse => ({ error: { code: -32005, message: "execution exceeded its time budget (timeout)" } });
 
 async function readAll(state: StateSource, keys: StateKey[], at: number): Promise<StateValue[]> {
   const batches: Promise<StateValue[]>[] = [];
@@ -365,14 +368,26 @@ function learn(profile: string, asked: StateKey[]): void {
   profileCache.set(profile, keys, keys.length * 160);
 }
 
-/** Runs `request` to its response, reading state through `state`. */
+/**
+ * Runs `request` to its response, reading state through `state`. The budget is a hard stop:
+ * every wait (a state wave, a witness, a turn of the event loop) races a timer, so a stalled
+ * read answers the time-budget error when the timer fires, whatever the reads do afterwards.
+ * Between rounds the clock is checked too; inside the module, the executed-gas budget of the
+ * crate bounds CPU, since a Worker's clock does not move during synchronous code.
+ */
 export async function execute(
   request: ExecRequest,
   state: StateSource,
   session: (requestJson: string) => WasmSession,
   now: () => number = Date.now,
+  budgetMs: number = TIMEOUT_MS,
 ): Promise<ExecResponse> {
   const started = now();
+  let expire: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<typeof TIMED_OUT>((resolve) => {
+    expire = setTimeout(() => resolve(TIMED_OUT), budgetMs);
+  });
+  const within = <T>(p: Promise<T>): Promise<T | typeof TIMED_OUT> => Promise.race([p, expired]);
   const chainId = String((request.chain as { chainId?: unknown })?.chainId ?? "");
   const block = typeof request.block === "string" ? blockOf(request.block) : null;
   const blockHash = block?.hash ?? null;
@@ -389,17 +404,19 @@ export async function execute(
     let slow = false;
     let first = true;
     for (let round = 0; round < MAX_ROUNDS; round++) {
-      if (slow) await yieldNow();
+      if (slow && (await within(yieldNow())) === TIMED_OUT) return timedOut();
       const ran = now();
       const out = JSON.parse(wasm.run(input)) as Round;
       slow = now() - ran >= YIELD_AFTER_MS;
       if ("done" in out) return out.response;
-      if (now() - started > TIMEOUT_MS) return { error: { code: -32005, message: "execution exceeded its time budget (timeout)" } };
+      if (now() - started > budgetMs) return timedOut();
       if ("witness" in out) {
         const key = `${chainId}:${out.hash}`;
         let witness = witnessCache.get(key);
         if (witness === undefined) {
-          witness = await state.witness(out.witness);
+          const got = await within(state.witness(out.witness));
+          if (got === TIMED_OUT) return timedOut();
+          witness = got;
           witnessCache.set(key, witness, witnessSize(witness));
         }
         input = JSON.stringify({ witness });
@@ -409,7 +426,9 @@ export async function execute(
         reads++;
         const answered = answer(state, out.missing, out.at, scope);
         const atBlock = first && block && out.at === block.number;
-        const [round, hints, prefetched] = await Promise.all([answered, atBlock && hinting ? hinting : null, atBlock && prefetching ? prefetching : null]);
+        const wave = await within(Promise.all([answered, atBlock && hinting ? hinting : null, atBlock && prefetching ? prefetching : null]));
+        if (wave === TIMED_OUT) return timedOut();
+        const [round, hints, prefetched] = wave;
         input = JSON.stringify(first ? withHints(hints, prefetched, round) : round);
         first = false;
       }
@@ -424,6 +443,7 @@ export async function execute(
     console.error("executor state read failed", e instanceof Error ? e.message : String(e));
     return failure("execution unavailable: state could not be read");
   } finally {
+    if (expire !== undefined) clearTimeout(expire);
     wasm.free?.();
     if (profile && reads >= PROFILE_AFTER_ROUNDS) learn(profile, asked);
   }
