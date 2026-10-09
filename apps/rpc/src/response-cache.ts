@@ -269,6 +269,9 @@ class Memory {
 /** One per isolate, shared by every request and both tiers. */
 export const memory = new Memory();
 
+/** Misses being computed right now, by their first cache key (per isolate). */
+const inflight = new Map<string, Promise<unknown>>();
+
 export class ResponseCache {
   constructor(
     /** `caches.default`, or null to serve everything fresh. */
@@ -333,7 +336,20 @@ export class ResponseCache {
       return { result: parsed, outcome: { status: "hit", tier: tiers[i]! } };
     }
 
-    const result = await run();
+    // Identical misses in flight share one computation: a new head makes every client miss the
+    // same keys at once, and one answer serves them all.
+    const shared = inflight.get(keys[0]!);
+    let result: unknown;
+    if (shared) result = await shared;
+    else {
+      const p = run();
+      inflight.set(keys[0]!, p);
+      try {
+        result = await p;
+      } finally {
+        if (inflight.get(keys[0]!) === p) inflight.delete(keys[0]!);
+      }
+    }
     // A reorg re-pinned the head during the call: the answer belongs to a head we cannot name.
     const after = headOf(chain);
     if (after.number !== head.number || after.hash !== head.hash) return { result, outcome: { status: "miss" } };

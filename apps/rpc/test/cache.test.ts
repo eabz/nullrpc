@@ -490,3 +490,30 @@ describe("worker headers", () => {
     expect(out.response).toBe("bypass");
   });
 });
+
+describe("identical misses in flight", () => {
+  let cache: FakeCache;
+  let responses: ResponseCache;
+  beforeEach(() => {
+    memory.clear();
+    cache = new FakeCache();
+    responses = new ResponseCache(cache as unknown as Cache, ORIGIN, 1, () => {}, () => 1_700_000_000_000);
+  });
+
+  test("compute once and share the answer", async () => {
+    const archive = new Archive(new MemorySource(OBJECTS), PREFIX);
+    const chain = await Chain.open(archive, null, Date.now() - 5e8);
+    const f = FIXTURES[2]!;
+    let runs = 0;
+    const run = async () => {
+      runs++;
+      await new Promise((r) => setTimeout(r, 20));
+      return { runs };
+    };
+    const params = [f.block.number, false];
+    const [a, b] = await Promise.all([responses.serve(chain, "eth_getBlockByNumber", params, run), responses.serve(chain, "eth_getBlockByNumber", params, run)]);
+    expect(runs).toBe(1);
+    expect(a.result).toEqual(b.result);
+    expect(b.outcome.status).toBe("miss");
+  });
+});
