@@ -19,6 +19,18 @@ Every request pins one archive generation (`HEAD.json`, cached 10 s per isolate)
 head; reorgs (stale pins) and promotions (blocks leaving the live window) are retried
 transparently (`src/chain.ts`).
 
+**Isolate caches share settled values, never a promise another request owns.** workerd ties a
+promise to the request whose handler created it: its I/O is canceled when that request ends,
+and a request that awaits another request's promise is canceled by the platform as hung ("the
+Workers runtime canceled this request because it detected that your Worker's code had hung";
+under `wrangler dev` the wait never ends once the creating request has finished). So every
+per-isolate cache (the live pointers and archive pin, parsed objects and pages, index and bloom
+tables, the response cache's answers) stores values, a request that finds none reads for itself,
+and a read one request issues twice is deduplicated through a `pending` map its own `Archive`,
+`Live` or `StateHistory` owns (`src/shared.ts`). Work that must be shared while in flight (a
+response-cache miss, the executor's hints wave) is settled in place and followed with the
+follower's own timers, never by awaiting the leader's promise. Keep it that way in new caches.
+
 The live head, safe, finalized and promoted pointers come from `live/HEAD.json` in the archive
 bucket, which the daemon rewrites after every head move (`src/live.ts`; the contract is in
 [docs/storage.md](../../docs/storage.md), "Live pointers"). The Worker keeps that object for 2 s
