@@ -5,7 +5,7 @@
 import { keccak_256 } from "@noble/hashes/sha3.js";
 import { describe, expect, it, vi } from "vitest";
 import type { ExecRequest, StateKey, StateSource, StateValue } from "../src/contract";
-import { blockHashOf, execute, type WasmSession } from "../src/shell";
+import { blockHashOf, execute, readFailureCause, type WasmSession } from "../src/shell";
 
 // ---- a minimal RLP writer for block records: [raw_block, senders, receipts, blob_gas_price]
 
@@ -95,6 +95,17 @@ const KEYS: StateKey[] = [
 ];
 const chain = (chainId: number) => ({ chainId });
 const flat = (asked: StateKey[][]) => asked.flat().map((k) => (k.kind === "account" ? `a:${k.address}` : k.kind === "storage" ? `s:${k.slot}` : k.kind === "code" ? "code" : `b:${k.number}`));
+
+describe("readFailureCause", () => {
+  it("names the cause a state read failed for", () => {
+    expect(readFailureCause(new Error("Durable Object is overloaded. Requests queued for too long."))).toBe("overloaded");
+    expect(readFailureCause(new Error("the pinned head was removed by a reorg"))).toBe("stale");
+    expect(readFailureCause(new Error("missing object 1-ab/live/records/x.bin"))).toBe("missing");
+    expect(readFailureCause(new Error("Network connection lost; timed out"))).toBe("timeout");
+    expect(readFailureCause(new Error("down"))).toBe("error");
+    expect(readFailureCause("not an error")).toBe("error");
+  });
+});
 
 describe("blockHashOf", () => {
   it("hashes the header of a record and rejects what is not one", () => {

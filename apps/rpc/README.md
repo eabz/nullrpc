@@ -40,6 +40,12 @@ cache (immutable, a day) with the pinned head's document, verifying each record'
 after a reorg, a block the document does not list, or a missing object ([docs/storage.md](../../docs/storage.md),
 "Live records").
 
+State reads in the window (`getPinned`, `getPinnedMany`) and witnesses are cached per isolate
+under the pinned head's hash (`cachesFor` in `src/live.ts`): a value under one head never
+changes, so a repeated read at the same block, including the executor's hints wave for every
+call at the head, reaches no state shard after the first ([docs/storage.md](../../docs/storage.md),
+"Reads above P", "Caches").
+
 ## eth_getLogs
 
 The log index (`src/archive/logindex.ts`) narrows an archived range to candidate blocks; every
@@ -111,15 +117,21 @@ reports them in two headers (exposed to browsers through `access-control-expose-
 |---|---|---|
 | `x-nullrpc-archive-cache` | `hit=N miss=M` | Archive object reads this request sent to the edge cache (`src/archive/cached.ts`). Every archive object except `HEAD.json` is immutable and content-addressed, so each range read (`key`, `offset`, `length`) and whole-object read is stored for a day under a synthetic URL `/_cache/archive/v1/<key>?o=<offset>&l=<length>`. `HEAD.json` always goes to R2 and is not counted. Reads answered by the isolate's own memory (parsed manifests, offsets pages) never reach this cache and are not counted either. |
 | `x-nullrpc-exec` | `rounds=N keys=K hints=H live=L archive=A` | Present when the request executed something: read rounds (calls of the executor's state source), the keys they asked for, keys answered ahead of the first round from witnesses, and of all keys read how many the live window answered and how many the state history did (counting the isolate's value cache). |
-| `x-nullrpc-response-cache` | `hit`, `miss` or `bypass`; for a batch `hit=N miss=M bypass=K` | The per-item answer cache (`src/response-cache.ts`). A successful result of a block, transaction, receipt, raw-encoding, log or state method is stored for a day when every block it depends on is at or below the pinned archive tip P, keyed by chain id, method and the canonical parameters. `bypass` is everything else: tags (`latest`, `pending`, `safe`, `finalized`), blocks above P or below the archive's first block, errors, `null` answers to lookups by hash, `eth_getLogs` with `blockHash`, and methods that read the head or execute (`eth_call`, `eth_feeHistory`, fees, …). |
+| `x-nullrpc-response-cache` | `hit immutable`, `hit head`, `miss immutable`, `miss head`, `miss` or `bypass`; for a batch `hit=N miss=M bypass=K immutable=I head=H` | The per-item answer cache (`src/response-cache.ts`), in two tiers, each kept in the isolate (8 MiB, answers up to 128 KiB) and at the edge. **immutable**: a successful result whose every block is at or below the pinned archive tip P, stored for a day under the chain id, method and canonical parameters. **head**: a successful result that depends on blocks above P up to the pinned head, stored for 60 s under the pinned head's number and hash as well: tags resolve to numbers first, so `latest` is a head entry above P and an immutable one at P. The tier after `miss` is where the fresh answer was stored; a bare `miss` was not stored (a `null` answer to a lookup by hash, a block above the head, or a reorg that re-pinned the head during the call). `bypass` is everything else: blocks below the archive's first block, errors, `eth_getLogs` with `blockHash`, `eth_call` with state overrides, and methods outside the table (`eth_chainId`, `eth_sendRawTransaction`, tracing, `debug_codeByHash`, …). |
 
-Lookups by hash (`eth_getBlockByHash`, `eth_getTransactionByHash`, `eth_getTransactionReceipt`,
-`eth_getTransactionByBlockHashAndIndex`) are looked up before the answer is known and stored
-only when the fresh answer places itself at or below P. The archive generation is not part of
-the response key: an answer at or below P is identical in every later generation, and
-generations advance on every promotion and compaction merge. Bump `VERSION` in
-`src/response-cache.ts` when a method's JSON changes, and in `src/archive/cached.ts` when the
-stored byte representation changes.
+Cached methods: blocks, transactions, receipts and raw encodings by number; `eth_getBalance`,
+`eth_getTransactionCount`, `eth_getCode`, `eth_getStorageAt`; `eth_getLogs` by range;
+`eth_blockNumber`, `eth_gasPrice`, `eth_maxPriorityFeePerGas`, `eth_feeHistory` (immutable when
+`newestBlock + 1` is at or below P, since the next base fee reads the successor); `eth_call` and
+`eth_estimateGas` by call object (keys sorted, hex lowercased) and block. Lookups by hash
+(`eth_getBlockByHash`, `eth_getTransactionByHash`, `eth_getTransactionReceipt`,
+`eth_getTransactionByBlockHashAndIndex`) ask both tiers before the answer is known and are stored
+in the tier the fresh answer's block number selects. A head entry can only ever answer for the
+head it was computed under (a hash fixes the whole chain below it), so a new head simply misses;
+nothing is invalidated. The archive generation is not part of any key: an answer at or below P
+is identical in every later generation, and generations advance on every promotion and
+compaction merge. Bump `VERSION` in `src/response-cache.ts` when a method's JSON changes, and in
+`src/archive/cached.ts` when the stored byte representation changes.
 
 ## Develop
 
