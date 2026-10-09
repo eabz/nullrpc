@@ -1,10 +1,11 @@
 import { defineConfig } from "vitest/config";
 import { executorWasmNode } from "@nullrpc/executor/test/vitest-wasm";
+import { zstdWasmNode } from "@nullrpc/zstd/test/vitest-wasm";
 
 // `cloudflare:workers` exists only in the Workers runtime; tests use a minimal stand-in. The
-// executor package's `.wasm` import is what wrangler bundles: under Node it is read from
-// packages/executor/crate/pkg (build it first: bun run build).
+// executor and zstd packages' `.wasm` imports are what wrangler bundles: under Node they are read
+// from packages/*/crate/pkg (build them first: bun run build).
 export default defineConfig({
-  plugins: [executorWasmNode()],
+  plugins: [executorWasmNode(), zstdWasmNode()],
   resolve: { alias: { "cloudflare:workers": new URL("./test/cloudflare-workers.ts", import.meta.url).pathname } },
 });

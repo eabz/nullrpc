@@ -15,9 +15,9 @@
   //   { "binding": "EXECUTOR", "service": "nullrpc-executor", "entrypoint": "Executor" }
   "name": "nullrpc-rpc",
   "main": "src/index.ts",
-  // The executor's WebAssembly is built from packages/executor/crate before bundling
-  // (its crate/pkg is git-ignored).
-  "build": { "command": "bun run build", "watch_dir": ["../../packages/executor/crate/src"] },
+  // The executor's and the zstd decoder's WebAssembly are built from packages/*/crate before
+  // bundling (their crate/pkg are git-ignored); wrangler bundles the .wasm files as compiled modules.
+  "build": { "command": "bun run build", "watch_dir": ["../../packages/executor/crate/src", "../../packages/zstd/crate/src"] },
   "compatibility_date": "2026-10-08",
   "workers_dev": false,
   "preview_urls": false,

@@ -1,0 +1,25 @@
+[package]
+name = "nullrpc-zstd"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+rust-version = "1.95"
+description = "zstd frame decompression for the RPC Worker's archive reads, compiled to WebAssembly (the C library behind zstd-safe)"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# Decompression only: no legacy formats, no dictionary builder. zstd-sys ships the libc shim
+# that lets the C library build for wasm32-unknown-unknown.
+zstd-safe = { version = "7.2.4", default-features = false, features = ["std"] }
+
+[profile.release]
+# Speed, not size: the module is about 100 KB either way, and the decoder is on every archive read.
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+debug = false
