@@ -163,7 +163,7 @@ func TestSegmentAndWitnessConsolidation(t *testing.T) {
 		var blocks []segmentBlock
 		var frames []frame
 		for n := s * 4; n < s*4+4; n++ {
-			blocks = append(blocks, segmentBlock{number: n, hash: fmt.Sprintf("0x%064x", n+1), record: compressFrame([]byte{byte(n), 1, 2})})
+			blocks = append(blocks, segmentBlock{number: n, hash: fmt.Sprintf("0x%064x", n+1), record: compressFrame([]byte{byte(n), 1, 2}), receipts: compressFrame([]byte{byte(n), 3})})
 			frames = append(frames, compressFrame([]byte{1, byte(n)}))
 		}
 		ref, err := writeSegment(archive, "1-ab", 0, fmt.Sprintf("0x%064x", s*4), blocks)

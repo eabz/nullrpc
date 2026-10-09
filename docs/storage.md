@@ -31,8 +31,9 @@ parameters, set per blockchain in "Parameters" at the end.
   config/{sha256}.json                              # genesis allocation and fork schedule
   segments/{first:020}-{last:020}-{last-hash}/{content-id}/
     meta.json
-    blocks.pack                                     # one block record per block
-    offsets.bin                                     # 80 bytes per block
+    blocks.pack                                     # one block frame per block
+    receipts.pack                                   # one receipts frame per block (layout 2)
+    offsets.bin                                     # 128 bytes per block (80 in layout 1)
   hash-index/{first:020}-{last:020}/
     transactions-{sha256}.dir
     blocks-{sha256}.dir
@@ -228,7 +229,7 @@ Every `.pack` file starts with a 16-byte header, followed by independent zstd fr
 |---|---|
 | 0–7 | `NRPCPACK` |
 | 8–9 | format version, `1` |
-| 10–11 | codec: `1` block records, `2` state pages, `3` hash index buckets, `4` log index buckets, `5` witnesses |
+| 10–11 | codec: `1` block records, `2` state pages, `3` hash index buckets, `4` log index buckets, `5` witnesses, `6` receipts frames |
 | 12–15 | zero |
 
 Each frame is one record, read with one range request. A reader checks the frame's length and
@@ -243,34 +244,48 @@ A segment holds consecutive blocks inside one chunk (`chunk_blocks` blocks, alig
 multiples of it). Promotion adds segments to the open chunk; when a chunk is complete, its
 segments are rewritten as one.
 
-`meta.json` describes the segment and references its two data objects:
+`meta.json` describes the segment, names its layout and references its data objects:
 
 ```json
-{"first": 0, "last": 8191, "first_parent_hash": "0x…", "last_hash": "0x…",
- "files": {"blocks.pack": ObjectRef, "offsets.bin": ObjectRef}}
+{"first": 0, "last": 8191, "first_parent_hash": "0x…", "last_hash": "0x…", "layout": 2,
+ "files": {"blocks.pack": ObjectRef, "receipts.pack": ObjectRef, "offsets.bin": ObjectRef}}
 ```
 
 `first_parent_hash` is the parent of the first block (the previous segment's `last_hash`; zero
-for block 0). `offsets.bin`'s `bytes` must be `(last − first + 1) × 80`.
+for block 0).
 
-`offsets.bin` has one 80-byte record per block, in block order, so block N's record is at
-byte `(N − first) × 80`:
+**Layout 2** (what the daemon and the backfill write) stores each block as two frames: the
+*block frame* in `blocks.pack` and the *receipts frame* in `receipts.pack` ("Block records"
+below), so that `eth_getLogs`, which needs only the receipts, reads and decodes nothing of the
+transactions. `offsets.bin` has one 128-byte record per block, in block order, so block N's
+record is at byte `(N − first) × 128`, and its `bytes` must be `(last − first + 1) × 128`:
 
 | Bytes | Field |
 |---|---|
 | 0–31 | block hash |
-| 32–39 | frame offset in `blocks.pack` (u64) |
+| 32–39 | block frame offset in `blocks.pack` (u64) |
 | 40–43 | compressed length (u32) |
 | 44–47 | uncompressed length (u32) |
-| 48–79 | SHA-256 of the compressed frame |
+| 48–79 | SHA-256 of the compressed block frame |
+| 80–87 | receipts frame offset in `receipts.pack` (u64) |
+| 88–91 | compressed length (u32) |
+| 92–95 | uncompressed length (u32) |
+| 96–127 | SHA-256 of the compressed receipts frame |
 
-Reading a block is two range reads: the 80-byte record, then the frame. The decoded block's
-number and hash must match the record. The 256 hashes before a block (for `BLOCKHASH`) are one
-contiguous read of `offsets.bin`.
+**Layout 1** (`layout` absent or 1: generations written before receipts had their own pack)
+stores each block as one frame in `blocks.pack`, the whole record, with 80-byte records that
+end at byte 79 of the table above. Every generation stays readable: a reader takes the record
+length from `meta.json`, and a merge that rewrites a chunk ("Compaction") reads its segments
+in either layout and writes layout 2, splitting layout-1 records.
+
+Reading a block is two range reads in layout 1 (the record, then the frame) and three in
+layout 2 (the record, then both frames in parallel), after which the Worker joins the frames
+into the record. The decoded block's number and hash must match the offsets record. The 256
+hashes before a block (for `BLOCKHASH`) are one contiguous read of `offsets.bin`.
 
 ### Block records
 
-Each frame in `blocks.pack` is the RLP list:
+A block's record is the RLP list:
 
 ```text
 [raw_block, senders, receipts, blob_gas_price, extras]
@@ -287,6 +302,21 @@ Each frame in `blocks.pack` is the RLP list:
 
 `extras` keeps the format usable on a blockchain whose receipts carry extra fields. Names are the
 JSON field names; values are big-endian integers.
+
+A layout-1 segment stores the record as one frame. A layout-2 segment splits it, item for item
+(the items are spliced as encoded, never re-encoded, so joining the frames gives the record
+back byte for byte):
+
+```text
+block frame     [raw_block, senders, blob_gas_price]              in blocks.pack
+receipts frame  [number, timestamp, tx_hashes, receipts, extras]  in receipts.pack
+```
+
+`number` and `timestamp` are the header's; `tx_hashes` is 32 bytes per transaction, in order.
+The receipts frame therefore answers a log query by itself: block number, hash (from the
+offsets record), timestamp, and every log's transaction hash, without hashing or even reading a
+transaction. A reader checks the frame's `number` against the offsets record's block. Live
+records (`live/records/`, `ChainDO`) are whole records, whatever the archive's layout.
 
 Senders are stored so the Worker never recovers signatures. Everything else in the JSON
 response is derived: block and transaction hashes, `gasUsed` from consecutive cumulative gas,
@@ -465,9 +495,9 @@ R2 range reads on a cache miss. Index roots, filter blocks, code and immutable f
 
 | Method | Reads |
 |---|---|
-| Block, header, receipts by number | 2: offset record, frame |
-| Block or transaction by hash | 2 per index object in parallel, then 2 for the block |
-| `eth_getLogs` | per index object: 2 when it is small (directory ≤ 64 KiB and pack ≤ 256 KiB, read whole), else 2 per field value per partition touched; then 1 per 256 offsets records and 1 per run of candidate blocks (`blocks.pack` in aligned 256 KiB windows, ≤ 2 MiB per read), six reads at a time, under a budget of 256 reads per query |
+| Block, header, receipts by number | offsets record, then the block's frames: 2 in layout 1, 3 (the two frames in parallel) in layout 2 |
+| Block or transaction by hash | 2 per index object in parallel, then the block as above |
+| `eth_getLogs` | per index object: 2 when it is small (directory ≤ 64 KiB and pack ≤ 256 KiB, read whole), else 2 per field value per partition touched; then 1 per 256 offsets records and 1 per run of candidate blocks (`receipts.pack` in layout 2, `blocks.pack` in layout 1, in aligned 256 KiB windows, ≤ 2 MiB per read), six reads at a time, under a budget of 256 reads per query |
 | Balance, nonce, storage, code at a block | 1 round of filter blocks, then 2 pages |
 | `eth_call`, `eth_estimateGas` | the state lookup above for each new key, in dependent rounds |
 | Trace of a mined transaction | 2 for the witness, 2 for the block, plus uncached code |

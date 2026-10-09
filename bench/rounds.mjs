@@ -15,6 +15,13 @@
 // `--state URL` is the node the state is read from (default: the chain's reference node in
 // lib.mjs, which serves the tracers; the target endpoint only gives the head). `--out FILE`
 // writes every case's rounds as JSON.
+//
+// `--profile N` (with `--hints`) runs each case's hinted execution N more times with every
+// state value already in hand and times the module's phases: the request JSON (the block
+// record), `new Session`, the first run (the executor's own hints), the hints JSON and the run
+// that applies it and executes, and the rest. Variants: without the hinted contracts' code
+// (the executor then asks for what it touches), and with a record stripped of its
+// transactions and receipts (what a header-only record would cost).
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { performance } from "node:perf_hooks";
@@ -199,6 +206,7 @@ async function run(request, seed) {
   const session = new Session(JSON.stringify(request));
   const rounds = [];
   const read = new Set();
+  const table = new Map();
   let input = seed ? JSON.stringify(seed) : "";
   let codeOf = 0;
   for (;;) {
@@ -207,7 +215,7 @@ async function run(request, seed) {
     const wasm = performance.now() - t0;
     if (out.done) {
       const usage = Object.fromEntries(session.usage().split(";").map((kv) => kv.split("=")).map(([k, v]) => [k, Number(v)]));
-      return { response: out.response, rounds, read: [...read], usage, lastWasm: wasm };
+      return { response: out.response, rounds, read: [...read], usage, lastWasm: wasm, table };
     }
     const t1 = performance.now();
     if (out.witness !== undefined) {
@@ -236,6 +244,7 @@ async function run(request, seed) {
     const keys = [...out.missing];
     for (const [i, key] of out.missing.entries()) {
       read.add(keyId(key));
+      table.set(keyId(key), values[i]);
       const v = values[i];
       if (v?.kind === "account" && v.codeHash && v.codeHash !== EMPTY_CODE_HASH && !keys.some((k) => k.kind === "code" && k.hash === v.codeHash)) {
         keys.push({ kind: "code", hash: v.codeHash });
@@ -254,6 +263,82 @@ function summary(r) {
   const io = r.rounds.reduce((a, x) => a + x.io, 0);
   const keys = r.rounds.map((x) => Object.entries(x.keys).filter(([, n]) => n).map(([k, n]) => `${n}${k[0]}`).join("+")).join(" ");
   return { rounds: r.rounds.length, wasm, io, keys, usage: r.usage };
+}
+
+// ---- profile: the fixed cost of a call inside the module, phase by phase
+
+const ms = (t0) => Number(process.hrtime.bigint() - t0) / 1e6;
+
+/** One hinted execution with every value known, timed per phase; answers rounds from `table`. */
+function timedRun(request, seed, table) {
+  const out = {};
+  let t = process.hrtime.bigint();
+  const json = JSON.stringify(request);
+  out.requestJson = ms(t);
+  out.requestBytes = json.length;
+  t = process.hrtime.bigint();
+  const session = new Session(json);
+  out.sessionNew = ms(t);
+  t = process.hrtime.bigint();
+  let round = JSON.parse(session.run(""));
+  out.firstRun = ms(t);
+  let rounds = 0;
+  let input;
+  if (round.done) return { ...out, rounds, response: round.response };
+  // The executor's hints round is answered with the seed (hints + the round's own keys).
+  const answers = (missing) => missing.map((k) => table.get(keyId(k)) ?? null);
+  t = process.hrtime.bigint();
+  const first = { keys: [...seed.keys, ...round.missing], values: [...seed.values, ...answers(round.missing)] };
+  input = JSON.stringify(first);
+  out.hintsJson = ms(t);
+  out.hintsBytes = input.length;
+  out.hintsKeys = first.keys.length;
+  t = process.hrtime.bigint();
+  round = JSON.parse(session.run(input));
+  out.hintsRun = ms(t);
+  rounds = 1;
+  out.rest = 0;
+  out.restKeys = [];
+  while (!round.done) {
+    rounds++;
+    const keys = round.missing;
+    out.restKeys.push(keys.map((k) => k.kind[0]).join(""));
+    t = process.hrtime.bigint();
+    const values = answers(keys);
+    const more = [...keys];
+    const moreValues = [...values];
+    for (const [i, v] of values.entries()) if (v?.kind === "account" && v.codeHash && table.has(`c:${v.codeHash}`)) { more.push({ kind: "code", hash: v.codeHash }); moreValues.push(table.get(`c:${v.codeHash}`)); }
+    round = JSON.parse(session.run(JSON.stringify({ keys: more, values: moreValues })));
+    out.rest += ms(t);
+  }
+  return { ...out, rounds, response: round.response };
+}
+
+function median(xs) {
+  const s = xs.slice().sort((a, b) => a - b);
+  return s[Math.floor(s.length / 2)];
+}
+
+/** Profiles `request` with hints `h` over `reps` runs; the table holds every value the plain run read. */
+function profile(label, request, h, plain, reps) {
+  const table = new Map();
+  for (const [i, k] of h.keys.entries()) table.set(keyId(k), h.values[i]);
+  for (const [id, v] of plain.table) table.set(id, v);
+  for (const [hash, code] of codes) table.set(`c:${hash}`, { kind: "code", code });
+  const withCode = { keys: [...h.keys], values: [...h.values] };
+  const seen = new Set();
+  for (const v of h.values) if (v?.kind === "account" && v.codeHash && codes.has(v.codeHash) && !seen.has(v.codeHash) && seen.size < 48) { seen.add(v.codeHash); withCode.keys.push({ kind: "code", hash: v.codeHash }); withCode.values.push({ kind: "code", code: codes.get(v.codeHash) }); }
+  const stripped = { ...request, block: plain.strippedRecord };
+  const variants = [["hints + code", request, withCode], ["hints, no code", request, h], ["no hints", request, { keys: [], values: [] }], ["hints + code, txless record", stripped, withCode]];
+  for (const [name, req, seed] of variants) {
+    const runs = [];
+    for (let i = 0; i < reps; i++) runs.push(timedRun(req, seed, table));
+    const m = (f) => median(runs.map(f)).toFixed(2);
+    const r = runs[0];
+    const same = JSON.stringify(r.response) === JSON.stringify(plain.response);
+    console.log(`  ${label} [${name}] request ${(r.requestBytes / 1024).toFixed(0)} KiB, hints ${r.hintsKeys ?? 0} keys ${((r.hintsBytes ?? 0) / 1024).toFixed(0)} KiB, rounds ${r.rounds}${r.restKeys?.length ? " [" + r.restKeys.join(" ") + "]" : ""}${same ? "" : " !! answer differs"}`);
+    console.log(`    ms median: requestJson ${m((x) => x.requestJson)} sessionNew ${m((x) => x.sessionNew)} firstRun ${m((x) => x.firstRun)} hintsJson ${m((x) => x.hintsJson ?? 0)} hintsRun ${m((x) => x.hintsRun ?? 0)} rest ${m((x) => x.rest ?? 0)} total ${m((x) => x.requestJson + x.sessionNew + x.firstRun + (x.hintsJson ?? 0) + (x.hintsRun ?? 0) + (x.rest ?? 0))}`);
+  }
 }
 
 // ---- cases
@@ -311,6 +396,13 @@ for (const c of cases) {
     line("hinted", hs, ` | hints ${h.keys.length} keys from ${h.blocks} (${h.exactNew} exact-only) cover ${covered}/${plain.read.length} of the plain run's keys; trace fetch ${fmtMs(h.ms)}`);
     if (JSON.stringify(hinted.response) !== JSON.stringify(plain.response)) console.log(`  !! hinted answer differs: ${JSON.stringify(hinted.response).slice(0, 200)}`);
     entry.hinted = { ...hs, hints: h.keys.length, covered, of: plain.read.length, blocks: h.blocks };
+    if (args.profile) {
+      const b = await block(M);
+      const receipts = await state("eth_getBlockReceipts", [hex(M)]);
+      for (const [id, v] of hinted.table) plain.table.set(id, v);
+      plain.strippedRecord = encodeRecord({ block: { ...b, transactions: [] }, receipts: receipts.slice(0, 0), uncles: [] });
+      profile(c.label, request, h, plain, Number(args.profile));
+    }
   }
   results.push(entry);
 }

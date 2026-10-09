@@ -4,7 +4,7 @@
 // from consecutive cumulative gas, effectiveGasPrice, contractAddress, logIndex, logsBloom and
 // blobGasUsed.
 
-import { FrameError, frameLogs as wasmFrameLogs, type LogFilter } from "@nullrpc/frames";
+import { FrameError, frameLogs as wasmFrameLogs, receiptsLogs as wasmReceiptsLogs, type LogFilter } from "@nullrpc/frames";
 import { decodeBlock, blockJson, keccak, type Block, type RawTx } from "./block";
 import { data, quantity, quantityBytes, toBigInt, toNumber } from "./hex";
 import { bytes, decode, encodeBytes, encodeList, intBytes, list, type Rlp } from "./rlp";
@@ -51,6 +51,20 @@ export function decodeRecord(frame: Uint8Array): BlockRecord {
     }),
   );
   return { frame, block, senders, receipts, blobGasPrice: toBigInt(bytes(top[3])), extras };
+}
+
+/**
+ * The record of a layout-2 segment's two frames (storage.md, "Block bundles"): the block frame
+ * [raw_block, senders, blob_gas_price] and the receipts frame [number, timestamp, tx_hashes,
+ * receipts, extras] become [raw_block, senders, receipts, blob_gas_price, extras], byte for
+ * byte what a layout-1 frame holds. The items are spliced as encoded, not re-encoded.
+ */
+export function joinRecord(block: Uint8Array, receipts: Uint8Array): Uint8Array {
+  const b = list(decode(block));
+  const r = list(decode(receipts));
+  if (b.length !== 3) throw new Error("block frame is not a list of 3 items");
+  if (r.length !== 5) throw new Error("receipts frame is not a list of 5 items");
+  return encodeList([b[0]!.raw, b[1]!.raw, r[3]!.raw, b[2]!.raw, r[4]!.raw]);
 }
 
 export function txContext(rec: BlockRecord, index: number) {
@@ -139,6 +153,53 @@ export function frameLogs(frame: Uint8Array, hash: Uint8Array, filter: LogFilter
     if (!(e instanceof FrameError)) throw e;
   }
   return frameLogsJs(frame, hash, (address, topics) => logMatches(address, topics, filter));
+}
+
+/**
+ * `frameLogs` over a layout-2 receipts frame, which carries the block's number and timestamp,
+ * every transaction's hash, the receipts and the extras: nothing of the transactions is read.
+ * `hash` and `n` are the block's hash and number from the offsets record; the frame's number
+ * must agree. Equivalent to frameLogs over the joined record.
+ */
+export function receiptsLogs(frame: Uint8Array, hash: Uint8Array, n: number, filter: LogFilter): Record<string, unknown>[] {
+  try {
+    const logs = wasmReceiptsLogs(frame, hash, n, filter);
+    if (logs) return logs;
+  } catch (e) {
+    if (!(e instanceof FrameError)) throw e;
+  }
+  return receiptsLogsJs(frame, hash, n, (address, topics) => logMatches(address, topics, filter));
+}
+
+/** `receiptsLogs` in JavaScript, for any `want`: the fallback, and the reference the module is tested against. */
+export function receiptsLogsJs(frame: Uint8Array, hash: Uint8Array, n: number, want: (address: Uint8Array, topics: Uint8Array[]) => boolean): Record<string, unknown>[] {
+  const top = list(decode(frame));
+  if (top.length !== 5) throw new Error("receipts frame is not a list of 5 items");
+  const number = toNumber(bytes(top[0]));
+  if (number !== n) throw new Error(`receipts frame is for block ${number}, not ${n}`);
+  const hashes = bytes(top[2]);
+  const receipts = list(top[3]);
+  if (hashes.length !== receipts.length * 32) throw new Error("transaction hashes do not match the receipts");
+  const blockNumber = quantity(number);
+  const blockHash = data(hash);
+  const blockTimestamp = quantity(toNumber(bytes(top[1])));
+  const out: Record<string, unknown>[] = [];
+  let logIndex = 0;
+  for (let i = 0; i < receipts.length; i++) {
+    const logs = list(list(receipts[i])[3]);
+    let transactionHash: string | null = null;
+    for (let j = 0; j < logs.length; j++) {
+      const [address, topics, payload] = list(logs[j]);
+      const a = bytes(address);
+      const t = list(topics).map((x) => bytes(x));
+      if (want(a, t)) {
+        transactionHash ??= data(hashes.subarray(i * 32, i * 32 + 32));
+        out.push({ address: data(a), topics: t.map((x) => data(x)), data: data(bytes(payload)), blockNumber, blockHash, blockTimestamp, transactionHash, transactionIndex: quantity(i), logIndex: quantity(logIndex + j), removed: false });
+      }
+    }
+    logIndex += logs.length;
+  }
+  return out;
 }
 
 /** `frameLogs` in JavaScript, for any `want`: the fallback, and the reference the module is tested against. */

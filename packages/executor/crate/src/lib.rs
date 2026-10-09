@@ -8,6 +8,7 @@
 
 mod access_list;
 pub mod api;
+pub mod cache;
 mod calls;
 pub mod config;
 mod format;
@@ -65,6 +66,20 @@ mod wasm {
         pub fn usage(&self) -> String {
             self.0.usage()
         }
+    }
+
+    /// Whether the module holds the decoded record of the block with this hash (a request may
+    /// then name `blockHash` and leave `block` out).
+    #[wasm_bindgen]
+    pub fn has_block(hash: &str) -> bool {
+        hash.parse().is_ok_and(|h| crate::cache::has_block(&h))
+    }
+
+    /// Whether the module holds a state snapshot for the block with this hash (a request may
+    /// then start from it with `seed` and skip its hints).
+    #[wasm_bindgen]
+    pub fn has_known(hash: &str) -> bool {
+        hash.parse().is_ok_and(|h| crate::cache::has_known(&h))
     }
 
     /// Stateless form: run `request_json` over the values in `state_json` (everything known

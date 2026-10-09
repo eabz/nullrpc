@@ -5,6 +5,7 @@
 
 import { decompress } from "@nullrpc/frames";
 import { equal } from "../eth/hex";
+import { joinRecord } from "../eth/record";
 import { Lru } from "./lru";
 import type { Source } from "./source";
 import { ArchiveError, type FrameRef, type Head, type Manifest, type ObjectRef, type SegmentEntry, type SegmentMeta } from "./types";
@@ -13,9 +14,31 @@ import { ArchiveError, type FrameRef, type Head, type Manifest, type ObjectRef, 
 const HEAD_TTL_MS = 10_000;
 /** Frames larger than this uncompressed are refused (storage.md, "Packs"). */
 export const MAX_FRAME = 8 * 1024 * 1024;
-/** offsets.bin is read in aligned pages of this many records (20 KiB), so neighbours share a read. */
+/** offsets.bin is read in aligned pages of this many records (20 or 32 KiB), so neighbours share a read. */
 export const OFFSETS_PAGE = 256;
-const OFFSET_RECORD = 80;
+
+/**
+ * A segment's offsets.bin record length by layout (storage.md, "Block bundles"): 80 bytes for
+ * one record frame per block, 128 when the receipts frame in receipts.pack follows it. Also
+ * checks the file's size and, for layout 2, that receipts.pack is there.
+ */
+function offsetRecordLength(meta: SegmentMeta): number {
+  const layout = meta.layout ?? 1;
+  if (layout !== 1 && layout !== 2) throw new ArchiveError(`unsupported segment layout ${layout}`);
+  if (layout === 2 && !meta.files["receipts.pack"]) throw new ArchiveError("layout 2 segment lacks receipts.pack");
+  const len = layout === 2 ? 128 : 80;
+  if (meta.files["offsets.bin"].bytes !== (meta.last - meta.first + 1) * len) throw new ArchiveError("offsets.bin has the wrong size");
+  return len;
+}
+
+/** The frame reference at byte `at` of an offsets record: offset (u64), lengths (u32, u32), SHA-256. */
+function frameRefAt(rec: Uint8Array, at: number, pack: ObjectRef): FrameRef {
+  const view = new DataView(rec.buffer, rec.byteOffset, rec.byteLength);
+  return { pack, offset: Number(view.getBigUint64(at, true)), compressed: view.getUint32(at + 8, true), uncompressed: view.getUint32(at + 12, true), sha256: rec.subarray(at + 16, at + 48) };
+}
+
+/** What a block run decodes: whole records (layout 1, blocks.pack) or receipts frames (layout 2, receipts.pack). */
+export type RunKind = "record" | "receipts";
 /**
  * Coalesced block reads (`planBlockRuns`): blocks.pack is viewed as aligned windows of this many
  * bytes; a run is the consecutive windows that hold wanted blocks, within one aligned group of
@@ -155,39 +178,39 @@ export class Archive {
     return `${seg.meta.sha256}:${Math.floor((n - seg.first) / OFFSETS_PAGE)}`;
   }
 
-  private async offsetsRecord(meta: SegmentMeta, n: number): Promise<Uint8Array> {
+  private async offsetsRecord(meta: SegmentMeta, n: number, len: number): Promise<Uint8Array> {
     const i = n - meta.first;
     const page = Math.floor(i / OFFSETS_PAGE);
     const offsets = meta.files["offsets.bin"];
     const id = `${offsets.sha256}:${page}`;
     let p = pages.get(id);
     if (!p) {
-      const start = page * OFFSETS_PAGE * OFFSET_RECORD;
+      const start = page * OFFSETS_PAGE * len;
       const count = Math.min(OFFSETS_PAGE, meta.last - meta.first + 1 - page * OFFSETS_PAGE);
-      p = this.range(offsets, start, count * OFFSET_RECORD);
+      p = this.range(offsets, start, count * len);
       pages.set(id, p);
       p.catch(() => pages.delete(id));
     }
-    const at = (i % OFFSETS_PAGE) * OFFSET_RECORD;
-    return (await p).subarray(at, at + OFFSET_RECORD);
+    const at = (i % OFFSETS_PAGE) * len;
+    return (await p).subarray(at, at + len);
   }
 
-  /** Block `n`'s record frame (uncompressed) and its hash, or null outside the archive. */
+  /**
+   * Block `n`'s record (uncompressed; storage.md, "Block records") and its hash, or null
+   * outside the archive. A layout-2 segment's block and receipts frames are read together and
+   * joined, so the record is the same whatever the layout.
+   */
   async blockFrame(pin: Pin, n: number): Promise<{ hash: Uint8Array; frame: Uint8Array } | null> {
     const seg = this.segment(pin, n);
     if (!seg) return null;
     const meta = await this.json<SegmentMeta>(seg.meta);
-    if (meta.files["offsets.bin"].bytes !== (meta.last - meta.first + 1) * OFFSET_RECORD) throw new ArchiveError("offsets.bin has the wrong size");
-    const rec = await this.offsetsRecord(meta, n);
-    const view = new DataView(rec.buffer, rec.byteOffset, rec.byteLength);
-    const frame = await this.frame({
-      pack: meta.files["blocks.pack"],
-      offset: Number(view.getBigUint64(32, true)),
-      compressed: view.getUint32(40, true),
-      uncompressed: view.getUint32(44, true),
-      sha256: rec.subarray(48, 80),
-    });
-    return { hash: rec.subarray(0, 32), frame };
+    const len = offsetRecordLength(meta);
+    const rec = await this.offsetsRecord(meta, n, len);
+    const hash = rec.subarray(0, 32);
+    const block = this.frame(frameRefAt(rec, 32, meta.files["blocks.pack"]));
+    if (len === 80) return { hash, frame: await block };
+    const [b, r] = await Promise.all([block, this.frame(frameRefAt(rec, 80, meta.files["receipts.pack"]!))]);
+    return { hash, frame: joinRecord(b, r) };
   }
 
   // ---- coalesced block reads
@@ -215,12 +238,17 @@ export class Archive {
     });
   }
 
-  async planBlockRuns(pin: Pin, numbers: number[]): Promise<BlockRun[]> {
+  /**
+   * `kind` "receipts" plans the frames a log query decodes: the receipts frames of layout-2
+   * segments (receipts.pack), the whole records of layout-1 ones; "record" plans whole records
+   * only, so it refuses layout-2 segments (their records are two frames: blockFrame).
+   */
+  async planBlockRuns(pin: Pin, numbers: number[], kind: RunKind = "receipts"): Promise<BlockRun[]> {
     const runs: BlockRun[] = [];
     let seg: SegmentEntry | null = null;
     let batch: number[] = [];
     const flush = async () => {
-      if (seg && batch.length) runs.push(...(await this.segmentRuns(seg, batch)));
+      if (seg && batch.length) runs.push(...(await this.segmentRuns(seg, batch, kind)));
       batch = [];
     };
     for (const n of numbers) {
@@ -235,15 +263,17 @@ export class Archive {
     return runs;
   }
 
-  private async segmentRuns(seg: SegmentEntry, numbers: number[]): Promise<BlockRun[]> {
+  private async segmentRuns(seg: SegmentEntry, numbers: number[], kind: RunKind): Promise<BlockRun[]> {
     const meta = await this.json<SegmentMeta>(seg.meta);
-    if (meta.files["offsets.bin"].bytes !== (meta.last - meta.first + 1) * OFFSET_RECORD) throw new ArchiveError("offsets.bin has the wrong size");
-    const pack = meta.files["blocks.pack"];
+    const len = offsetRecordLength(meta);
+    if (len === 128 && kind === "record") throw new ArchiveError("layout 2 segments store records as two frames");
+    const receipts = len === 128;
+    const pack = receipts ? meta.files["receipts.pack"]! : meta.files["blocks.pack"];
+    const at = receipts ? 80 : 32;
     const blocks = await Promise.all(
       numbers.map(async (n) => {
-        const rec = await this.offsetsRecord(meta, n);
-        const view = new DataView(rec.buffer, rec.byteOffset, rec.byteLength);
-        const f: FrameRef = { pack, offset: Number(view.getBigUint64(32, true)), compressed: view.getUint32(40, true), uncompressed: view.getUint32(44, true), sha256: rec.subarray(48, 80) };
+        const rec = await this.offsetsRecord(meta, n, len);
+        const f = frameRefAt(rec, at, pack);
         if (f.uncompressed > MAX_FRAME) throw new ArchiveError("frame too large");
         if (f.offset + f.compressed > pack.bytes) throw new ArchiveError(`block ${n} lies outside ${pack.key}`);
         return { n, hash: rec.subarray(0, 32), frame: f };
@@ -261,29 +291,38 @@ export class Archive {
         run.length = Math.max(run.length, end - run.offset);
         run.blocks.push(b);
       } else {
-        run = { pack, offset: start, length: end - start, blocks: [b] };
+        run = { pack, kind: receipts ? "receipts" : "record", offset: start, length: end - start, blocks: [b] };
         runs.push(run);
       }
     }
     return runs;
   }
 
-  /** Reads one run (one range read) and returns its blocks' records, checked, in order. */
-  async readRun(run: BlockRun): Promise<{ n: number; hash: Uint8Array; frame: Uint8Array }[]> {
+  /** Reads one run (one range read) and returns its blocks' frames, checked, in order. */
+  async readRun(run: BlockRun): Promise<RunBlock[]> {
     const bytes = await this.range(run.pack, run.offset, run.length);
     return Promise.all(
       run.blocks.map(async (b) => {
         const at = b.frame.offset - run.offset;
-        return { n: b.n, hash: b.hash, frame: await this.decodeFrame(bytes.subarray(at, at + b.frame.compressed), b.frame) };
+        return { n: b.n, hash: b.hash, kind: run.kind, frame: await this.decodeFrame(bytes.subarray(at, at + b.frame.compressed), b.frame) };
       }),
     );
   }
 }
 
-/** One range read of a blocks.pack covering the frames of `blocks`. */
+/** One range read of a pack covering the frames of `blocks`: whole records or receipts frames (`kind`). */
 export interface BlockRun {
   pack: ObjectRef;
+  kind: RunKind;
   offset: number;
   length: number;
   blocks: { n: number; hash: Uint8Array; frame: FrameRef }[];
+}
+
+/** A block read from a run: its decompressed frame, a whole record or a receipts frame (`kind`). */
+export interface RunBlock {
+  n: number;
+  hash: Uint8Array;
+  kind: RunKind;
+  frame: Uint8Array;
 }

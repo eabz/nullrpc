@@ -1,0 +1,21 @@
+{
+  // Local workerd with the real Hoodi bindings (remote R2 and live Worker), for CPU profiles
+  // through the inspector: bench/profile-worker.mjs. Access control off (no APP binding).
+  //   bunx wrangler dev --config wrangler.profile.jsonc --port 8799 --inspector-port 9230
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "nullrpc-rpc-profile",
+  "main": "src/index.ts",
+  "build": { "command": "bun run build" },
+  "compatibility_date": "2026-10-08",
+  "workers_dev": false,
+  "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": true },
+  "vars": {
+    "CHAIN_ID": "560048",
+    "CHAIN_NAME": "Hoodi",
+    "ARCHIVE_PREFIX": "560048-bbe312868b376a3001692a646dd2d7d1e4406380dfd86b98aa8a34d1557c971b",
+    "ACCESS": "open",
+    "STATUS_URL": "off"
+  },
+  "r2_buckets": [{ "binding": "ARCHIVE", "bucket_name": "nullrpc", "remote": true }],
+  "services": [{ "binding": "LIVE", "service": "nullrpc-live-560048", "entrypoint": "LiveReads", "remote": true }]
+}

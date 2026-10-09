@@ -20,6 +20,18 @@ export interface WasmSession {
   free?(): void;
 }
 
+/** Makes a session for a request (JSON); `has` says what the module keeps by block hash
+ *  (crate/src/cache.rs): a decoded record, or a state snapshot to start from. */
+export type SessionFactory = ((requestJson: string) => WasmSession) & { has?: (kind: "block" | "known", hash: string) => boolean };
+
+/** The request as it goes to the module: the record only when the module lacks it, `seed`
+ *  when it holds a snapshot of the block. */
+interface WireRequest extends Omit<ExecRequest, "block"> {
+  block?: string;
+  blockHash?: string;
+  seed?: string;
+}
+
 type Round =
   | { done: true; response: ExecResponse }
   | { witness: number; hash: string }
@@ -125,9 +137,9 @@ const toHex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2,
  * [header, …], the hash keccak256 of the header's RLP, and the number the header's ninth
  * field. Null for a record the executor will reject anyway (the request then runs uncached).
  */
-export function blockOf(record: string): { hash: string; number: number } | null {
+export function blockOf(record: string | Uint8Array): { hash: string; number: number } | null {
   try {
-    const b = unhex(record);
+    const b = typeof record === "string" ? unhex(record) : record;
     const top = rlpItem(b, 0);
     const raw = rlpItem(b, top.start);
     if (!top.list || raw.list) return null;
@@ -152,7 +164,7 @@ export function blockOf(record: string): { hash: string; number: number } | null
 }
 
 /** The hash of the block of a request (see `blockOf`). */
-export function blockHashOf(record: string): string | null {
+export function blockHashOf(record: string | Uint8Array): string | null {
   return blockOf(record)?.hash ?? null;
 }
 
@@ -401,7 +413,7 @@ function learn(profile: string, asked: StateKey[]): void {
 export async function execute(
   request: ExecRequest,
   state: StateSource,
-  session: (requestJson: string) => WasmSession,
+  session: SessionFactory,
   now: () => number = Date.now,
   budgetMs: number = TIMEOUT_MS,
 ): Promise<ExecResponse> {
@@ -412,16 +424,32 @@ export async function execute(
   });
   const within = <T>(p: Promise<T>): Promise<T | typeof TIMED_OUT> => Promise.race([p, expired]);
   const chainId = String((request.chain as { chainId?: unknown })?.chainId ?? "");
-  const block = typeof request.block === "string" ? blockOf(request.block) : null;
+  const block =
+    typeof request.blockHash === "string" && Number.isSafeInteger(request.blockNumber) && request.blockNumber! >= 0
+      ? { hash: request.blockHash.toLowerCase(), number: request.blockNumber! }
+      : request.block != null
+        ? blockOf(request.block)
+        : null;
   const blockHash = block?.hash ?? null;
+  const isCall = CALL_METHODS.has(request.method);
+  // A block the module has a state snapshot of needs no hints or profile: it starts from it.
+  const seeded = !!(blockHash && isCall && session.has?.("known", blockHash));
   // The hints and the profile are read while the executor's first round is: all one wave.
-  const hinting = block && CALL_METHODS.has(request.method) ? hintsFor(state, `${chainId}:${blockHash}:${block.number}`, block.number) : null;
+  const hinting = block && isCall && !seeded ? hintsFor(state, `${chainId}:${blockHash}:${block.number}`, block.number) : null;
   const profile = block ? profileOf(request, chainId) : null;
-  const known = profile ? profileCache.get(profile) : undefined;
+  const known = profile && !seeded ? profileCache.get(profile) : undefined;
   const prefetching = known?.length ? answer(state, known, block!.number, `${chainId}:${blockHash}:${block!.number}`).catch(() => null) : null;
   const asked: StateKey[] = [];
   let reads = 0;
-  const wasm = session(JSON.stringify(request));
+  // The record goes as hex, and only when the module does not hold the block already.
+  const wire: WireRequest = { ...request, block: undefined };
+  if (blockHash) {
+    wire.blockHash = blockHash;
+    if (seeded) wire.seed = blockHash;
+  }
+  // (`instanceof Uint8Array` is not relied on: the bytes may come from another realm's buffer.)
+  if (!blockHash || !session.has?.("block", blockHash)) wire.block = typeof request.block === "string" ? request.block : "0x" + toHex(request.block);
+  const wasm = session(JSON.stringify(wire));
   try {
     let input = "";
     let slow = false;
@@ -452,7 +480,10 @@ export async function execute(
         const wave = await within(Promise.all([answered, atBlock && hinting ? hinting : null, atBlock && prefetching ? prefetching : null]));
         if (wave === TIMED_OUT) return timedOut();
         const [round, hints, prefetched] = wave;
-        input = JSON.stringify(first ? withHints(hints, prefetched, round) : round);
+        // A call's first wave is the state at the end of its block: the module keeps it for
+        // the next request there (unless it started from such a snapshot already).
+        const snapshot = first && atBlock && isCall && !seeded && session.has ? { snapshot: blockHash } : {};
+        input = JSON.stringify(first ? { ...withHints(hints, prefetched, round), ...snapshot } : round);
         first = false;
       }
     }

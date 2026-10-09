@@ -1,0 +1,10 @@
+39 requests in the capture; CPU mean 174ms, p50 71ms, p95 958ms
+
+case                           n  cpu p50  cpu p95  cpu mean  cpu total  wall p50  outcomes
+-----------------------------  -  -------  -------  --------  ---------  --------  --------
+eth_estimateGas real calldata  5     99ms    1.24s     492ms      2.46s     2.95s      ok=5
+eth_call real calldata latest  8     39ms    925ms     182ms      1.45s     649ms      ok=8
+eth_estimateGas replay at n-1  8     96ms    579ms     167ms      1.33s     642ms      ok=8
+eth_call replay at n-1         6    184ms    389ms     200ms      1.20s     1.01s      ok=6
+eth_estimateGas transfer       7     13ms    189ms      40ms      277ms     180ms      ok=7
+eth_call balanceOf             5     15ms     22ms      14ms       69ms     447ms      ok=5

@@ -7,9 +7,10 @@ decompression only) and a Rust RLP cursor compiled to one module, about 120 KB, 
 JavaScript fallbacks (`fzstd`, the Worker's own decoder) when the module cannot be instantiated.
 
 ```ts
-import { decompress, frameLogs } from "@nullrpc/frames";
+import { decompress, frameLogs, receiptsLogs } from "@nullrpc/frames";
 const frame = decompress(compressed, new Uint8Array(uncompressedLength)); // the caller checks frame.length
 const logs = frameLogs(frame, blockHash, { addresses: [], topics: [[TRANSFER]] }); // null: module unavailable
+const same = receiptsLogs(receiptsFrame, blockHash, blockNumber, filter); // a layout-2 receipts frame
 ```
 
 `decompress(compressed, out)` has fzstd's interface: it fills `out` and returns it, or the filled
@@ -20,6 +21,11 @@ only the header, the receipts and the hash of a transaction with an accepted log
 `FrameError` when the module refuses the record (malformed, header not hashing to `hash`,
 receipts and transactions differing in number); `apps/rpc/src/eth/record.ts` then decodes in
 JavaScript, which reports the precise error.
+
+`receiptsLogs(frame, hash, number, filter)` is the same over a layout-2 receipts frame
+(docs/storage.md, "Block bundles": `[number, timestamp, tx_hashes, receipts, extras]`), which
+carries everything a log needs, so no transaction is decoded or hashed; the frame's number must
+be the offsets record's `number` (code -7 otherwise).
 
 ## Why
 

@@ -94,7 +94,11 @@ func (p *promotion) promote(to BlockID, finalized BlockID) error {
 		seg := make([]segmentBlock, 0, end-at)
 		frames := make([]frame, 0, end-at)
 		for _, b := range blocks[at:end] {
-			seg = append(seg, segmentBlock{number: b.Number, hash: b.Hash, record: compressFrame(b.Record)})
+			block, receipts, err := splitRecord(b.Record, b.TxHashes, k)
+			if err != nil {
+				return fmt.Errorf("block %d: %w", b.Number, err)
+			}
+			seg = append(seg, segmentBlock{number: b.Number, hash: b.Hash, record: compressFrame(block), receipts: compressFrame(receipts)})
 			frames = append(frames, compressFrame(b.Witness))
 		}
 		ref, err := writeSegment(local, ns, chunk, firstParent, seg)

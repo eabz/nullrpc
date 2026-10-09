@@ -162,7 +162,17 @@ const offsetRecordLen = 80
 
 type fetchedBlock struct {
 	blockInfo
-	record frame // zstd frame of the binary block record
+	record   frame // zstd frame of the layout-2 block frame (segment_split.go)
+	receipts frame // zstd frame of the layout-2 receipts frame
+}
+
+// splitFrames compresses a block record as the two frames a layout-2 segment stores.
+func splitFrames(plain []byte, info blockInfo) (*fetchedBlock, error) {
+	block, receipts, err := splitRecord(plain, info.txHashes, nil)
+	if err != nil {
+		return nil, fmt.Errorf("block %d: %w", info.number, err)
+	}
+	return &fetchedBlock{blockInfo: info, record: compressFrame(block), receipts: compressFrame(receipts)}, nil
 }
 
 func parseQuantity(s string) (uint64, error) {
@@ -177,7 +187,7 @@ func fetchBlock(rpc *rpcClient, blocks []blockTx, n uint64, blobs recordRules) (
 	if err != nil {
 		return nil, err
 	}
-	return &fetchedBlock{blockInfo: info, record: compressFrame(plain)}, nil
+	return splitFrames(plain, info)
 }
 
 // fetchBlockPlain fetches block n over RPC and returns its checked record (uncompressed), what
@@ -479,7 +489,7 @@ func writeBundleAs(archive localArchive, namespace string, slot *chunkSlot, prev
 		if b.number != first.number+uint64(i) {
 			return BundleRef{}, fmt.Errorf("block %d out of order", b.number)
 		}
-		blocks[i] = segmentBlock{number: b.number, hash: b.hash, record: b.record}
+		blocks[i] = segmentBlock{number: b.number, hash: b.hash, record: b.record, receipts: b.receipts}
 		if err := spill.block(b.hash, b.number); err != nil {
 			return BundleRef{}, err
 		}
@@ -496,15 +506,18 @@ func writeBundleAs(archive localArchive, namespace string, slot *chunkSlot, prev
 	return ref, spill.write(hashSpillDir(archive), slot.id)
 }
 
-// segmentBlock is one block of a segment: its number, hash and record frame.
+// segmentBlock is one block of a segment: its number, hash, block frame and receipts frame
+// (segment_split.go).
 type segmentBlock struct {
-	number uint64
-	hash   string
-	record frame
+	number   uint64
+	hash     string
+	record   frame
+	receipts frame
 }
 
 // writeSegment writes consecutive, already verified blocks inside one chunk as
-// `segments/{first}-{last}-{last hash}/{content-id}/` (meta.json, blocks.pack, offsets.bin).
+// `segments/{first}-{last}-{last hash}/{content-id}/` (meta.json, blocks.pack, receipts.pack,
+// offsets.bin), in layout 2.
 func writeSegment(archive localArchive, namespace string, chunk uint64, firstParent string, blocks []segmentBlock) (BundleRef, error) {
 	first, last := blocks[0], blocks[len(blocks)-1]
 	tmp := archive.path(fmt.Sprintf("%s/.tmp/segment-%d-%d", namespace, first.number, last.number))
@@ -515,13 +528,24 @@ func writeSegment(archive localArchive, namespace string, chunk uint64, firstPar
 	if err != nil {
 		return BundleRef{}, err
 	}
-	offsets := make([]byte, 0, len(blocks)*offsetRecordLen)
+	rpack, err := newPackWriter(filepath.Join(tmp, "receipts.pack"), codecReceipts)
+	if err != nil {
+		return BundleRef{}, err
+	}
+	offsets := make([]byte, 0, len(blocks)*offsetRecordLenV2)
 	for _, b := range blocks {
+		if b.receipts.data == nil {
+			return BundleRef{}, fmt.Errorf("block %d has no receipts frame", b.number)
+		}
 		r, err := pack.push(b.number, b.record)
 		if err != nil {
 			return BundleRef{}, err
 		}
-		rec, err := offsetRecord(b.hash, r)
+		rr, err := rpack.push(b.number, b.receipts)
+		if err != nil {
+			return BundleRef{}, err
+		}
+		rec, err := offsetRecordV2(b.hash, r, rr)
 		if err != nil {
 			return BundleRef{}, fmt.Errorf("block %d: %w", b.number, err)
 		}
@@ -538,6 +562,11 @@ func writeSegment(archive localArchive, namespace string, chunk uint64, firstPar
 		return BundleRef{}, err
 	}
 	payloads["blocks.pack"] = payload{pack.path, size, sum}
+	size, sum, err = rpack.close()
+	if err != nil {
+		return BundleRef{}, err
+	}
+	payloads["receipts.pack"] = payload{rpack.path, size, sum}
 	offsetsPath := filepath.Join(tmp, "offsets.bin")
 	if err := os.WriteFile(offsetsPath, offsets, 0o644); err != nil {
 		return BundleRef{}, err
@@ -560,7 +589,7 @@ func writeSegment(archive localArchive, namespace string, chunk uint64, firstPar
 		files[name] = ref
 	}
 	os.RemoveAll(tmp)
-	meta := BundleMetadata{First: first.number, Last: last.number, FirstParentHash: firstParent, LastHash: last.hash, Files: files}
+	meta := BundleMetadata{First: first.number, Last: last.number, FirstParentHash: firstParent, LastHash: last.hash, Layout: segmentLayoutV2, Files: files}
 	metaRef, err := archive.putJSON(base+"/meta.json", meta)
 	if err != nil {
 		return BundleRef{}, err

@@ -38,7 +38,7 @@ impl std::error::Error for MissError {}
 impl DBErrorMarker for MissError {}
 
 /// Values answered by the state source.
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Known {
     pub(crate) accounts: HashMap<Address, Option<AccountInfo>>,
     pub(crate) code: HashMap<B256, Bytecode>,

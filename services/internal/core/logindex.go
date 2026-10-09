@@ -552,25 +552,34 @@ func buildLogIndex(src objectSource, archive localArchive, ns string, bundles []
 }
 
 // addBundleLogs adds the (partition, key, block) records of one bundle's
-// blocks in from..to: blocks.pack is read in ranges of consecutive frames,
-// each frame checked against its offsets.bin record (SHA-256, length, and
-// the decoded header's hash and number).
+// blocks in from..to: the pack holding the logs (receipts.pack in layout 2,
+// blocks.pack in layout 1) is read in ranges of consecutive frames, each
+// frame checked against its offsets.bin record (SHA-256, length, and the
+// decoded block's number; in layout 1 the header's hash too).
 func addBundleLogs(src objectSource, b BundleRef, from, to uint64, s *extSorter, c *logBuildCounters) error {
 	meta, err := readBundleMeta(src, b)
 	if err != nil {
 		return err
 	}
+	recLen, err := segmentRecordLen(meta)
+	if err != nil {
+		return fmt.Errorf("bundle %d-%d: %w", b.FirstBlock, b.LastBlock, err)
+	}
+	packName, frameAtByte := "blocks.pack", 32
+	if recLen == offsetRecordLenV2 {
+		packName, frameAtByte = "receipts.pack", 80
+	}
 	offRef, ok1 := meta.Files["offsets.bin"]
-	packRef, ok2 := meta.Files["blocks.pack"]
+	packRef, ok2 := meta.Files[packName]
 	if !ok1 || !ok2 {
-		return fmt.Errorf("bundle %d-%d lacks offsets.bin or blocks.pack", b.FirstBlock, b.LastBlock)
+		return fmt.Errorf("bundle %d-%d lacks offsets.bin or %s", b.FirstBlock, b.LastBlock, packName)
 	}
 	offsets, err := src.get(offRef.Key)
 	if err != nil {
 		return err
 	}
 	n := b.LastBlock - b.FirstBlock + 1
-	if uint64(len(offsets)) != offRef.Bytes || sha256Hex(offsets) != offRef.Sha256 || uint64(len(offsets)) != n*80 {
+	if uint64(len(offsets)) != offRef.Bytes || sha256Hex(offsets) != offRef.Sha256 || uint64(len(offsets)) != n*recLen {
 		return fmt.Errorf("%s does not match its reference", offRef.Key)
 	}
 	c.read.Add(uint64(len(offsets)))
@@ -587,9 +596,10 @@ func addBundleLogs(src objectSource, b BundleRef, from, to uint64, s *extSorter,
 		if number < from || number > to {
 			continue
 		}
-		o := offsets[i*80 : (i+1)*80]
-		r := rec{number: number, hash: o[:32], offset: binary.LittleEndian.Uint64(o[32:]),
-			length: binary.LittleEndian.Uint32(o[40:]), uncompressed: binary.LittleEndian.Uint32(o[44:]), sha256: o[48:80]}
+		o := offsets[i*recLen : (i+1)*recLen]
+		f := o[frameAtByte:]
+		r := rec{number: number, hash: o[:32], offset: binary.LittleEndian.Uint64(f),
+			length: binary.LittleEndian.Uint32(f[8:]), uncompressed: binary.LittleEndian.Uint32(f[12:]), sha256: f[16:48]}
 		if r.offset < packHeader || r.offset+uint64(r.length) > packRef.Bytes || r.length == 0 {
 			return fmt.Errorf("block %d frame outside %s", number, packRef.Key)
 		}
@@ -625,14 +635,20 @@ func addBundleLogs(src objectSource, b BundleRef, from, to uint64, s *extSorter,
 				return fmt.Errorf("block %d frame does not decode", r.number)
 			}
 			keys = keys[:0]
-			logs, err := recordLogs(plain, k, r.hash, r.number, func(address []byte, topics [][]byte) {
+			collect := func(address []byte, topics [][]byte) {
 				d := logAddressDigest(address)
 				keys = append(keys, hashKey(d[:], logIndexKeyBytes))
 				for i, t := range topics {
 					d := logTopicDigest(i, t)
 					keys = append(keys, hashKey(d[:], logIndexKeyBytes))
 				}
-			})
+			}
+			var logs uint64
+			if recLen == offsetRecordLenV2 {
+				logs, err = receiptsFrameLogs(plain, r.number, collect)
+			} else {
+				logs, err = recordLogs(plain, k, r.hash, r.number, collect)
+			}
 			if err != nil {
 				return err
 			}
@@ -694,6 +710,11 @@ func recordLogs(plain []byte, k *keccak, hash []byte, number uint64, fn func(add
 	if err != nil {
 		return fail("receipts: %v", err)
 	}
+	return walkReceiptLogs(receipts, fail, fn)
+}
+
+// walkReceiptLogs calls fn for every log of the receipts (RLP items) and counts them.
+func walkReceiptLogs(receipts [][]byte, fail func(string, ...any) (uint64, error), fn func(address []byte, topics [][]byte)) (uint64, error) {
 	var logs uint64
 	for i, rc := range receipts {
 		parts, err := rlpListItems(rc)

@@ -8,7 +8,7 @@
 // Block and transaction reads in the window normally come from R2 records listed by the pinned
 // head's live/HEAD.json (src/live.ts); the live Worker is asked only for what those cannot answer.
 
-import type { Archive, BlockRun, Pin } from "./archive/archive";
+import type { Archive, BlockRun, Pin, RunBlock } from "./archive/archive";
 import { blockCandidates, transactionCandidates } from "./archive/hashindex";
 import { Lru } from "./archive/lru";
 import { StateHistory, type Domain } from "./archive/state";
@@ -28,6 +28,18 @@ const DOMAIN_CODE = { accounts: 1, storage: 2, code: 3 } as const;
  * the executor's shell.
  */
 const archiveValues = new Lru<string, Uint8Array>(32_768);
+/** Decoded block records by hash, per isolate: a record is immutable, and the head's is
+ *  decoded for every call at `latest` otherwise. */
+const decodedRecords = new Lru<string, BlockRecord>(32);
+
+function decodedRecord(hash: string, frame: Uint8Array): BlockRecord {
+  let rec = decodedRecords.get(hash);
+  if (!rec) {
+    rec = decodeRecord(frame);
+    decodedRecords.set(hash, rec);
+  }
+  return rec;
+}
 const hexOf = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 
 export interface Pointers {
@@ -152,7 +164,7 @@ export class Chain {
   }
 
   private archiveRecord(n: number, found: { hash: Uint8Array; frame: Uint8Array }): BlockRecord {
-    const rec = decodeRecord(found.frame);
+    const rec = decodedRecord(data(found.hash), found.frame);
     if (rec.block.header.number !== n || !equal(rec.block.header.hash, found.hash)) throw new ArchiveError(`block ${n} does not match its offsets record`);
     return rec;
   }
@@ -164,17 +176,21 @@ export class Chain {
     return this.archive.offsetsPages(this.pin, numbers);
   }
 
-  /** The coalesced range reads that fetch archived blocks `numbers` (sorted); reads their offsets. */
+  /**
+   * The coalesced range reads that fetch what a log query decodes of archived blocks `numbers`
+   * (sorted): receipts frames where the segment stores them apart, whole records otherwise.
+   * Reads their offsets.
+   */
   planArchived(numbers: number[]): Promise<BlockRun[]> {
-    return this.archive.planBlockRuns(this.pin, numbers);
+    return this.archive.planBlockRuns(this.pin, numbers, "receipts");
   }
 
   /**
-   * Reads planned runs `wave` at a time, in order, and hands every block's checked frame to
-   * `each` in block order; the next wave is in flight while a wave is decoded. `each`
-   * returning false stops.
+   * Reads planned runs `wave` at a time, in order, and hands every block's checked frame (a
+   * record or a receipts frame, by its `kind`) to `each` in block order; the next wave is in
+   * flight while a wave is decoded. `each` returning false stops.
    */
-  async readArchived(runs: BlockRun[], wave: number, each: (block: { n: number; hash: Uint8Array; frame: Uint8Array }) => boolean | void): Promise<void> {
+  async readArchived(runs: BlockRun[], wave: number, each: (block: RunBlock) => boolean | void): Promise<void> {
     const read = (i: number) => Promise.all(runs.slice(i, i + wave).map((r) => this.archive.readRun(r)));
     let pending = runs.length ? read(0) : null;
     for (let i = 0; pending; i += wave) {
@@ -193,7 +209,7 @@ export class Chain {
   }
 
   private liveRecord(found: { number: number; hash: string; record: Uint8Array }): BlockRecord {
-    const rec = decodeRecord(found.record);
+    const rec = decodedRecord(found.hash.toLowerCase(), found.record);
     if (rec.block.header.number !== found.number || data(rec.block.header.hash) !== found.hash.toLowerCase()) {
       throw new ArchiveError(`live block ${found.number} does not match its hash`);
     }
