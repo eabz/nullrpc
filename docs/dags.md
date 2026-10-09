@@ -103,21 +103,21 @@ block order. The head never skips a block.
 |---|---|---|---|---|
 | P1 Trigger | | `F`, `P`, age of block `P+1` | `P′` = min(`F`, `P` + max batch) | |
 | P2 Read spool | P1 | `live/` files `P+1` … `P′` | | a parent link breaks (stop) |
-| P3 Bundle | P2 | | block bundle | |
-| P4 Hash index | P2 | recent index objects | delta, merges | |
-| P5 Log index | P2 | recent index objects | delta, merges | |
-| P6 State layer | P2 | recent layers (local, else R2) | layer, merges, filters | |
-| P7 Witness pack | P2 | | witness pack | |
+| P3 Segments | P2 | | one segment per chunk touched | |
+| P4 Hash index | P2 | | one object | |
+| P5 Log index | P2 | | one object | |
+| P6 State layer | P2 | the blocks' diffs | level-0 layer, filters | |
+| P7 Witness ranges | P2 | | one range per chunk touched | |
 | P8 Upload | P3–P7 | | R2 objects, create-if-absent | SHA-256 mismatch |
 | P9 Manifest | P8 | manifest N−1 | manifest N | |
 | P10 Move HEAD | P9 | ETag of N−1 | `HEAD.json` with `If-Match` | ETag changed (stop and alert) |
 | P11 Prune StateShards | P10 | | `pruneAtOrBelow(P′)` on every shard | |
 | P12 Prune ChainDO | P10 | | rows ≤ `P′` deleted, `P = P′` | |
 | P13 Spool to acked/ | P11, P12 | | `live/` → `acked/` | |
-| P14 Schedule GC | P13 | manifest N−1 | delete list, due in 7 days | |
+| P14 Compact | P13 | the newest layers, index objects or a complete chunk's segments | one merge, published as its own generation; replaced objects scheduled for deletion in 7 days | |
 
 A crash between P10 and P13 is safe: on restart, `HEAD.json` already names `P′`, so the
-daemon runs P11–P14 again.
+daemon runs P11–P13 again.
 
 ## Reorg
 
@@ -143,7 +143,7 @@ Runs before anything else when the daemon starts.
 | Step | Needs | Does |
 |---|---|---|
 | R1 Read state | | `HEAD.json` (generation, `P`), `ChainDO` (head, `P`) |
-| R2 Finish promotion | R1 | if `HEAD.json`'s `P` is above `ChainDO`'s, run Promotion P11–P14 |
+| R2 Finish promotion | R1 | if `HEAD.json`'s `P` is above `ChainDO`'s, run Promotion P11–P13 |
 | R3 Replay ready/ | R2 | Block K10–K13 for every file in `ready/`, in order |
 | R4 Check live/ | R2 | every file in `live/` is in `ChainDO`; rewrite any that is not |
 | R5 Delete tmp/ | | remove partial files |

@@ -41,11 +41,11 @@
 <path class="ln" d="M500.0,714 L500.0,750" marker-end="url(#ah)"/>
 <rect class="n" x="350.0" y="30" width="300" height="54" rx="8"/><text class="h" x="500.0" y="53.0" text-anchor="middle">P1 · Trigger</text><text class="s" x="500.0" y="70.0" text-anchor="middle">F ≥ P + batch, or the batch is 2 h old</text>
 <rect class="host" x="350.0" y="120" width="300" height="54" rx="8"/><text class="h" x="500.0" y="143.0" text-anchor="middle">P2 · Read spool live/</text><text class="s" x="500.0" y="160.0" text-anchor="middle">blocks P+1 … P′, parent links</text>
-<rect class="host" x="15.0" y="210" width="170" height="54" rx="8"/><text class="h" x="100.0" y="233.0" text-anchor="middle">P3 · Bundle</text><text class="s" x="100.0" y="250.0" text-anchor="middle">blocks + offsets</text>
-<rect class="host" x="210.0" y="210" width="170" height="54" rx="8"/><text class="h" x="295.0" y="233.0" text-anchor="middle">P4 · Hash index</text><text class="s" x="295.0" y="250.0" text-anchor="middle">delta + merges</text>
-<rect class="host" x="405.0" y="210" width="170" height="54" rx="8"/><text class="h" x="490.0" y="233.0" text-anchor="middle">P5 · Log index</text><text class="s" x="490.0" y="250.0" text-anchor="middle">delta + merges</text>
-<rect class="host" x="600.0" y="210" width="170" height="54" rx="8"/><text class="h" x="685.0" y="233.0" text-anchor="middle">P6 · State layer</text><text class="s" x="685.0" y="250.0" text-anchor="middle">delta + merges</text>
-<rect class="host" x="795.0" y="210" width="170" height="54" rx="8"/><text class="h" x="880.0" y="233.0" text-anchor="middle">P7 · Witness pack</text><text class="s" x="880.0" y="250.0" text-anchor="middle">one frame per block</text>
+<rect class="host" x="15.0" y="210" width="170" height="54" rx="8"/><text class="h" x="100.0" y="233.0" text-anchor="middle">P3 · Segments</text><text class="s" x="100.0" y="250.0" text-anchor="middle">one per chunk</text>
+<rect class="host" x="210.0" y="210" width="170" height="54" rx="8"/><text class="h" x="295.0" y="233.0" text-anchor="middle">P4 · Hash index</text><text class="s" x="295.0" y="250.0" text-anchor="middle">one object</text>
+<rect class="host" x="405.0" y="210" width="170" height="54" rx="8"/><text class="h" x="490.0" y="233.0" text-anchor="middle">P5 · Log index</text><text class="s" x="490.0" y="250.0" text-anchor="middle">one object</text>
+<rect class="host" x="600.0" y="210" width="170" height="54" rx="8"/><text class="h" x="685.0" y="233.0" text-anchor="middle">P6 · State layer</text><text class="s" x="685.0" y="250.0" text-anchor="middle">level 0, from diffs</text>
+<rect class="host" x="795.0" y="210" width="170" height="54" rx="8"/><text class="h" x="880.0" y="233.0" text-anchor="middle">P7 · Witnesses</text><text class="s" x="880.0" y="250.0" text-anchor="middle">one range per chunk</text>
 <rect class="st" x="350.0" y="300" width="300" height="54" rx="8"/><text class="h" x="500.0" y="323.0" text-anchor="middle">P8 · Upload</text><text class="s" x="500.0" y="340.0" text-anchor="middle">create-if-absent</text>
 <rect class="st" x="350.0" y="390" width="300" height="54" rx="8"/><text class="h" x="500.0" y="413.0" text-anchor="middle">P9 · Manifest</text><text class="s" x="500.0" y="430.0" text-anchor="middle">generation N</text>
 <rect class="st" x="350.0" y="480" width="300" height="54" rx="8"/><text class="h" x="500.0" y="503.0" text-anchor="middle">P10 · Move HEAD</text><text class="s" x="500.0" y="520.0" text-anchor="middle">If-Match on N−1</text>
@@ -53,6 +53,6 @@
 <rect class="cf" x="180.0" y="570" width="240" height="54" rx="8"/><text class="h" x="300.0" y="593.0" text-anchor="middle">P11 · Prune StateShards</text><text class="s" x="300.0" y="610.0" text-anchor="middle">pruneAtOrBelow(P′)</text>
 <rect class="cf" x="580.0" y="570" width="240" height="54" rx="8"/><text class="h" x="700.0" y="593.0" text-anchor="middle">P12 · Prune ChainDO</text><text class="s" x="700.0" y="610.0" text-anchor="middle">rows ≤ P′, set P = P′</text>
 <rect class="n" x="350.0" y="660" width="300" height="54" rx="8"/><text class="h" x="500.0" y="691.5" text-anchor="middle">P13 · Spool to acked/</text>
-<rect class="st" x="350.0" y="750" width="300" height="54" rx="8"/><text class="h" x="500.0" y="773.0" text-anchor="middle">P14 · Schedule GC</text><text class="s" x="500.0" y="790.0" text-anchor="middle">unreferenced, after 7 days</text>
+<rect class="st" x="330.0" y="750" width="340" height="54" rx="8"/><text class="h" x="500.0" y="773.0" text-anchor="middle">P14 · Compact</text><text class="s" x="500.0" y="790.0" text-anchor="middle">one merge per generation; GC after 7 days</text>
 <rect class="lb" x="673.12" y="497.5" width="63.760000000000005" height="19" rx="3"/><text class="al" x="705.0" y="511.0" text-anchor="middle">conflict</text>
 </svg>

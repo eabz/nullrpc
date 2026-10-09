@@ -3,4 +3,5 @@ node_modules/
 .dev.vars
 .DS_Store
 .secrets/
-services/backfill/nullrpc-backfill
+services/nullrpc-backfill
+services/nullrpc-daemon

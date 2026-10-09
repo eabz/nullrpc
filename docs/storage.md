@@ -215,9 +215,10 @@ filter, so results equal a full scan.
 
 ### Index tiers
 
-Promotion adds one hash index object and one log index object per batch. When four objects of
-the same level exist, they merge into one object of the next level. Level 0 is one batch, and a
-level-ℓ object covers `batch × 4^ℓ` blocks. The backfill's objects are one base level. The
+Promotion adds one hash index object and one log index object per batch. When the newest four
+objects are contiguous and of the same level, they merge into one object of the next level. An
+object's level follows from its span: level ℓ covers at least `batch × 4^ℓ` blocks. The
+backfill's object is a base below all levels. The
 index therefore has at most three objects per level, and a lookup reads every object in
 parallel.
 
@@ -242,7 +243,7 @@ index page := uvarint(n) (uvarint(len(key)) key uvarint(first_block) uvarint(pac
               uvarint(offset) uvarint(length) uvarint(uncompressed) sha256[32]){n}
 ```
 
-A group's first block delta is relative to the layer's first block, the others to the previous
+A group's first block delta is the absolute block number, the others are relative to the previous
 entry. Data pages are about 32 KiB uncompressed. An index page lists up to 1,024 data pages by
 their first `(key, block)`. `layer.json` names the packs, and per domain a root with the first
 `(key, block)` of every index page and the filter.
@@ -270,9 +271,9 @@ layer with an entry at or before `n` answers. If none does, the key was absent o
 they merge into one layer of the next level. A level-ℓ layer covers `batch × 4^ℓ` blocks, there
 is no top level, and the backfill's layer is a base below all levels. At 256 blocks per batch,
 the history reaches level 9 (67 million blocks, about 25 years) with at most 3 layers per level:
-a lookup reads at most about 28 filter blocks in one round and two pages after it. Merges up to
-level 3 run inside promotion. Larger merges run in the background and publish their own
-generation, which replaces the merged layers and keeps every block.
+a lookup reads at most about 28 filter blocks in one round and two pages after it. The daemon
+runs merges one at a time between promotions; each publishes its own generation, which replaces
+the merged layers and keeps every block.
 
 ### Witnesses
 
@@ -320,72 +321,95 @@ R2 range reads on a cache miss. Index roots, filter blocks, code and immutable f
 
 ![Durable Objects](diagrams/do-layout.svg)
 
-The daemon reaches the Durable Objects through the ingest route of the RPC Worker, authenticated
-with a Cloudflare Access service token. The daemon writes to R2 through the S3 API with a token
-scoped to the archive bucket. The RPC Worker has read-only R2 bindings.
+Both classes live in the chain's `nullrpc-live-{chain-id}` Worker (`apps/live`, one Wrangler
+environment per chain). The daemon writes through its ingest route
+(`https://live-{chain-id}.nullrpc.dev/ingest/*`) with a bearer token (the `INGEST_TOKEN` secret).
+The chain's RPC Worker, `nullrpc-rpc-{chain-id}`, reads through a service binding to its
+`LiveReads` entrypoint. The daemon
+writes to R2 through the S3 API with a token scoped to the archive bucket; the RPC Worker has
+read-only R2 bindings.
+
+### Rows
+
+Both classes store one row per group of `group` consecutive blocks, keyed by the group's first
+block. Groups are aligned: a group ends at a block `n` with `(n + 1) mod group = 0` (the first
+group after `P` may be shorter). A row's data is one section per block:
+
+```text
+section := uvarint(number - first) hash[32] uvarint(len) payload
+```
+
+```sql
+CREATE TABLE rows (first INTEGER, part INTEGER, last INTEGER, data BLOB, PRIMARY KEY (first, part));
+CREATE TABLE orphans (hash TEXT PRIMARY KEY, number INTEGER, at INTEGER);  -- reorg fence, 1 hour
+```
+
+`part` is above 0 only when the data exceeds 1 MiB (SQLite rows are limited to 2 MB). A reorg into
+the middle of a group rewrites the row with the blocks it keeps.
 
 ### `ChainDO`
 
-One object, named by the chain ID.
+One object, named by the chain ID. A section's payload is the block record (the same bytes as a
+`blocks.pack` frame, uncompressed), its witness and its transaction hashes:
 
-```sql
-CREATE TABLE blocks (
-  number INTEGER, part INTEGER, hash BLOB, data BLOB,
-  PRIMARY KEY (number, part)
-);
-CREATE TABLE orphans (hash BLOB PRIMARY KEY, number INTEGER, at INTEGER);
-CREATE TABLE kv (k TEXT PRIMARY KEY, v BLOB);  -- head, safe, finalized, promoted, generation
+```text
+payload := uvarint(len) record uvarint(len) witness uvarint(n) tx_hash[32]{n}
 ```
 
-`data` is the block record (the same bytes as a `blocks.pack` frame), its witness and its
-transaction hashes. A row holds one block, or one group of `group` blocks.
-`part` is above 0 only when the data exceeds 1 MiB (SQLite rows are limited to 2 MB). On wake,
-the object builds an in-memory map from transaction hash to block from the rows.
+It also keeps `kv(k, v)`: head, safe, finalized, promoted (`P`), generation and the shard count.
+Hash and transaction lookups use in-memory maps built from the rows on first use.
 
 | Call | Caller | Does |
 |---|---|---|
-| `putBlocks([{number, hash, data}])` | daemon | writes block rows; identical rows write nothing |
-| `setHead({number, hash}, {safe, finalized})` | daemon | moves the head; the head's rows must exist |
+| `init(promoted, generation, shards)` | daemon | first start after the backfill |
+| `putRows([{first, last, data}])` | daemon | writes rows; rewriting a group replaces it |
+| `setHead(head, safe, finalized)` | daemon | moves the head; the head's section must exist, or the head is `P` |
 | `fence(removed)`, `truncateAbove(n)` | daemon | reorgs |
-| `pruneAtOrBelow(n, generation)` | daemon | after promotion; sets `P = n` |
-| `head()` | Worker | head, safe, finalized, `P`, generation |
+| `pruneAtOrBelow(promoted, generation)` | daemon | after a promotion; sets `P` |
+| `state()` | Worker | head, safe, finalized, `P`, generation |
 | `block(number or hash, pin)` | Worker | a block's record, if at or below the pin |
 | `witness(number, pin)` | Worker | a block's witness |
 | `txBlock(hash, pin)` | Worker | the block of a transaction hash above `P` |
 
-The Worker caches `head()` per data center for half a block time, and block records and witnesses
-by block hash with no expiry, so most reads never reach the object.
+The Worker caches `state()` per data center for half a block time, and block records and
+witnesses by block hash with no expiry, so most reads never reach the object.
 
 ### `StateShard`
 
 `N` objects, named `{chain-id}-{i}`. Account `a` and all its storage live in shard
-`keccak256(a)[0] mod N`. Code lives in shard `code_hash[0] mod N`.
+`keccak256(a)[0] mod N`. Code lives in shard `code_hash[0] mod N`. A shard's row holds only the
+blocks of the group that touch it. A section's payload is the block's changes for the shard:
 
-```sql
-CREATE TABLE blocks (
-  block INTEGER, part INTEGER, hash BLOB, data BLOB,
-  PRIMARY KEY (block, part)
-);
-CREATE TABLE orphans (hash BLOB PRIMARY KEY, number INTEGER, at INTEGER);
+```text
+payload := (u8(domain) key uvarint(len) value)*      domain: 1 accounts (key 20 bytes),
+                                                     2 storage (52), 3 code (32), 4 wipe (20, no value)
 ```
 
-One row per block (or group) that touches the shard. `data` is the block's changes for the
-shard: per entry a domain byte, the key, and a `uvarint` length plus value; a storage wipe has
-no value. On wake the object builds an in-memory index: key hash → blocks, and address →
-blocks with storage changes.
+On wake the object builds an in-memory index: key → versions by block.
 
 | Call | Caller | Does |
 |---|---|---|
-| `applyMany([{block, hash, entries}])` | daemon | writes rows in one transaction |
+| `applyMany([{first, last, data}])` | daemon | writes rows in one transaction |
 | `fence(removed)`, `truncateAbove(n)` | daemon | reorgs |
-| `pruneAtOrBelow(n)` | daemon | after promotion |
+| `pruneAtOrBelow(n)` | daemon | after a promotion |
 | `getPinned(domain, key, n, pin)` | Worker | newest value at or below `min(n, pin)`; `stale` if the pin was removed |
-| `scanPinned(domain, prefix, n, pin)` | Worker | an account's slots with non-zero newest values |
+| `scanPinned(address, n, pin)` | Worker | an account's slots changed in the window, with their newest values |
 
 Durable Objects are billed for wall-clock time while busy and for every row written or deleted,
-so `N` is small. The live window is about an hour, so each shard's index stays a few MB. With
-`group` above 1, one row holds that many consecutive blocks and the head moves once per group; a
-reorg inside a group rewrites the group.
+so `N` is small and fast chains use groups. The live window is about an hour, so each shard's
+index stays a few MB.
+
+### Ingest route
+
+Every request carries `Authorization: Bearer INGEST_TOKEN`. Bodies are JSON; row data is base64.
+
+| Request | Does |
+|---|---|
+| `GET /ingest/state` | the `ChainDO` pointers and the shard count |
+| `POST /ingest/init {promoted, generation}` | first start after the backfill |
+| `POST /ingest/blocks {rows: [{first, last, chain, shards: {i: data}}], head, safe, finalized}` | shard rows, then `ChainDO` rows, then the head |
+| `POST /ingest/reorg {ancestor, removed}` | fence everywhere, lower the head, truncate everywhere |
+| `POST /ingest/prune {promoted, generation}` | prune every shard and `ChainDO` at or below `promoted` |
 
 ### Reads above `P`
 
@@ -408,7 +432,7 @@ The daemon runs a reorg to ancestor `A` in this order:
    Fenced hashes are kept for one hour.
 2. Lower the head in `ChainDO` to `A`.
 3. `truncateAbove(A)` everywhere.
-4. Apply the new branch, block by block: shards first, then `ChainDO`, then the head.
+4. Apply the new branch, group by group: shards first, then `ChainDO`, then the head.
 
 A read pinned to a removed block gets `stale` from the moment its rows can change, never a
 mix of two branches.
@@ -418,10 +442,20 @@ mix of two branches.
 A promotion starts when `F ≥ P + batch`, or when block `P+1` is finalized and older than
 `max_age`. It promotes at most 8 batches at once, so a backlog clears in steps.
 
-Each promotion writes a segment, a hash index object, a log index object, a level-0 state
-layer, a witness range, any merges they trigger, the manifest and `HEAD.json`. That is tens of
-objects an hour. The daemon keeps the layers of the last two levels on local disk for
-merges and downloads older ones from R2.
+Each promotion writes, for blocks `P+1 … P′`: one segment and one witness range per chunk the
+blocks touch, a hash index object, a log index object, a level-0 state layer built from the
+blocks' diffs, the manifest and `HEAD.json`. That is tens of objects an hour.
+
+Between promotions the daemon compacts, one step at a time, each step publishing its own
+generation:
+
+1. the newest four state layers, if they are of one level, into one layer of the next level;
+2. the newest four hash index objects, then log index objects, likewise;
+3. a chunk that is complete and has more than one segment: its segments into one, and its
+   witness ranges into one.
+
+Merges read the objects they replace from R2 (no egress fees). The replaced objects are deleted 7
+days after the generation that dropped them; manifests are kept.
 
 The node's `prune_distance` is one batch plus the finality lag plus a day: the daemon can be down
 for a day and still pull every block it missed.
@@ -435,7 +469,7 @@ Set once per blockchain. The values are Ethereum mainnet's, the benchmark.
 | block time | 12 s | |
 | `chunk_blocks` | 8,192 | about 8 GB of block records per chunk |
 | `N` (state shards) | 16 | 16 for blocks of mainnet size; fewer for smaller blocks |
-| `group` (blocks per shard row) | 1 | 1 at 2 s or slower; enough blocks for about one row per second below that |
+| `group` (blocks per row) | 1 | 1 at 2 s or slower; enough blocks for about one row per second below that; divides `batch` and `chunk_blocks` |
 | `batch` | 256 blocks (51 min) | about one hour of blocks |
 | `max_age` | 2 h | 2 h |
 | level-0 span | `batch` | `batch` |

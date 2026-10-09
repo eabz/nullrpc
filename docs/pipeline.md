@@ -108,15 +108,21 @@ The daemon pulls from the node over local RPC:
 | Data | Call |
 |---|---|
 | New heads | `eth_subscribe("newHeads")`, polling `eth_blockNumber` as a fallback |
-| Block | `eth_getBlockByNumber(n, true)` |
+| Block | `eth_getBlockByNumber(n, true)`, `debug_getRawBlock(n)` |
 | Receipts | `eth_getBlockReceipts(n)` |
 | Pre-state (witness) | `debug_traceBlockByNumber(n, {tracer: "prestateTracer"})` |
-| State diff | `debug_traceBlockByNumber(n, {tracer: "prestateTracer", tracerConfig: {diffMode: true}})` |
+| Transactions' state changes | `debug_traceBlockByNumber(n, {tracer: "prestateTracer", tracerConfig: {diffMode: true}})` |
+| Changes outside transactions | withdrawal recipients: `eth_getBalance`, `eth_getTransactionCount`, `eth_getCode` at `n`; system contract slots (EIP-4788 ring slots of the block's timestamp, EIP-2935 slot `(n−1) mod 8191`, EIP-7002 and EIP-7251 slots 0–3): `eth_getStorageAt` at `n` |
+| Every account the block modified | `debug_getModifiedAccountsByNumber(n)`: any account the diff lacks is read at `n` |
 | Finality | `eth_getBlockByNumber("finalized")`, `eth_getBlockByNumber("safe")` |
 
-The four block calls run in parallel. The tracer re-executes the block on the node, on the
-parent's state, which the node keeps only within its prune distance. That distance is the
-furthest the daemon can fall behind.
+While catching up, `--window` blocks (default 16) are extracted in parallel and committed in
+order. The tracer re-executes the block on the node, on the parent's state, which the node keeps
+only within its prune distance. That distance is the furthest the daemon can fall behind.
+
+The diff is each changed key's value after the block. Selfdestruct removes only an account
+created in the same transaction (EIP-6780), so a removed account's storage is exactly the slots
+the diff holds; an account that existed before the block and is removed stops the daemon.
 
 ### Verify
 
@@ -125,11 +131,10 @@ Before anything is written, the daemon checks:
 - the header hashes to the block hash, and its parent hash is the spooled head;
 - the transactions hash to `transactionsRoot`;
 - the receipts hash to `receiptsRoot`;
-- the diff covers every account whose balance the block changes (senders, recipients, the
-  coinbase, withdrawal recipients).
+- the diff holds every account the node reports as modified by the block.
 
-A failed check stops the daemon and raises an alert. It never writes a block it
-could not verify.
+A failed step is retried with backoff (RPC and R2 errors pass); after 10 consecutive failures, or
+on a reorg below `F`, the daemon stops. It never writes a block it could not verify.
 
 ### Spool
 
@@ -168,14 +173,17 @@ When `F` reaches `P` plus the batch size, or the oldest unpromoted finalized blo
 
 1. Read the blocks from `live/` in the spool and check every parent link. The Durable
    Objects are not read back.
-2. Build, in parallel: a block bundle, hash and log index deltas, a state history layer with
-   any merges it triggers, and a witness pack.
+2. Build: one segment and one witness range per chunk the blocks touch, a hash index object,
+   a log index object, and a level-0 state history layer from the blocks' diffs.
 3. Upload the objects, write manifest N, and move `HEAD.json` with `If-Match` on generation
-   N−1's ETag. A conflict means something else wrote `HEAD.json`: the daemon stops and alerts,
-   and never overwrites.
+   N−1's ETag. A conflict means something else wrote `HEAD.json`: the daemon never overwrites.
 4. Prune the shards and `ChainDO` at or below `P′`, and set `P = P′`.
-5. Move the spool files to `acked/`. Schedule objects that no
-   manifest references any more for deletion in 7 days.
+5. Move the spool files to `acked/`.
+
+Between promotions the daemon compacts, one merge per generation (docs/storage.md,
+"Promotion"): state layers, hash index and log index objects into higher levels, and a complete
+chunk's segments and witness ranges into one. Objects a generation no longer names are deleted 7
+days later.
 
 If promotion falls behind, the live window grows and keeps serving. Two limits apply: the
 node's prune distance (the spool must hold every unpromoted block, and a lost spool can only

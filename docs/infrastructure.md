@@ -59,7 +59,7 @@ disks, with the spool on them, keep a single disk failure from opening that gap.
 | Credential | Held by | Grants |
 |---|---|---|
 | R2 S3 token, archive bucket, read-write | daemon, backfill machine | object writes and `HEAD.json` |
-| Cloudflare Access service token | daemon | the ingest route to `ChainDO` and `StateShard` |
+| `INGEST_TOKEN` (secret on `nullrpc-live-{chain-id}`, `NULLRPC_INGEST_TOKEN` for the daemon) | daemon | the ingest route to `ChainDO` and `StateShard` |
 | R2 binding, read-only | RPC Worker | archive reads |
 
 The node listens for RPC on localhost only. Only its P2P ports are open to the internet.

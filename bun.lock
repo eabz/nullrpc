@@ -17,7 +17,7 @@
       },
     },
     "apps/dashboard": {
-      "name": "nullrpc-dashboard",
+      "name": "nullrpc-status",
       "devDependencies": {
         "@cloudflare/workers-types": "^5.20261007.1",
         "typescript": "^5.9.3",
@@ -26,6 +26,17 @@
     },
     "apps/landing": {
       "name": "nullrpc-landing",
+      "devDependencies": {
+        "@cloudflare/workers-types": "^5.20261007.1",
+        "typescript": "^5.9.3",
+        "wrangler": "^4.148.0",
+      },
+    },
+    "apps/live": {
+      "name": "nullrpc-live",
+      "dependencies": {
+        "@noble/hashes": "^1.8.0",
+      },
       "devDependencies": {
         "@cloudflare/workers-types": "^5.20261007.1",
         "typescript": "^5.9.3",
@@ -214,9 +225,11 @@
 
     "nullrpc-app": ["nullrpc-app@workspace:apps/app"],
 
-    "nullrpc-dashboard": ["nullrpc-dashboard@workspace:apps/dashboard"],
-
     "nullrpc-landing": ["nullrpc-landing@workspace:apps/landing"],
+
+    "nullrpc-live": ["nullrpc-live@workspace:apps/live"],
+
+    "nullrpc-status": ["nullrpc-status@workspace:apps/dashboard"],
 
     "ox": ["ox@0.14.54", "", { "dependencies": { "@adraffy/ens-normalize": "^1.11.0", "@noble/ciphers": "^1.3.0", "@noble/curves": "1.9.1", "@noble/hashes": "^1.8.0", "@scure/bip32": "^1.7.0", "@scure/bip39": "^1.6.0", "abitype": "^1.2.3", "eventemitter3": "5.0.1" }, "peerDependencies": { "typescript": ">=5.4.0" }, "optionalPeers": ["typescript"] }, "sha512-52PGH6ldJmWY9+iy/TBSJUsCSy5NmLvkVBYTINmO8srsjRrCmCdO575kGizmZ1jpNQ1gnlpVwiciIpU37fcULA=="],
 

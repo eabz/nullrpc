@@ -1,0 +1,43 @@
+// nullrpc-live-{chain-id}: ChainDO and StateShard, the live window of one chain (docs/storage.md).
+// One Wrangler environment per chain; the Worker is named nullrpc-live-{chain-id}:
+//
+//   bunx wrangler deploy --env 560048                     Hoodi
+//   bunx wrangler secret put INGEST_TOKEN --env 560048
+//
+// The daemon writes through https://live-{chain-id}.nullrpc.dev/ingest/* with the bearer token;
+// the chain's RPC Worker (nullrpc-rpc-{chain-id}) reads through a service binding to LiveReads.
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "nullrpc-live",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-06",
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": { "enabled": true, "logs": { "enabled": true, "invocation_logs": false } },
+  "env": {
+    // Hoodi (docs/storage.md, "Parameters": 4 shards).
+    "560048": {
+      "routes": [{ "pattern": "live-560048.nullrpc.dev", "custom_domain": true }],
+      "durable_objects": {
+        "bindings": [
+          { "name": "CHAIN", "class_name": "ChainDO" },
+          { "name": "SHARD", "class_name": "StateShard" }
+        ]
+      },
+      "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ChainDO", "StateShard"] }],
+      "vars": { "CHAIN_ID": "560048", "SHARDS": "4" }
+    },
+    // Ethereum mainnet (16 shards).
+    "1": {
+      "routes": [{ "pattern": "live-1.nullrpc.dev", "custom_domain": true }],
+      "durable_objects": {
+        "bindings": [
+          { "name": "CHAIN", "class_name": "ChainDO" },
+          { "name": "SHARD", "class_name": "StateShard" }
+        ]
+      },
+      "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ChainDO", "StateShard"] }],
+      "vars": { "CHAIN_ID": "1", "SHARDS": "16" }
+    }
+  }
+}
