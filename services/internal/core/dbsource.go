@@ -58,6 +58,7 @@ import (
 const defaultBlockSource = "db"
 
 type erigonDB struct {
+	mu     sync.Mutex // serializes refresh
 	raw    ekv.RwDB
 	agg    *dbstate.Aggregator
 	snaps  *blocksnapshots.RoSnapshots
@@ -227,6 +228,21 @@ func openErigonDB(ctx context.Context, path string) (*erigonDB, error) {
 	return e, nil
 }
 
+// refresh rescans the node's block and state files, as rpcdaemon does when the node
+// announces new ones. The node retires recent blocks and state from its database into new
+// files while the backfill runs; a view opened before that sees neither copy.
+func (e *erigonDB) refresh(ctx context.Context) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if err := e.snaps.OpenFolder(); err != nil {
+		return fmt.Errorf("rescan block files: %w", err)
+	}
+	if err := e.db.OpenStateSnapshots(ctx); err != nil {
+		return fmt.Errorf("rescan state files: %w", err)
+	}
+	return nil
+}
+
 func (e *erigonDB) close() {
 	if e.agg != nil {
 		e.agg.Close()
@@ -256,14 +272,14 @@ func (e *erigonDB) readBlock(ctx context.Context, tx ekv.TemporalTx, n uint64, b
 		return nil, fmt.Errorf("block %d: canonical hash: %w", n, err)
 	}
 	if !ok {
-		return nil, fmt.Errorf("block %d: no canonical hash", n)
+		return nil, fmt.Errorf("block %d: no canonical hash: %w", n, errStaleView)
 	}
 	block, senders, err := e.reader.BlockWithSenders(ctx, tx, hash, n)
 	if err != nil {
 		return nil, fmt.Errorf("block %d: %w", n, err)
 	}
 	if block == nil {
-		return nil, fmt.Errorf("block %d: not found", n)
+		return nil, fmt.Errorf("block %d: not found: %w", n, errStaleView)
 	}
 	txs := block.Transactions()
 	if n < uint64(len(blocks)) {
@@ -414,7 +430,8 @@ func (s *dbBlockSource) fetchRange(ctx context.Context, first, last uint64) ([]*
 	out := make([]*fetchedBlock, 0, last-first+1)
 	var needRPC []uint64
 	var needReceipts []*sourceBlock
-	err := func() error {
+	err := withFreshView(ctx, s.db, func() error {
+		out, needRPC, needReceipts = out[:0], nil, nil
 		tx, err := s.db.db.BeginTemporalRo(ctx)
 		if err != nil {
 			return err
@@ -448,7 +465,7 @@ func (s *dbBlockSource) fetchRange(ctx context.Context, first, last uint64) ([]*
 			out = append(out, fb)
 		}
 		return nil
-	}()
+	})
 	if err != nil {
 		return nil, err
 	}

@@ -108,6 +108,9 @@ func physicalMemory() uint64 {
 	return 0
 }
 
+// refresh rescans the node's files (erigonDB.refresh).
+func (x *witnessExecutor) refresh(ctx context.Context) error { return x.db.refresh(ctx) }
+
 // readTx opens a read transaction for a batch of blocks. Batches stay short so the node's
 // database is never pinned to an old snapshot for long.
 func (x *witnessExecutor) readTx(ctx context.Context) (ekv.TemporalTx, error) {
@@ -352,14 +355,14 @@ func (x *witnessExecutor) execute(ctx context.Context, tx ekv.TemporalTx, n uint
 		return nil, fmt.Errorf("block %d: canonical hash: %w", n, err)
 	}
 	if !ok {
-		return nil, fmt.Errorf("block %d: no canonical hash", n)
+		return nil, fmt.Errorf("block %d: no canonical hash: %w", n, errStaleView)
 	}
 	block, _, err := x.db.reader.BlockWithSenders(ctx, tx, hash, n)
 	if err != nil {
 		return nil, fmt.Errorf("block %d: %w", n, err)
 	}
 	if block == nil {
-		return nil, fmt.Errorf("block %d: not found", n)
+		return nil, fmt.Errorf("block %d: not found: %w", n, errStaleView)
 	}
 	txs := block.Transactions()
 	if len(txs) == 0 && ov == nil {

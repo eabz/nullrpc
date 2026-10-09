@@ -286,6 +286,39 @@ func checkWitnessRanges(st witnessState, bundles []BundleRef) error {
 	return nil
 }
 
+// errStaleView marks a block the node's files should hold but the open view does not: the
+// node retired it into a new file after the view was opened. A rescan makes it visible.
+var errStaleView = errors.New("not in the open view of the node's files")
+
+// A view may lag the node for as long as a retire takes; refreshes are spaced out.
+const (
+	staleViewRetries = 20
+	staleViewWait    = 30 * time.Second
+)
+
+type refresher interface{ refresh(context.Context) error }
+
+// withFreshView runs fn, and on errStaleView rescans the node's files and runs it again,
+// up to staleViewRetries times. fn must begin its own read transaction, since a rescan only
+// shows in transactions begun after it.
+func withFreshView(ctx context.Context, db refresher, fn func() error) error {
+	for attempt := 0; ; attempt++ {
+		err := fn()
+		if !errors.Is(err, errStaleView) || attempt >= staleViewRetries {
+			return err
+		}
+		fmt.Fprintf(os.Stderr, "{\"stale_view\":%q,\"retry\":%d}\n", err.Error(), attempt+1)
+		select {
+		case <-time.After(staleViewWait):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		if err := db.refresh(ctx); err != nil {
+			return err
+		}
+	}
+}
+
 // witnessJob is a run of consecutive blocks one worker executes on carried state, within
 // one segment (index seg of the segments being built).
 type witnessJob struct {
@@ -333,7 +366,7 @@ func runWitnessJobs(exec *witnessExecutor, jobs []witnessJob, workers int,
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
-			err := func() error {
+			err := withFreshView(ctx, exec, func() error {
 				tx, err := exec.readTx(ctx)
 				if err != nil {
 					return err
@@ -358,7 +391,7 @@ func runWitnessJobs(exec *witnessExecutor, jobs []witnessJob, workers int,
 					}
 				}
 				return nil
-			}()
+			})
 			if err != nil {
 				return err
 			}
@@ -688,18 +721,20 @@ func witnessCheckStage(w *workDir) error {
 	}
 	var checked atomic.Uint64
 	err = parallelEach(blocks, max(1, w.opts.execWorkers), func(n uint64) error {
-		tx, err := exec.readTx(context.Background())
-		if err != nil {
+		return withFreshView(context.Background(), exec, func() error {
+			tx, err := exec.readTx(context.Background())
+			if err != nil {
+				return err
+			}
+			defer tx.Rollback()
+			wit, err := exec.execute(context.Background(), tx, n, nil)
+			if err != nil {
+				return err
+			}
+			c, err := checkWitness(layer, n, wit)
+			checked.Add(uint64(c))
 			return err
-		}
-		defer tx.Rollback()
-		wit, err := exec.execute(context.Background(), tx, n, nil)
-		if err != nil {
-			return err
-		}
-		c, err := checkWitness(layer, n, wit)
-		checked.Add(uint64(c))
-		return err
+		})
 	})
 	if err != nil {
 		return err

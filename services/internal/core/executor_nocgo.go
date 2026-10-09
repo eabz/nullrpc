@@ -21,6 +21,8 @@ func newWitnessExecutor(context.Context, string) (*witnessExecutor, func(), erro
 	return nil, nil, errors.New("this backfill was built without cgo, so it cannot execute blocks against Erigon's database; rebuild with CGO_ENABLED=1")
 }
 
+func (x *witnessExecutor) refresh(context.Context) error { return nil }
+
 func (x *witnessExecutor) readTx(context.Context) (witnessTx, error) {
 	return nil, errors.ErrUnsupported
 }

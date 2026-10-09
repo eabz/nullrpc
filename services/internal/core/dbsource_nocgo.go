@@ -14,6 +14,10 @@ func newDBBlockSource(context.Context, blockSourceOptions, *rpcClient, []blockTx
 	return nil, nil, errors.New("this backfill was built without cgo, so it cannot read Erigon's database; rebuild with CGO_ENABLED=1 or use --block-source rpc")
 }
 
+type erigonDB struct{}
+
+func (e *erigonDB) refresh(context.Context) error { return nil }
+
 // datadirChain needs cgo to read chaindata; without it the check is skipped.
 func datadirChain(context.Context, string) (uint64, string, error) {
 	return 0, "", errors.New("built without cgo")
