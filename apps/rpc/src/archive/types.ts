@@ -69,3 +69,12 @@ export interface FrameRef {
 }
 
 export class ArchiveError extends Error {}
+
+/** A request read more of the archive than one request may (state history, "Read budget"). */
+export class ReadBudgetError extends ArchiveError {
+  /** The JSON-RPC code the executor answers with (a service limit). */
+  readonly rpcCode = -32005;
+  constructor(reads: number) {
+    super(`execution exceeded its read budget (${reads} archive reads)`);
+  }
+}

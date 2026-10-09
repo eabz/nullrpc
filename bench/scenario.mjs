@@ -70,11 +70,13 @@ function credits(method, params, errorCode) {
 // ---- a timed call that also keeps the Worker's cache headers
 
 let nextId = 1;
-async function call(method, params, timeoutMs = 40_000) {
+async function call(method, params, timeoutMs = 40_000, label = null) {
   const id = nextId++;
   const t0 = performance.now();
   try {
-    const res = await fetch(URL, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id, method, params }), signal: AbortSignal.timeout(timeoutMs) });
+    // The case label travels in a header, so `wrangler tail` (cpuTime, wallTime) can be grouped by case.
+    const headers = { "content-type": "application/json", ...(label ? { "x-nullrpc-bench": label } : {}) };
+    const res = await fetch(URL, { method: "POST", headers, body: JSON.stringify({ jsonrpc: "2.0", id, method, params }), signal: AbortSignal.timeout(timeoutMs) });
     const text = await res.text();
     const ms = performance.now() - t0;
     let body;
@@ -83,7 +85,7 @@ async function call(method, params, timeoutMs = 40_000) {
     } catch {
       return { ok: false, ms, http: res.status, code: 0, message: `non-JSON (${res.status})`, method, params };
     }
-    const base = { ms, http: res.status, method, params, archive: res.headers.get("x-nullrpc-archive-cache"), response: res.headers.get("x-nullrpc-response-cache") };
+    const base = { ms, http: res.status, method, params, archive: res.headers.get("x-nullrpc-archive-cache"), response: res.headers.get("x-nullrpc-response-cache"), exec: res.headers.get("x-nullrpc-exec") };
     if (body.error) return { ...base, ok: false, code: body.error.code, message: body.error.message };
     return { ...base, ok: true, result: body.result };
   } catch (e) {
@@ -224,9 +226,9 @@ async function runCase(c) {
       return { cls: c.cls, label: c.label, method: "batch[10]", ms: performance.now() - t0, ok: false, refused: false, http: 0, credits: 0, message: String(e.message ?? e) };
     }
   }
-  const r = await call(method, params);
+  const r = await call(method, params, 40_000, c.label);
   // Failed calls keep their parameters so a failure can be replayed by hand.
-  return { cls: c.cls, label: c.label, method, ms: r.ms, ok: r.ok, refused: !r.ok && isRefusal(r), http: r.http, code: r.code, message: r.message, credits: credits(method, params, r.code), archive: r.archive, response: r.response, ...(r.ok ? {} : { params }) };
+  return { cls: c.cls, label: c.label, method, ms: r.ms, ok: r.ok, refused: !r.ok && isRefusal(r), http: r.http, code: r.code, message: r.message, credits: credits(method, params, r.code), archive: r.archive, response: r.response, exec: r.exec, ...(r.ok ? {} : { params }) };
 }
 
 function cacheTally(rows) {
@@ -239,6 +241,14 @@ function cacheTally(rows) {
   return { r2ReadsPerCall: rows.length ? miss / rows.length : 0, archiveHitRate: hit + miss ? hit / (hit + miss) : null, responseHitRate: rhit + rmiss ? rhit / (rhit + rmiss) : null };
 }
 
+/** Mean read rounds and hinted keys per call from the `x-nullrpc-exec` header (execution methods only). */
+function execTally(rows) {
+  const parsed = rows.map((s) => /rounds=(\d+) keys=(\d+) hints=(\d+)/.exec(s.exec ?? "")).filter(Boolean);
+  if (!parsed.length) return { rounds: "-", hints: "-" };
+  const mean = (i) => (parsed.reduce((a, m) => a + Number(m[i]), 0) / parsed.length).toFixed(1);
+  return { rounds: mean(1), hints: mean(3) };
+}
+
 if (PHASES.includes("calls")) {
   log(`\n== calls: ${CASES.length} cases × ${REPEAT}`);
   windows.calls = { started: new Date().toISOString() };
@@ -249,12 +259,13 @@ if (PHASES.includes("calls")) {
   samples.calls = await pmap(jobs, 4, async (c) => { await pace(); return runCase(c); });
   windows.calls.ended = new Date().toISOString();
   for (const cls of ["normal", "heavy", "deep", "deep-heavy"]) {
-    const rows = [["case", "n", "ok", "refused", "err", "p50", "p95", "max", "credits", "r2/call", "resp-cache"]];
+    const rows = [["case", "n", "ok", "refused", "err", "p50", "p95", "max", "credits", "r2/call", "resp-cache", "rounds", "hints"]];
     for (const c of CASES.filter((x) => x.cls === cls)) {
       const ss = samples.calls.filter((s) => s.label === c.label);
       const ms = ss.map((s) => s.ms).sort((a, b) => a - b);
       const tally = cacheTally(ss);
-      rows.push([c.label, ss.length, ss.filter((s) => s.ok).length, ss.filter((s) => s.refused).length, ss.filter((s) => !s.ok && !s.refused).length, fmtMs(percentile(ms, 50)), fmtMs(percentile(ms, 95)), fmtMs(ms[ms.length - 1]), ss[0]?.credits ?? "-", tally.r2ReadsPerCall.toFixed(1), tally.responseHitRate === null ? "-" : `${(tally.responseHitRate * 100).toFixed(0)}%`]);
+      const ex = execTally(ss);
+      rows.push([c.label, ss.length, ss.filter((s) => s.ok).length, ss.filter((s) => s.refused).length, ss.filter((s) => !s.ok && !s.refused).length, fmtMs(percentile(ms, 50)), fmtMs(percentile(ms, 95)), fmtMs(ms[ms.length - 1]), ss[0]?.credits ?? "-", tally.r2ReadsPerCall.toFixed(1), tally.responseHitRate === null ? "-" : `${(tally.responseHitRate * 100).toFixed(0)}%`, ex.rounds, ex.hints]);
     }
     log(`\n-- ${cls}\n` + table(rows));
   }

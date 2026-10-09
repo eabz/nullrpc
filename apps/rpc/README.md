@@ -38,10 +38,27 @@ binding, never from the cached object, so a request never mixes two branches.
 inside this Worker: `@nullrpc/executor` is bundled with its WebAssembly (about 2.3 MB, built from
 `packages/executor/crate` by `bun run build`, which `bun run deploy` and wrangler's build step run
 first). A dependency round is a function call plus the state reads over the request's pinned
-view: one call to the live window above P and the archive at P in parallel. The executor's
-per-isolate caches (bytecode, witnesses, account and storage values per block hash), its 25 s
-budget and 300-round limit live in the package; a round is synchronous, and a round that took
-10 ms or more is followed by a turn of the event loop so the isolate's other requests proceed.
+view: one call to the live window above P and the archive at P, read together (the window's
+answer wins where it has a row). The executor's per-isolate caches (bytecode, witnesses, hints
+and account and storage values per block hash, the profile of each callee and function), its
+25 s budget and 300-round limit live in the package; a round is synchronous, and a round that
+took 10 ms or more is followed by a turn of the event loop so the isolate's other requests
+proceed.
+
+Most calls never enter a dependent round. Before the first execution, one wave reads the
+executor's own hints (sender, callee, the addresses in the calldata), the keys earlier calls to
+the same contract and function needed (the shell's profile), and the **witness hints**
+(`src/state-source.ts`): the pre-state of block n+1 is the state at the end of n for every key
+that block touched, exact as it is; the witnesses of n and n−1 (above P) name what those blocks
+touched, with values from before them, and one read of the live window at n says which of those
+changed since. A call at n mostly touches what the blocks around n touched. Below P only the
+exact kind is used. At most 4096 hinted keys per request.
+
+The archive side of a round (`src/archive/state.ts`) resolves the layer descriptors once per
+request, reads a layer's Bloom filter whole when it is small (so a key costs one filter read,
+the base layer's), keeps decoded index and data pages, filter blocks and whole filters per
+isolate, caches the values it answered per (key, block) per isolate (`src/chain.ts`), and
+stops a request after 8192 archive reads with `-32005` (its read budget).
 
 The `EXECUTOR` service binding is optional and unset in `wrangler.jsonc`: bound to
 `nullrpc-executor` (`apps/executor`, entrypoint `Executor`), execution runs in that Worker over
@@ -57,6 +74,7 @@ reports them in two headers (exposed to browsers through `access-control-expose-
 | Header | Values | Meaning |
 |---|---|---|
 | `x-nullrpc-archive-cache` | `hit=N miss=M` | Archive object reads this request sent to the edge cache (`src/archive/cached.ts`). Every archive object except `HEAD.json` is immutable and content-addressed, so each range read (`key`, `offset`, `length`) and whole-object read is stored for a day under a synthetic URL `/_cache/archive/v1/<key>?o=<offset>&l=<length>`. `HEAD.json` always goes to R2 and is not counted. Reads answered by the isolate's own memory (parsed manifests, offsets pages) never reach this cache and are not counted either. |
+| `x-nullrpc-exec` | `rounds=N keys=K hints=H live=L archive=A` | Present when the request executed something: read rounds (calls of the executor's state source), the keys they asked for, keys answered ahead of the first round from witnesses, and of all keys read how many the live window answered and how many the state history did (counting the isolate's value cache). |
 | `x-nullrpc-response-cache` | `hit`, `miss` or `bypass`; for a batch `hit=N miss=M bypass=K` | The per-item answer cache (`src/response-cache.ts`). A successful result of a block, transaction, receipt, raw-encoding, log or state method is stored for a day when every block it depends on is at or below the pinned archive tip P, keyed by chain id, method and the canonical parameters. `bypass` is everything else: tags (`latest`, `pending`, `safe`, `finalized`), blocks above P or below the archive's first block, errors, `null` answers to lookups by hash, `eth_getLogs` with `blockHash`, and methods that read the head or execute (`eth_call`, `eth_feeHistory`, fees, …). |
 
 Lookups by hash (`eth_getBlockByHash`, `eth_getTransactionByHash`, `eth_getTransactionReceipt`,

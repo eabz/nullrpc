@@ -86,3 +86,45 @@ describe("state history", () => {
     await expect(METHODS.eth_getBalance!(chain, [addr, "0x" + (TIP + 1).toString(16)], { chainId: 1 })).rejects.toMatchObject({ code: -32000 });
   });
 });
+
+describe("state history reads", () => {
+  test("a request's reads are counted and capped by its budget", async () => {
+    const { StateHistory } = await import("../src/archive/state");
+    const { ReadBudgetError } = await import("../src/archive/types");
+    // Archives of their own, each with a key of its own: the isolate's page and filter caches
+    // hold nothing of the objects that key changed.
+    const fresh = async (key: Uint8Array) => {
+      const source = new MemorySource(buildArchive(fixtures().filter((f) => Number(f.block.number) <= TIP), { state: { entries: [...ENTRIES, { domain: "accounts", key, block: 5, value: encodeAccount(9, 9n) }], layers: LAYERS } }));
+      const archive = new Archive(source, PREFIX);
+      // A fresh pin: the isolate's HEAD cache (keyed by the archive prefix) must not answer with another archive's manifest.
+      return { archive, pin: await archive.pin(Date.now(), true) };
+    };
+    const k1 = bytes(20);
+    const one = await fresh(k1);
+    const generous = new StateHistory(one.archive, one.pin, 1000);
+    expect(decodeAccount(await generous.get("accounts", k1, TIP))).toMatchObject({ nonce: 9, balance: 9n });
+    expect(generous.reads).toBeGreaterThanOrEqual(3); // the changed layer's filter, index page and data page
+    // The isolate's caches answer a second lookup of the same key: no new reads.
+    const before = generous.reads;
+    await generous.get("accounts", k1, TIP);
+    expect(generous.reads).toBe(before);
+    // Through a history with a budget of one read, the lookup fails as a service limit.
+    const k2 = bytes(20);
+    const two = await fresh(k2);
+    const stingy = new StateHistory(two.archive, two.pin, 1);
+    await expect(stingy.get("accounts", k2, TIP)).rejects.toBeInstanceOf(ReadBudgetError);
+    await expect(stingy.get("accounts", k2, TIP)).rejects.toMatchObject({ rpcCode: -32005 });
+  });
+
+  test("a small filter is read whole once per isolate, not one block per key", async () => {
+    const source = new MemorySource(OBJECTS);
+    const chain = await Chain.open(new Archive(source, PREFIX), null, Date.now() + Math.random() * 1e12);
+    // Keys no earlier test looked up, so their filter blocks are not cached yet.
+    for (let i = 0; i < 6; i++) await chain.stateValue("storage", Uint8Array.from([...accounts[i]!, ...bytes(32)]), TIP);
+    const filters = source.reads.filter((r) => r.key.endsWith(".filter"));
+    // Every filter read covers the whole object (the test filters are small), and a layer's
+    // filter is read at most once across the six lookups.
+    for (const r of filters) expect(r.length).toBe(OBJECTS.get(r.key)!.length);
+    expect(new Set(filters.map((r) => r.key)).size).toBe(filters.length);
+  });
+});

@@ -11,13 +11,19 @@
 //             times and every distinct answer is kept (`expected`, a list). drpc refuses the
 //             default struct logger; those cases use a public Nethermind node (`reference`).
 // Run: node test/fixtures/fetch.mjs [rpc-url]   (after `sh scripts/build.sh`)
-import { readFileSync, writeFileSync } from "node:fs";
-import { zstdCompressSync } from "node:zlib";
+//      node test/fixtures/fetch.mjs --fill       keeps every fixture's cases and reference
+//                                                answers, and records only the reads the
+//                                                current executor makes beyond what is stored
+//                                                (after a change to what it asks for)
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { zstdCompressSync, zstdDecompressSync } from "node:zlib";
 import { keccak_256 } from "@noble/hashes/sha3.js";
 import { initSync, Session } from "../../crate/pkg/executor.js";
 import { encodeRecord, canonicalKey } from "./encode.mjs";
 
-const RPCS = { hoodi: process.argv[2] ?? "https://hoodi.drpc.org", mainnet: process.argv[3] ?? "https://eth.drpc.org" };
+const FILL = process.argv.includes("--fill");
+const urls = process.argv.slice(2).filter((a) => !a.startsWith("--"));
+const RPCS = { hoodi: urls[0] ?? "https://hoodi.drpc.org", mainnet: urls[1] ?? "https://eth.drpc.org" };
 let RPC = RPCS.hoodi;
 const STRUCT_LOG_RPC = "https://rpc.hoodi.ethpandaops.io";
 const DIR = new URL("./", import.meta.url);
@@ -228,6 +234,24 @@ const PLANS = [
     traceCalls: [],
   },
 ];
+
+if (FILL) {
+  for (const file of readdirSync(DIR).filter((f) => f.endsWith(".json.zst"))) {
+    const fixture = JSON.parse(zstdDecompressSync(readFileSync(new URL(file, DIR))).toString());
+    RPC = RPCS[fixture.chain];
+    const base = { chain: configs[fixture.chain], block: fixture.record };
+    const before = Object.values(fixture.reads).reduce((n, r) => n + Object.keys(r).length, 0);
+    for (const c of fixture.cases) {
+      const got = await record({ ...base, ...c.request }, fixture);
+      const same = c.expected.some((e) => JSON.stringify(e) === JSON.stringify(got));
+      if (!same) console.log(file, c.request.method, c.request.txIndex ?? "", "DIFFERENT", JSON.stringify(got).slice(0, 120));
+    }
+    const after = Object.values(fixture.reads).reduce((n, r) => n + Object.keys(r).length, 0);
+    console.log(file, `${after - before} reads added (${after} total)`);
+    writeFileSync(new URL(file, DIR), zstdCompressSync(Buffer.from(JSON.stringify(fixture))));
+  }
+  process.exit(0);
+}
 
 for (const plan of PLANS) {
   RPC = RPCS[plan.chain];

@@ -16,7 +16,7 @@ import { data, parseData } from "../src/eth/hex";
 import type { ExecResponse, StateValue, Witness } from "../src/executor";
 import { METHODS } from "../src/methods";
 import { RpcError, type MethodEnv } from "../src/rpc";
-import { buildArchive, encodeAccount, PREFIX, uvarint, witnessRange, type StateEntry } from "./archive";
+import { buildArchive, encodeAccount, encodeWitness, PREFIX, witnessRange, type StateEntry } from "./archive";
 import { fixtures } from "./encode";
 
 interface Case {
@@ -46,23 +46,18 @@ const bigBytes = (hex: string) => {
   return b.subarray(i);
 };
 
-/** The executor's JSON witness as the archive stores it (storage.md, "Witnesses"). */
-function encodeWitness(w: Witness): Uint8Array {
-  const out: number[] = [1, ...uvarint(w.accounts.length)];
-  for (const a of w.accounts) {
-    const balance = bigBytes(a.balance);
-    out.push(...parseData(a.address, 20)!, (a.exists ? 1 : 0) | (a.codeHash ? 2 : 0), ...uvarint(a.nonce), ...uvarint(balance.length), ...balance);
-    if (a.codeHash) out.push(...parseData(a.codeHash, 32)!);
+/** The fixture's reads at its block as a witness of the next block (its pre-state is that state). */
+function recordedAsWitness(): Witness {
+  const reads = F.reads[String(F.number)] ?? {};
+  const accounts: Witness["accounts"] = [];
+  const storage = new Map<string, { slot: string; value: string }[]>();
+  for (const [key, value] of Object.entries(reads)) {
+    const [kind, address, slot] = key.split(":");
+    if (kind === "account") accounts.push({ address: address!, exists: value !== null, nonce: value?.kind === "account" ? value.nonce : 0, balance: value?.kind === "account" ? value.balance : "0x0", codeHash: value?.kind === "account" ? value.codeHash : null });
+    // A witness never lists a slot without its account; the executor read the account of every slot it read.
+    else if (kind === "storage" && value?.kind === "storage" && reads[`account:${address}`] !== undefined) storage.set(address!, [...(storage.get(address!) ?? []), { slot: "0x" + slot!.padStart(64, "0"), value: value.value }]);
   }
-  out.push(...uvarint(w.storage.length));
-  for (const s of w.storage) {
-    out.push(...parseData(s.address, 20)!, ...uvarint(s.slots.length));
-    for (const slot of s.slots) {
-      const value = bigBytes(slot.value);
-      out.push(...parseData("0x" + slot.slot.slice(2).padStart(64, "0"), 32)!, ...uvarint(value.length), ...value);
-    }
-  }
-  return Uint8Array.from(out);
+  return { accounts, storage: [...storage].map(([address, slots]) => ({ address, slots })) };
 }
 
 /** The fixture's recorded reads as state history entries: each value at the block it was read at. */
@@ -130,6 +125,37 @@ describe("execution in-process (mainnet 4000014 through the chain path)", () => 
       expect(got).toEqual(match ?? expected[0]);
     });
   }
+
+  test("with the next block's witness as hints, every case answers the same in a read wave or two", async () => {
+    const { ChainStateSource } = await import("../src/state-source");
+    // An archive whose witness of block P+1 is the state the fixture recorded at P: exact hints
+    // for a call at P, so the executor reads almost nothing itself.
+    const objects = buildArchive(FIXTURES, {
+      state: { entries: entries(), layers: [[0, TIP]] },
+      extra: (b) => ({ witnesses: { first_block: 0, ranges: [witnessRange(b, F.number, [encodeWitness(F.witness), encodeWitness(recordedAsWitness())])] } }),
+    });
+    for (const c of F.cases.filter((c) => ["eth_call", "eth_estimateGas", "eth_createAccessList"].includes(c.request.method))) {
+      // A fresh pin: the isolate's HEAD cache is keyed by the prefix, which this archive shares with the others.
+      const archive = new Archive(new MemorySource(objects), PREFIX);
+      const now = Date.now();
+      await archive.pin(now, true);
+      const chain = await Chain.open(archive, null, now);
+      const hints = await new ChainStateSource(chain).hints(F.number);
+      expect(hints!.keys.length).toBeGreaterThan(0);
+      let got: ExecResponse;
+      try {
+        got = { result: await METHODS[c.request.method]!(chain, c.request.params, ENV) };
+      } catch (e) {
+        if (!(e instanceof RpcError)) throw e;
+        got = { error: { code: e.code, message: e.message, ...(e.data === undefined ? {} : { data: e.data }) } };
+      }
+      const expected = c.expected.map((e) => normalize(c, e));
+      expect(got).toEqual(expected.find((e) => JSON.stringify(sortKeys(e)) === JSON.stringify(sortKeys(got))) ?? expected[0]);
+      expect(chain.exec.hints).toBe(hints!.keys.length);
+      // The executor's own hints round (sender, callee, calldata addresses), the code it then asks for, and at most one more wave.
+      expect(chain.exec.rounds).toBeLessThanOrEqual(3);
+    }
+  });
 
   test("the executor is unavailable when the method environment has none", async () => {
     await expect(METHODS.eth_call!(await open(), [{ to: "0x" + "11".repeat(20) }, "0x3d090e"], { chainId: 1 })).rejects.toMatchObject({ code: -32601 });

@@ -49,6 +49,11 @@ export class Archive {
     private readonly prefix: string,
   ) {}
 
+  /** The archive's namespace in the bucket (`{chain-id}-{genesis-hash}`). */
+  get namespace(): string {
+    return this.prefix;
+  }
+
   /** The bucket key of `ref`: as written, or namespaced when a writer left the namespace off. */
   private key(ref: ObjectRef): string {
     return ref.key.startsWith(`${this.prefix}/`) ? ref.key : `${this.prefix}/${ref.key}`;

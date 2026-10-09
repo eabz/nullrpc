@@ -17,7 +17,7 @@ import { Archive } from "./archive/archive";
 import { archiveCacheHeader, CachedSource, type ArchiveCacheCounter } from "./archive/cached";
 import { R2Source } from "./archive/source";
 import { ArchiveError } from "./archive/types";
-import { Chain } from "./chain";
+import { Chain, type ExecStats } from "./chain";
 import { Live, type LiveApi } from "./live";
 import { METHODS } from "./methods";
 import { pageResponse, statusResponse, usageResponse, type PageConfig } from "./page/page";
@@ -66,7 +66,7 @@ const CORS = {
   "access-control-allow-methods": "POST, GET, OPTIONS",
   "access-control-allow-headers": "content-type, authorization, x-api-key",
   "access-control-max-age": "86400",
-  "access-control-expose-headers": "retry-after, x-nullrpc-archive-cache, x-nullrpc-response-cache",
+  "access-control-expose-headers": "retry-after, x-nullrpc-archive-cache, x-nullrpc-response-cache, x-nullrpc-exec",
 };
 
 function json(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
@@ -213,11 +213,13 @@ async function rpc(request: Request, env: Env, ctx: ExecutionContext): Promise<R
   let results: RpcResponse[];
   const statuses: CacheStatus[] = [];
   let reads: ArchiveCacheCounter = { hit: 0, miss: 0 };
+  let exec: ExecStats | null = null;
   try {
     const origin = new URL(request.url).origin;
     const opened = await openChain(env, ctx, origin);
     reads = opened.reads;
     const chain = opened.chain;
+    exec = chain.exec;
     const menv: MethodEnv = { chainId: Number(env.CHAIN_ID), relayUrl: env.RELAY_URL, executor: env.EXECUTOR ?? localExecutor };
     const responses = new ResponseCache(edgeCache(), origin, Number(env.CHAIN_ID), (p) => ctx.waitUntil(p));
     results = await Promise.all(items.map(async (item, i) => {
@@ -245,7 +247,10 @@ async function rpc(request: Request, env: Env, ctx: ExecutionContext): Promise<R
     ledger.settle(admitted.line, worst, Math.max(INVALID, cost));
     ctx.waitUntil(ledger.renewDue());
   }
-  return json(batch ? results : results[0], 200, { "x-nullrpc-archive-cache": archiveCacheHeader(reads), "x-nullrpc-response-cache": responseCacheHeader(statuses, batch) });
+  const headers: Record<string, string> = { "x-nullrpc-archive-cache": archiveCacheHeader(reads), "x-nullrpc-response-cache": responseCacheHeader(statuses, batch) };
+  // What the executions of this request read (bench/README.md, "Execution").
+  if (exec && (exec.rounds || exec.hints)) headers["x-nullrpc-exec"] = `rounds=${exec.rounds} keys=${exec.keys} hints=${exec.hints} live=${exec.live} archive=${exec.archive}`;
+  return json(batch ? results : results[0], 200, headers);
 }
 
 export default {

@@ -12,7 +12,7 @@ import { __nullrpc_reset, initSync, Session } from "../crate/pkg/executor.js";
 // @ts-ignore -- a compiled WebAssembly.Module (wrangler's CompiledWasm rule; test/wasm-node.ts under Node)
 import wasm from "../crate/pkg/executor_bg.wasm";
 
-export type { ExecRequest, ExecResponse, ExecutorApi, StateKey, StateSource, StateValue, Witness } from "./contract";
+export type { ExecRequest, ExecResponse, ExecutorApi, Hints, StateKey, StateSource, StateValue, Witness } from "./contract";
 export { EXECUTOR_METHODS } from "./contract";
 
 // Instantiated on the first request, not at module load (Workers' startup limit). One instance

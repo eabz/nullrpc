@@ -10,6 +10,8 @@ no dependencies. Targets come from [apps/networks.json](../apps/networks.json) (
 | `load.mjs` | Runs a weighted mix of methods from N concurrent workers and reports per-method p50/p90/p99, throughput, rate limits and errors. `--stress` ramps concurrency until the endpoint degrades. |
 | `scenario.mjs` | The benchmark suite: every method in four classes (normal, heavy, deep, deep-heavy), a simulated wallet-user scenario, and the user mix at each plan's rate cap, priced in credits with the plan economics. Writes `results/<stamp>/report.md`. |
 | `cost.mjs` | Cloudflare's own metrics for a scenario's run windows (Workers requests and CPU, Durable Object requests, R2 operations) priced into $ per 1M requests and the margin per plan. Writes `cost.md` next to the report. |
+| `cpu.mjs` | CPU and wall time per case from a `wrangler tail --format json` capture taken during a scenario run (the scenario tags each request with `x-nullrpc-bench: <case>`). |
+| `rounds.mjs` | Runs execution cases through the executor's WebAssembly under Node, with the state read from a node's JSON-RPC: the dependent read rounds, keys per round and wasm CPU of each call, and with `--hints` how many rounds remain once the witnesses around the block are handed to the executor first. |
 | `lib.mjs` | Shared: argument parsing, the timed JSON-RPC client, hex normalization, deep diff, percentiles. |
 
 ## Keys
@@ -100,6 +102,28 @@ Every sample carries its credits (apps/app/src/credits.json, the table the Worke
 the Worker's cache headers. The report ends with the plan economics: requests a quota buys,
 hours at the cap to spend it, revenue per 1M requests and per 1M credits. `cost.mjs` adds the
 cost side from Cloudflare's metrics for the exact windows, so each plan's margin is measured.
+
+## Execution
+
+Every execution response carries `x-nullrpc-exec: rounds=N keys=K hints=H live=L archive=A`
+(apps/rpc README, "Edge caches"); the calls tables show the mean `rounds` and `hints` per case.
+A call's cost is its dependent read rounds (one live call and one archive wave each), so the
+levers are the hints (witnesses around the block, the callee's profile in the isolate) and the
+price of a round; `rounds.mjs` measures the former offline:
+
+```bash
+bun run --cwd packages/executor build
+node bench/rounds.mjs --chain 560048 --cases bench/results/<stamp>/exec-cases.json --hints
+node bench/rounds.mjs --chain 560048 --call '{"method":"eth_call","params":[{"to":"0x…","data":"0x…"},"latest"]}' --hints
+```
+
+CPU time is what Workers bill and `wrangler tail` reports per request (`cpuTime`, `wallTime`):
+
+```bash
+cd apps/rpc && bunx wrangler tail nullrpc-rpc-560048 --format json --method POST > tail.json &
+node bench/scenario.mjs --chain 560048 --phase calls
+node bench/cpu.mjs tail.json
+```
 
 ## Results
 

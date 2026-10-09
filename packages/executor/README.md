@@ -17,10 +17,16 @@ Worker of its own. `src/contract.ts` is the contract (`StateSource`, `ExecReques
   round never re-executes transactions that already ran on read values.
 - `src/shell.ts`: the round loop. Reads the missing keys from the caller's `StateSource`
   (batches of at most 256, code fetched with its account), the witness for mined-transaction
-  traces, and caches per isolate (bounded LRUs): bytecode by hash, witnesses by block hash, and
-  account and storage values by (chain, block hash, block, key). A round is synchronous; a round
-  that took 10 ms or more is followed by a turn of the event loop, so a slow request with warm
-  caches does not hold the isolate's other requests between rounds.
+  traces, and caches per isolate (bounded LRUs): bytecode by hash, witnesses and hints by block
+  hash, account and storage values by (chain, block hash, block, key), and a profile per (chain,
+  callee, selector): the keys calls to that function asked for, learnt from any call that took
+  three read rounds or more. For a call-style request the first wave reads, together, the
+  executor's first round (its own hints: sender, callee, calldata addresses, coinbase), the
+  profile's keys, and the source's optional `hints(at)` (apps/rpc: the witnesses around the
+  block); everything is handed to the executor before it executes. A round is synchronous; a
+  round that took 10 ms or more is followed by a turn of the event loop, so a slow request with
+  warm caches does not hold the isolate's other requests between rounds. A source may refuse a
+  request with an error carrying `rpcCode` (apps/rpc's read budget): that becomes the answer.
 - `src/index.ts`: `execute(request, state)` for Workers code. Imports the WebAssembly through
   wrangler's `CompiledWasm` rule (`crate/pkg/executor_bg.wasm`) and instantiates it on the first
   request; one instance per isolate serves every request. A trap (Rust panic) drops the instance
@@ -45,6 +51,7 @@ bun run build        # scripts/build.sh: cargo → wasm-bindgen → wasm-opt -O3
 bun run test         # build, Rust unit tests, vitest end-to-end against Hoodi/mainnet fixtures
 bun run typecheck
 bun run fixtures     # refetch test/fixtures from hoodi.drpc.org / eth.drpc.org (needs a build)
+node test/fixtures/fetch.mjs --fill   # after a change to what the executor reads: record the new reads, keep the cases
 ```
 
 `crate/pkg` is git-ignored: every Worker that bundles this package builds it first (the deploy

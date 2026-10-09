@@ -2,12 +2,18 @@
 // the end of any archived block. Per lookup: one round of Bloom filter blocks across every
 // layer that starts at or before the block (in parallel), then two page reads (index page, data
 // page) in the newest layer whose filter accepts the key, until one has an entry.
+//
+// One StateHistory serves one request: its layer descriptors are resolved once, and its reads
+// are counted against a budget, so a request that keeps asking for new keys (an execution
+// walking a large structure) stops instead of running to the time limit. Decoded pages, filter
+// headers and filter blocks are shared by the isolate; a small filter (most layers above the
+// base) is read whole once per isolate, so a key costs one filter read, the base layer's.
 
 import { keccak_256 } from "@noble/hashes/sha3.js";
 import type { Archive, Pin } from "./archive";
 import { Uvarint } from "./hashindex";
 import { Lru } from "./lru";
-import { ArchiveError, type ObjectRef } from "./types";
+import { ArchiveError, ReadBudgetError, type ObjectRef } from "./types";
 
 export type Domain = "accounts" | "storage" | "code";
 
@@ -45,12 +51,19 @@ interface LayerRef {
 
 const FILTER_BLOCK = 4096;
 const FILTER_HEADER = 16;
+/** Filters up to this size are read whole and kept per isolate, instead of a block per key. */
+const WHOLE_FILTER_MAX = FILTER_HEADER + 64 * FILTER_BLOCK;
+/** Archive reads (ranges and frames) one request may make through its state history. */
+export const READ_BUDGET = 8192;
 
-// Decoded immutable pages, per isolate.
-const indexPages = new Lru<string, Promise<IndexEntry[]>>(512);
-const dataPages = new Lru<string, Promise<Uint8Array>>(1024);
+// Decoded immutable pages, per isolate. Entry counts are sized for a 128 MB isolate: an index
+// page decodes to a few hundred KB, a data page to 32 KiB, a filter block is 4 KiB and a whole
+// filter at most 256 KiB.
+const indexPages = new Lru<string, Promise<IndexEntry[]>>(128);
+const dataPages = new Lru<string, Promise<Uint8Array>>(768);
 const filterHeaders = new Lru<string, Promise<{ blocks: number; k: number }>>(1024);
 const filterBlocks = new Lru<string, Promise<Uint8Array>>(4096);
+const wholeFilters = new Lru<string, Promise<Uint8Array>>(48);
 const roots = new WeakMap<RootEntry[], { key: Uint8Array; block: number }[]>();
 
 interface IndexEntry {
@@ -132,28 +145,72 @@ function findInDataPage(frame: Uint8Array, key: Uint8Array, n: number): Uint8Arr
   return undefined;
 }
 
+function parseFilterHeader(h: Uint8Array, ref: ObjectRef): { blocks: number; k: number } {
+  if (new TextDecoder().decode(h.subarray(0, 8)) !== "NRPCBLM1") throw new ArchiveError(`bad filter ${ref.key}`);
+  const v = new DataView(h.buffer, h.byteOffset, h.byteLength);
+  return { blocks: v.getUint32(8, true), k: v.getUint32(12, true) };
+}
+
+/** Keeps a promise in an isolate cache until it fails. */
+function remember<V>(cache: Lru<string, Promise<V>>, id: string, make: () => Promise<V>): Promise<V> {
+  let p = cache.get(id);
+  if (!p) {
+    p = make();
+    cache.set(id, p);
+    p.catch(() => cache.delete(id));
+  }
+  return p;
+}
+
 export class StateHistory {
+  /** Archive reads this history made (not counting what the isolate's caches answered). */
+  reads = 0;
+  private readonly sorted: LayerRef[];
+  private descriptors: Promise<LayerDescriptor[]> | null = null;
+
   constructor(
     private readonly archive: Archive,
-    private readonly pin: Pin,
-  ) {}
-
-  private layers(): LayerRef[] {
-    return (this.pin.manifest.state_history.layers as LayerRef[]).slice().sort((a, b) => a.first - b.first);
+    pin: Pin,
+    /** Reads this request may make; beyond it every lookup fails with ReadBudgetError. */
+    private readonly budget = READ_BUDGET,
+  ) {
+    this.sorted = (pin.manifest.state_history.layers as LayerRef[]).slice().sort((a, b) => a.first - b.first);
   }
 
-  private filterHeader(ref: ObjectRef): Promise<{ blocks: number; k: number }> {
-    let p = filterHeaders.get(ref.sha256);
-    if (!p) {
-      p = this.archive.range(ref, 0, FILTER_HEADER).then((h) => {
-        if (new TextDecoder().decode(h.subarray(0, 8)) !== "NRPCBLM1") throw new ArchiveError(`bad filter ${ref.key}`);
-        const v = new DataView(h.buffer, h.byteOffset, h.byteLength);
-        return { blocks: v.getUint32(8, true), k: v.getUint32(12, true) };
-      });
-      filterHeaders.set(ref.sha256, p);
-      p.catch(() => filterHeaders.delete(ref.sha256));
+  private charge(): void {
+    if (++this.reads > this.budget) throw new ReadBudgetError(this.reads);
+  }
+
+  private range(ref: ObjectRef, offset: number, length: number): Promise<Uint8Array> {
+    this.charge();
+    return this.archive.range(ref, offset, length);
+  }
+
+  private frame(f: Parameters<Archive["frame"]>[0]): Promise<Uint8Array> {
+    this.charge();
+    return this.archive.frame(f);
+  }
+
+  /** Every layer's descriptor, in block order, resolved once per request. */
+  private layerDescriptors(): Promise<LayerDescriptor[]> {
+    if (!this.descriptors) this.descriptors = Promise.all(this.sorted.map((l) => this.archive.json<LayerDescriptor>(l.descriptor)));
+    return this.descriptors;
+  }
+
+  /** The filter's header and the 4 KiB block `block` of it, through the isolate's caches. */
+  private async filterBlock(ref: ObjectRef, block: (header: { blocks: number; k: number }) => number): Promise<{ header: { blocks: number; k: number }; bits: Uint8Array } | null> {
+    if (ref.bytes <= WHOLE_FILTER_MAX) {
+      const whole = await remember(wholeFilters, ref.sha256, () => this.range(ref, 0, ref.bytes));
+      const header = parseFilterHeader(whole, ref);
+      if (header.blocks === 0) return null;
+      const at = FILTER_HEADER + block(header) * FILTER_BLOCK;
+      return { header, bits: whole.subarray(at, at + FILTER_BLOCK) };
     }
-    return p;
+    const header = await remember(filterHeaders, ref.sha256, () => this.range(ref, 0, FILTER_HEADER).then((h) => parseFilterHeader(h, ref)));
+    if (header.blocks === 0) return null;
+    const b = block(header);
+    const bits = await remember(filterBlocks, `${ref.sha256}:${b}`, () => this.range(ref, FILTER_HEADER + b * FILTER_BLOCK, FILTER_BLOCK));
+    return { header, bits };
   }
 
   /** Whether a layer's filter may contain the key (true when the layer has no filter). */
@@ -161,17 +218,9 @@ export class StateHistory {
     if (!d.filter) return true;
     const h = keccak_256(key);
     const hv = new DataView(h.buffer, h.byteOffset, h.byteLength);
-    const header = await this.filterHeader(d.filter);
-    if (header.blocks === 0) return false;
-    const block = hv.getUint32(0, true) % header.blocks;
-    const id = `${d.filter.sha256}:${block}`;
-    let p = filterBlocks.get(id);
-    if (!p) {
-      p = this.archive.range(d.filter, FILTER_HEADER + block * FILTER_BLOCK, FILTER_BLOCK);
-      filterBlocks.set(id, p);
-      p.catch(() => filterBlocks.delete(id));
-    }
-    const bits = await p;
+    const found = await this.filterBlock(d.filter, (header) => hv.getUint32(0, true) % header.blocks);
+    if (!found) return false;
+    const { header, bits } = found;
     const h1 = hv.getBigUint64(8, true);
     const h2 = hv.getBigUint64(16, true);
     for (let i = 0n; i < BigInt(header.k); i++) {
@@ -196,42 +245,28 @@ export class StateHistory {
     const ri = lastAtOrBefore(rk, (e) => [e.key, e.block], key, n);
     if (ri < 0) return undefined;
     const rec = d.root[ri]!.record;
-    const id = `${d.index.sha256}:${rec.offset}`;
-    let ip = indexPages.get(id);
-    if (!ip) {
-      ip = this.archive
-        .frame({ pack: d.index, offset: rec.offset, compressed: rec.length, uncompressed: rec.uncompressed_length, sha256: fromHex(rec.sha256) })
-        .then(parseIndexPage);
-      indexPages.set(id, ip);
-      ip.catch(() => indexPages.delete(id));
-    }
-    const page = await ip;
+    const page = await remember(indexPages, `${d.index.sha256}:${rec.offset}`, () =>
+      this.frame({ pack: d.index, offset: rec.offset, compressed: rec.length, uncompressed: rec.uncompressed_length, sha256: fromHex(rec.sha256) }).then(parseIndexPage),
+    );
     const di = lastAtOrBefore(page, (e) => [e.key, e.firstBlock], key, n);
     if (di < 0) return undefined;
     const e = page[di]!;
     const pack = d.packs[e.pack];
     if (!pack) throw new ArchiveError("state index names a missing pack");
-    const did = `${pack.sha256}:${e.offset}`;
-    let dp = dataPages.get(did);
-    if (!dp) {
-      dp = this.archive.frame({ pack, offset: e.offset, compressed: e.length, uncompressed: e.uncompressed, sha256: e.sha256 });
-      dataPages.set(did, dp);
-      dp.catch(() => dataPages.delete(did));
-    }
-    return findInDataPage(await dp, key, n);
+    const data = await remember(dataPages, `${pack.sha256}:${e.offset}`, () => this.frame({ pack, offset: e.offset, compressed: e.length, uncompressed: e.uncompressed, sha256: e.sha256 }));
+    return findInDataPage(data, key, n);
   }
 
   /** The value at the end of block `n` (empty when absent or zero). */
   async get(domain: Domain, key: Uint8Array, n: number): Promise<Uint8Array> {
-    const candidates = this.layers().filter((l) => l.first <= n);
-    const descriptors = await Promise.all(candidates.map((l) => this.archive.json<LayerDescriptor>(l.descriptor)));
-    // Domains without entries in a layer have an empty root.
-    const withDomain = descriptors.map((d) => d.domains[domain]).map((d, i) => ({ d, layer: candidates[i]! })).filter((x) => x.d && x.d.root.length) as { d: DomainDescriptor; layer: LayerRef }[];
-    const accepted = await Promise.all(withDomain.map((x) => this.mayContain(x.d, key)));
+    const descriptors = await this.layerDescriptors();
+    // Layers that start after n hold nothing at n; domains without entries have an empty root.
+    const withDomain = descriptors.filter((d, i) => this.sorted[i]!.first <= n).map((d) => d.domains[domain]).filter((d): d is DomainDescriptor => !!d && d.root.length > 0);
+    const accepted = await Promise.all(withDomain.map((d) => this.mayContain(d, key)));
     // Newest layer first: the first with an entry at or before n answers.
     for (let i = withDomain.length - 1; i >= 0; i--) {
       if (!accepted[i]) continue;
-      const v = await this.inLayer(withDomain[i]!.d, key, n);
+      const v = await this.inLayer(withDomain[i]!, key, n);
       if (v !== undefined) return v;
     }
     return new Uint8Array();

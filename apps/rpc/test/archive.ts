@@ -326,6 +326,31 @@ export function witnessRange(b: Builder, first: number, frames: Uint8Array[]) {
   return { first, last, offsets: b.put(`${dir}/offsets.bin`, offsets), packs: [b.put(`${dir}/witness.0.pack`, p.bytes)] };
 }
 
+/** The executor's JSON witness as the archive stores it (storage.md, "Witnesses"). */
+export function encodeWitness(w: Witness): Uint8Array {
+  const bigBytes = (hex: string) => {
+    const b = parseData("0x" + (hex.slice(2).length % 2 ? "0" : "") + hex.slice(2))!;
+    let i = 0;
+    while (i < b.length && b[i] === 0) i++;
+    return b.subarray(i);
+  };
+  const out: number[] = [1, ...uvarint(w.accounts.length)];
+  for (const a of w.accounts) {
+    const balance = bigBytes(a.balance);
+    out.push(...parseData(a.address, 20)!, (a.exists ? 1 : 0) | (a.codeHash ? 2 : 0), ...uvarint(a.nonce), ...uvarint(balance.length), ...balance);
+    if (a.codeHash) out.push(...parseData(a.codeHash, 32)!);
+  }
+  out.push(...uvarint(w.storage.length));
+  for (const s of w.storage) {
+    out.push(...parseData(s.address, 20)!, ...uvarint(s.slots.length));
+    for (const slot of s.slots) {
+      const value = bigBytes(slot.value);
+      out.push(...parseData("0x" + slot.slot.slice(2).padStart(64, "0"), 32)!, ...uvarint(value.length), ...value);
+    }
+  }
+  return Uint8Array.from(out);
+}
+
 /** An `accounts` value: uvarint(nonce) uvarint(len) balance code_hash?. */
 export function encodeAccount(nonce: number, balance: bigint, codeHash?: Uint8Array): Uint8Array {
   const bal: number[] = [];

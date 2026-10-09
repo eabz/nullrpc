@@ -33,6 +33,12 @@ export interface Witness {
   storage: { address: string; slots: { slot: string; value: string }[] }[];
 }
 
+/** Values a call at the end of block `at` will probably read, answered before it asks. */
+export interface Hints {
+  keys: StateKey[];
+  values: StateValue[];
+}
+
 /** Provided by the RPC Worker (apps/rpc/src/state-source.ts, an RpcTarget so it can also cross a service binding). */
 export interface StateSource {
   /** State at the end of block `at` (one pinned view for the whole request). */
@@ -41,6 +47,12 @@ export interface StateSource {
   witness(number: number): Promise<Witness | null>;
   /** Block records (storage.md, "Block records": RLP hex) by number, for traces and replays. */
   block(number: number): Promise<string | null>;
+  /**
+   * Optional: state at the end of block `at` for the keys nearby blocks touched (their
+   * witnesses), read in one wave before the first execution so most of a call's dependent
+   * rounds never happen. Null when nothing is known about `at`.
+   */
+  hints?(at: number): Promise<Hints | null>;
 }
 
 export interface ExecRequest {

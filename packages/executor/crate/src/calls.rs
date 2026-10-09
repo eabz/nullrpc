@@ -11,6 +11,7 @@ use crate::{
     access_list::AccessListTracer,
     limits::{Error, Limits},
     options::Overrides,
+    record::input_addresses,
     state::{Known, KnownRef, Miss},
 };
 use alloy_evm::{EthEvmFactory, Evm, EvmEnv, EvmFactory};
@@ -25,7 +26,7 @@ use revm::{
     state::AccountInfo,
 };
 use serde_json::{Value, json};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 /// The gas of a call that names none, and the most a call may use.
 pub const MAX_CALL_GAS: u64 = 5_000_000;
@@ -57,6 +58,10 @@ pub struct CallJob {
     state: Option<alloy_rpc_types_eth::state::StateOverride>,
     /// The block the call runs on.
     pub block_hash: B256,
+    /// Keys read before the first execution: the sender, the callee, the addresses the
+    /// calldata names and the coinbase. One round that discovers them together, instead of
+    /// an execution that stops at the first (the shell reads the callee's code with it).
+    hints: Option<BTreeSet<Miss>>,
     /// Completed executions by (gas limit, access list round).
     memo: HashMap<(u64, usize), Run>,
 }
@@ -254,6 +259,13 @@ impl CallJob {
         {
             blob.blob_gasprice = 0;
         }
+        let mut hints = BTreeSet::new();
+        hints.insert(Miss::Account(tx.caller));
+        if let TxKind::Call(to) = tx.kind {
+            hints.insert(Miss::Account(to));
+        }
+        hints.extend(input_addresses(&tx.data).into_iter().map(Miss::Account));
+        hints.insert(Miss::Account(env.block_env.beneficiary));
         Ok(Self {
             kind,
             tx,
@@ -263,16 +275,29 @@ impl CallJob {
             state: overrides.state.clone(),
             memo: HashMap::new(),
             block_hash: B256::ZERO,
+            hints: Some(hints),
         })
     }
 
     /// Run the request as far as `known` allows: its JSON-RPC result or error, or the keys
-    /// it needs.
+    /// it needs. The first attempt asks for the hints before executing anything; an attempt
+    /// that missed a value yields its misses whatever else it concluded, since placeholders
+    /// stood in for them.
     pub fn attempt(
         &mut self,
         known: &Known,
         limits: &Limits,
     ) -> Result<Result<Value, RpcError>, BTreeMap<Miss, usize>> {
+        if let Some(hints) = self.hints.take() {
+            let pending: BTreeMap<Miss, usize> = hints
+                .into_iter()
+                .filter(|miss| !known.has(miss))
+                .map(|miss| (miss, 0))
+                .collect();
+            if !pending.is_empty() {
+                return Err(pending);
+            }
+        }
         let mut attempt = Attempt {
             known,
             limits,
@@ -283,6 +308,9 @@ impl CallJob {
             CallKind::Estimate => self.estimate(&mut attempt),
             CallKind::AccessList => self.access_list(&mut attempt),
         };
+        if !attempt.misses.is_empty() {
+            return Err(attempt.misses);
+        }
         match outcome {
             Ok(value) => Ok(Ok(value)),
             Err(Stop::Need) => Err(attempt.misses),
@@ -349,12 +377,10 @@ impl CallJob {
         Ok(run)
     }
 
-    /// The account as the call sees it (after state overrides).
-    fn account(
-        &self,
-        attempt: &mut Attempt<'_>,
-        address: Address,
-    ) -> Result<Option<AccountInfo>, Stop> {
+    /// The account as the call sees it (after state overrides), or None when it is not known
+    /// yet: the miss is recorded and the attempt goes on with placeholders, so the execution
+    /// that follows discovers the rest of its keys in the same round.
+    fn account(&self, attempt: &mut Attempt<'_>, address: Address) -> Option<Option<AccountInfo>> {
         let reader = KnownRef::new(attempt.known);
         let mut db = CacheDB::new(&reader);
         if let Some(state) = &self.state {
@@ -364,9 +390,9 @@ impl CallJob {
         let missed = reader.misses.take();
         if !missed.is_empty() {
             attempt.misses.extend(missed);
-            return Err(Stop::Need);
+            return None;
         }
-        Ok(account)
+        Some(account)
     }
 
     /// The call's gas: the request's, capped at [`MAX_CALL_GAS`] and the block gas limit.
@@ -486,11 +512,10 @@ impl CallJob {
             _ => self.block_gas_limit,
         };
         hi = hi.min(tx_cap).min(self.block_gas_limit);
-        if tx.gas_price != 0 {
-            let balance = self
-                .account(attempt, tx.caller)?
-                .map(|account| account.balance)
-                .unwrap_or_default();
+        if tx.gas_price != 0
+            && let Some(caller) = self.account(attempt, tx.caller)
+        {
+            let balance = caller.map(|account| account.balance).unwrap_or_default();
             if tx.value >= balance {
                 return Err(Error::Rejected("insufficient funds for transfer".into()).into());
             }
@@ -502,9 +527,8 @@ impl CallJob {
         hi = hi.min(MAX_ESTIMATE_GAS);
         if tx.data.is_empty()
             && let TxKind::Call(to) = tx.kind
-            && self
-                .account(attempt, to)?
-                .is_none_or(|account| account.code_hash == KECCAK256_EMPTY)
+            && let Some(to_account) = self.account(attempt, to)
+            && to_account.is_none_or(|account| account.code_hash == KECCAK256_EMPTY)
         {
             // Geth tries 21,000 and ignores a validation error here: the run at the cap
             // below reports it (or runs out of the allowance).

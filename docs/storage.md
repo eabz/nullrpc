@@ -544,6 +544,12 @@ A state read at block `n`:
 4. `stale` means a reorg removed the pinned head. The Worker reads `state()` from the live
    Worker again (not `live/HEAD.json`, which may still name the removed head) and retries.
 
+The executor's reads above `P` go through `getPinnedMany` and the R2 history at `P` together
+(one round takes the slower of the two, not both), and most of a call's keys are answered
+before it asks: the witness of `n+1` is the state at the end of `n` for every key that block
+touched, and the witnesses of `n` and `n-1` name what those blocks touched, checked against the
+window in one `getPinnedMany` at `n` (apps/rpc/src/state-source.ts, `hints`).
+
 **Promotion race.** A promotion publishes `HEAD.json` first; `/ingest/prune` then prunes the
 shards and sets `P` in `ChainDO` last. Once a shard is pruned, a state read at `n` in
 `P+1 … P′` finds no row there, and a Worker that still holds the old `P` (from `state()` or its

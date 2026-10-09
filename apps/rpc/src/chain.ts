@@ -8,6 +8,7 @@
 
 import type { Archive, Pin } from "./archive/archive";
 import { blockCandidates, transactionCandidates } from "./archive/hashindex";
+import { Lru } from "./archive/lru";
 import { StateHistory, type Domain } from "./archive/state";
 import { archiveWitness } from "./archive/witness";
 import { ArchiveError } from "./archive/types";
@@ -18,6 +19,15 @@ import { StaleError, type BlockId, type Live, type LiveState } from "./live";
 /** The live Worker's domain codes (apps/live/src/codec.ts). */
 const DOMAIN_CODE = { accounts: 1, storage: 2, code: 3 } as const;
 
+/**
+ * Account and storage values the state history answered, per isolate, by (archive, domain,
+ * key, block). The history at a block never changes, so a key the window has not changed is
+ * read at P once per isolate, not once per call, until P moves. Code is by hash and cached by
+ * the executor's shell.
+ */
+const archiveValues = new Lru<string, Uint8Array>(32_768);
+const hexOf = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+
 export interface Pointers {
   latest: number;
   safe: number;
@@ -27,9 +37,26 @@ export interface Pointers {
   archived: number;
 }
 
+/** What one request's executions read (the `x-nullrpc-exec` response header). */
+export interface ExecStats {
+  /** Read rounds (StateSource.read calls). */
+  rounds: number;
+  /** Keys those rounds asked for. */
+  keys: number;
+  /** Keys answered ahead of the first round from witnesses (StateSource.hints). */
+  hints: number;
+  /** Keys the live window answered. */
+  live: number;
+  /** Keys read from the state history (at P or below). */
+  archive: number;
+}
+
 /** One request's view of the chain. Decoded blocks are shared within the request. */
 export class Chain {
   private readonly blocks = new Map<number, Promise<BlockRecord | null>>();
+  readonly exec: ExecStats = { rounds: 0, keys: 0, hints: 0, live: 0, archive: 0 };
+  private historyPin: Pin | null = null;
+  private historyOf: StateHistory | null = null;
 
   private constructor(
     private readonly archive: Archive,
@@ -148,32 +175,87 @@ export class Chain {
     return null;
   }
 
+  /** The state history of the pinned generation, one per request (its reads share a budget). */
+  history(): StateHistory {
+    if (!this.historyOf || this.historyPin !== this.pin) {
+      this.historyPin = this.pin;
+      this.historyOf = new StateHistory(this.archive, this.pin);
+    }
+    return this.historyOf;
+  }
+
   /** The value of a state key at the end of block `n` (empty when absent or zero). */
   async stateValue(domain: Domain, key: Uint8Array, n: number): Promise<Uint8Array> {
     if (n > this.archived) {
       const v = await this.withHead((head) => this.live!.stateValue(DOMAIN_CODE[domain], key, Math.min(n, head.number), head));
       if (v !== null) return v;
       // Unchanged since P: the archive at P answers.
-      return new StateHistory(this.archive, this.pin).get(domain, key, this.archived);
+      return this.archiveValue(domain, key, this.archived);
     }
-    return new StateHistory(this.archive, this.pin).get(domain, key, n);
+    return this.archiveValue(domain, key, n);
+  }
+
+  /** The block the archive answers a key at: `n` capped at P; code is immutable, so P. */
+  private archiveAt(domain: Domain, n: number): number {
+    return domain === "code" ? this.archived : Math.min(n, this.archived);
+  }
+
+  /** The state history's value of a key at `n` (at or below P), through the isolate's value cache. */
+  private archiveValue(domain: Domain, key: Uint8Array, n: number): Promise<Uint8Array> {
+    if (domain === "code") return this.history().get(domain, key, n);
+    const id = `${this.archive.namespace}:${domain}:${hexOf(key)}:${n}`;
+    const cached = archiveValues.get(id);
+    if (cached) return Promise.resolve(cached);
+    return this.history()
+      .get(domain, key, n)
+      .then((v) => {
+        archiveValues.set(id, v);
+        return v;
+      });
   }
 
   /**
-   * stateValue for many keys at once, in order: above P one call to the live window answers
-   * every key it has, and the archive (at P, in parallel) the rest. Code is by hash and
-   * immutable, so a code key is answered wherever its bytes are (the window for new code, else
-   * the archive at P), as code() does.
+   * The live window's values for many keys at the end of block `n`, in order; null for a key
+   * the window has no row for (unchanged since P) and for every key when `n` is at or below P.
+   */
+  async liveValues(keys: { domain: Domain; key: Uint8Array }[], n: number): Promise<(Uint8Array | null)[]> {
+    if (keys.length === 0 || n <= this.archived) return keys.map(() => null);
+    const live = await this.withHead((head) => this.live!.stateValues(keys.map((k) => ({ domain: DOMAIN_CODE[k.domain], key: k.key })), Math.min(n, head.number), head));
+    return keys.map((k, i) => {
+      const v = live?.[i] ?? null;
+      return v !== null && (k.domain !== "code" || v.length) ? v : null;
+    });
+  }
+
+  /**
+   * stateValue for many keys at once, in order. Above P the live window (one call) and the
+   * archive at P are read together: the window's answer wins for the keys it has a row for,
+   * the archive's stands for the rest, and the round takes the slower of the two instead of
+   * both. Code is by hash and immutable, so a code key is answered wherever its bytes are (the
+   * window for new code, else the archive at P), as code() does.
    */
   async stateValues(keys: { domain: Domain; key: Uint8Array }[], n: number): Promise<Uint8Array[]> {
     if (keys.length === 0) return [];
-    const live = n > this.archived ? await this.withHead((head) => this.live!.stateValues(keys.map((k) => ({ domain: DOMAIN_CODE[k.domain], key: k.key })), Math.min(n, head.number), head)) : null;
-    const history = new StateHistory(this.archive, this.pin);
+    const pin = this.pin;
+    const archive = keys.map((k) => this.archiveValue(k.domain, k.key, this.archiveAt(k.domain, n)));
+    for (const p of archive) p.catch(() => {});
+    if (n <= this.archived) {
+      this.exec.archive += keys.length;
+      return Promise.all(archive);
+    }
+    const live = await this.liveValues(keys, n);
+    // A stale pin re-read HEAD.json: the archive reads above were at the old P, so a key the
+    // window no longer has (promoted since) is read again at the new one.
+    const fresh = this.pin === pin ? archive : keys.map((k) => this.archiveValue(k.domain, k.key, this.archiveAt(k.domain, n)));
     return Promise.all(
       keys.map((k, i) => {
-        const v = live?.[i] ?? null;
-        if (v !== null && (k.domain !== "code" || v.length)) return v;
-        return history.get(k.domain, k.key, k.domain === "code" ? this.archived : Math.min(n, this.archived));
+        const v = live[i] ?? null;
+        if (v !== null) {
+          this.exec.live++;
+          return v;
+        }
+        this.exec.archive++;
+        return fresh[i]!;
       }),
     );
   }
@@ -184,7 +266,7 @@ export class Chain {
       const v = await this.withHead((head) => this.live!.stateValue(3, hash, head.number, head));
       if (v !== null && v.length) return v;
     }
-    return new StateHistory(this.archive, this.pin).get("code", hash, this.archived);
+    return this.history().get("code", hash, this.archived);
   }
 
   /** A block's witness bytes (pre-state), or null when none is stored. */

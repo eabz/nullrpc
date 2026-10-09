@@ -2,9 +2,16 @@
 // values it knows allow and answers the response, the witness it wants, or the state keys it
 // is missing; this loop reads them from the caller's StateSource and runs it again.
 // Runtime-independent (Workers and Node tests share it); index.ts binds it to the module.
+//
+// A call-style request (eth_call and friends) also gets, in one wave with the executor's first
+// round (its own hints: sender, callee, calldata addresses): the source's hints, the state of
+// the keys nearby blocks touched; and the call's profile, the keys earlier calls to the same
+// contract and function read, kept per isolate. Most calls then execute in full on the next
+// run and never enter a dependent round; a call walking a structure the recent blocks did not
+// touch pays its rounds once per isolate.
 
 import { keccak_256 } from "@noble/hashes/sha3.js";
-import type { ExecRequest, ExecResponse, StateKey, StateSource, StateValue, Witness } from "./contract";
+import type { ExecRequest, ExecResponse, Hints, StateKey, StateSource, StateValue, Witness } from "./contract";
 
 /** The WebAssembly session (crate/src/lib.rs `Session`). */
 export interface WasmSession {
@@ -26,6 +33,8 @@ export const MAX_ROUNDS = 300;
 export const TIMEOUT_MS = 25_000;
 /** A round that ran this long is followed by a turn of the event loop before the next one. */
 const YIELD_AFTER_MS = 10;
+/** Methods that run a call on a block's post-state, where the source's hints apply. */
+const CALL_METHODS = new Set(["eth_call", "eth_estimateGas", "eth_createAccessList", "debug_traceCall", "trace_call"]);
 
 /**
  * A turn of the event loop. A round is synchronous: nothing else in the isolate runs during it.
@@ -64,14 +73,23 @@ class Lru<V> {
   }
 }
 
-/** Per isolate: bytecode by hash (immutable), witnesses by block hash (immutable), and account
- *  and storage values by (chain, block hash, block, key): the state at the end of a block is
- *  fixed once the block is, so entries never need invalidating, only evicting. Budgets (rough,
- *  in UTF-16 string bytes) are sized for sharing the RPC Worker's 128 MB isolate with the
- *  module's memory and the archive's own caches. */
+/** Per isolate: bytecode by hash (immutable), witnesses by block hash (immutable), the hints of
+ *  a block by its hash (the state at its end for the keys nearby blocks touched: fixed once the
+ *  block is), and account and storage values by (chain, block hash, block, key): the state at
+ *  the end of a block is fixed once the block is, so entries never need invalidating, only
+ *  evicting. Budgets (rough, in UTF-16 string bytes) are sized for sharing the RPC Worker's
+ *  128 MB isolate with the module's memory and the archive's own caches. */
 const codeCache = new Lru<string>(16 * 1024 * 1024);
 const witnessCache = new Lru<Witness | null>(8 * 1024 * 1024);
+const hintCache = new Lru<Hints | null>(16 * 1024 * 1024);
 const stateCache = new Lru<StateValue>(16 * 1024 * 1024);
+/** Keys the executions of calls to (chain, callee, selector) asked for, newest first. */
+const profileCache = new Lru<StateKey[]>(8 * 1024 * 1024);
+/** Keys a profile keeps (the executor reads at most 1024 per call). */
+const MAX_PROFILE_KEYS = 1024;
+/** A call with this many read rounds (after the hints round) teaches its profile; a call that ran
+ *  on what it was handed does not, and keeps the profile that made it so. */
+const PROFILE_AFTER_ROUNDS = 3;
 
 /** The RLP item at `at` of `b`: where its payload starts and ends, and whether it is a list. */
 function rlpItem(b: Uint8Array, at: number): { list: boolean; start: number; end: number } {
@@ -102,11 +120,11 @@ function unhex(hex: string): Uint8Array {
 const toHex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 
 /**
- * The hash of the block of a request: its record is the RLP list [raw_block, …], raw_block the
- * block's RLP [header, …], and the hash keccak256 of the header's RLP. Null for a record the
- * executor will reject anyway (the request then runs uncached).
+ * The block of a request: its record is the RLP list [raw_block, …], raw_block the block's RLP
+ * [header, …], the hash keccak256 of the header's RLP, and the number the header's ninth
+ * field. Null for a record the executor will reject anyway (the request then runs uncached).
  */
-export function blockHashOf(record: string): string | null {
+export function blockOf(record: string): { hash: string; number: number } | null {
   try {
     const b = unhex(record);
     const top = rlpItem(b, 0);
@@ -115,10 +133,26 @@ export function blockHashOf(record: string): string | null {
     const block = rlpItem(b, raw.start);
     const header = rlpItem(b, block.start);
     if (!block.list || !header.list) return null;
-    return "0x" + toHex(keccak_256(b.subarray(block.start, header.end)));
+    let at = header.start;
+    let number = 0;
+    for (let field = 0; field < 9; field++) {
+      if (at >= header.end) return null;
+      const item = rlpItem(b, at);
+      if (field === 8) {
+        if (item.list || item.end - item.start > 6) return null;
+        for (let i = item.start; i < item.end; i++) number = number * 256 + b[i]!;
+      }
+      at = item.end;
+    }
+    return { hash: "0x" + toHex(keccak_256(b.subarray(block.start, header.end))), number };
   } catch {
     return null;
   }
+}
+
+/** The hash of the block of a request (see `blockOf`). */
+export function blockHashOf(record: string): string | null {
+  return blockOf(record)?.hash ?? null;
 }
 
 /** The cache key of an account or storage StateKey (addresses and slots in any case or padding). */
@@ -163,7 +197,7 @@ async function readAll(state: StateSource, keys: StateKey[], at: number): Promis
 /** Answers `missing`: code from the isolate cache, accounts and storage from it too when
  *  `scope` (chain, block hash and block) is known, everything else from `state` in one read;
  *  code of accounts read here comes with them (from the cache, else one more read). */
-async function answer(state: StateSource, missing: StateKey[], at: number, scope: string | null): Promise<{ keys: StateKey[]; values: StateValue[] }> {
+async function answer(state: StateSource, missing: StateKey[], at: number, scope: string | null): Promise<Hints> {
   const keys: StateKey[] = [];
   const values: StateValue[] = [];
   const toRead: StateKey[] = [];
@@ -232,6 +266,105 @@ function witnessSize(w: Witness | null): number {
   return n;
 }
 
+function hintsSize(h: Hints | null): number {
+  if (!h) return 64;
+  let n = 0;
+  for (const v of h.values) n += 120 + stateSize(v);
+  return n;
+}
+
+/** The source's hints for the block of a call, shared per isolate by the block's hash. */
+function hintsFor(state: StateSource, scope: string | null, at: number): Promise<Hints | null> | null {
+  if (!state.hints || scope === null) return null;
+  const cached = hintCache.get(scope);
+  if (cached !== undefined) return Promise.resolve(cached);
+  let p: Promise<Hints | null>;
+  try {
+    p = Promise.resolve(state.hints(at));
+  } catch {
+    return null;
+  }
+  return p.then(
+    (h) => {
+      if (h && (!Array.isArray(h.keys) || !Array.isArray(h.values) || h.keys.length !== h.values.length)) h = null;
+      hintCache.set(scope, h, hintsSize(h));
+      return h;
+    },
+    () => null,
+  );
+}
+
+/**
+ * The first round's input: the hints (the code of their contracts from the cache, when it is
+ * there; the rest the executor asks for next), the profile's answers, and then the round's own
+ * answers; a later set wins on a key two name.
+ */
+function withHints(hints: Hints | null, profile: Hints | null, round: Hints): Hints {
+  if ((!hints || hints.keys.length === 0) && !profile) return round;
+  const keys: StateKey[] = [];
+  const values: StateValue[] = [];
+  const have = new Set<string>();
+  for (const key of round.keys) if (key.kind === "code") have.add(key.hash);
+  if (hints) {
+    keys.push(...hints.keys);
+    values.push(...hints.values);
+    for (const value of hints.values) {
+      if (value?.kind !== "account" || !value.codeHash || value.codeHash === EMPTY_CODE_HASH || have.has(value.codeHash)) continue;
+      const cached = codeCache.get(value.codeHash);
+      if (cached === undefined) continue;
+      have.add(value.codeHash);
+      keys.push({ kind: "code", hash: value.codeHash });
+      values.push({ kind: "code", code: cached });
+    }
+  }
+  if (profile) {
+    keys.push(...profile.keys);
+    values.push(...profile.values);
+  }
+  keys.push(...round.keys);
+  values.push(...round.values);
+  return { keys, values };
+}
+
+/** The identity of a key for a profile (addresses and slots in any spelling). */
+function keyId(key: StateKey): string {
+  switch (key.kind) {
+    case "account":
+      return `a:${key.address.toLowerCase()}`;
+    case "storage":
+      return `s:${key.address.toLowerCase()}:${BigInt(key.slot).toString(16)}`;
+    case "code":
+      return `c:${key.hash.toLowerCase()}`;
+    case "blockHash":
+      return `b:${key.number}`;
+  }
+}
+
+/** The profile a call belongs to: its chain, callee and function selector; null for a create. */
+function profileOf(request: ExecRequest, chainId: string): string | null {
+  if (!CALL_METHODS.has(request.method)) return null;
+  const call = request.params?.[0] as { to?: unknown; data?: unknown; input?: unknown } | undefined;
+  if (!call || typeof call !== "object" || typeof call.to !== "string") return null;
+  const data = typeof call.data === "string" ? call.data : typeof call.input === "string" ? call.input : "";
+  return `${chainId}:${call.to.toLowerCase()}:${data.length >= 10 ? data.slice(0, 10).toLowerCase() : "0x"}`;
+}
+
+/** Records what a call asked for: the newest keys first, then what the profile already held. */
+function learn(profile: string, asked: StateKey[]): void {
+  if (asked.length === 0) return;
+  const seen = new Set<string>();
+  const keys: StateKey[] = [];
+  for (const key of [...asked, ...(profileCache.get(profile) ?? [])]) {
+    if (key.kind === "blockHash") continue;
+    const id = keyId(key);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    keys.push(key);
+    if (keys.length >= MAX_PROFILE_KEYS) break;
+  }
+  profileCache.set(profile, keys, keys.length * 160);
+}
+
 /** Runs `request` to its response, reading state through `state`. */
 export async function execute(
   request: ExecRequest,
@@ -241,11 +374,20 @@ export async function execute(
 ): Promise<ExecResponse> {
   const started = now();
   const chainId = String((request.chain as { chainId?: unknown })?.chainId ?? "");
-  const blockHash = typeof request.block === "string" ? blockHashOf(request.block) : null;
+  const block = typeof request.block === "string" ? blockOf(request.block) : null;
+  const blockHash = block?.hash ?? null;
+  // The hints and the profile are read while the executor's first round is: all one wave.
+  const hinting = block && CALL_METHODS.has(request.method) ? hintsFor(state, `${chainId}:${blockHash}:${block.number}`, block.number) : null;
+  const profile = block ? profileOf(request, chainId) : null;
+  const known = profile ? profileCache.get(profile) : undefined;
+  const prefetching = known?.length ? answer(state, known, block!.number, `${chainId}:${blockHash}:${block!.number}`).catch(() => null) : null;
+  const asked: StateKey[] = [];
+  let reads = 0;
   const wasm = session(JSON.stringify(request));
   try {
     let input = "";
     let slow = false;
+    let first = true;
     for (let round = 0; round < MAX_ROUNDS; round++) {
       if (slow) await yieldNow();
       const ran = now();
@@ -262,16 +404,27 @@ export async function execute(
         }
         input = JSON.stringify({ witness });
       } else {
-        input = JSON.stringify(await answer(state, out.missing, out.at, blockHash && `${chainId}:${blockHash}:${out.at}`));
+        const scope = blockHash && `${chainId}:${blockHash}:${out.at}`;
+        if (profile) asked.push(...out.missing);
+        reads++;
+        const answered = answer(state, out.missing, out.at, scope);
+        const atBlock = first && block && out.at === block.number;
+        const [round, hints, prefetched] = await Promise.all([answered, atBlock && hinting ? hinting : null, atBlock && prefetching ? prefetching : null]);
+        input = JSON.stringify(first ? withHints(hints, prefetched, round) : round);
+        first = false;
       }
     }
     return { error: { code: -32005, message: `execution needs more than ${MAX_ROUNDS} rounds` } };
   } catch (e) {
     // A trap in the module is the caller's to handle (index.ts drops the instance).
     if (e instanceof WebAssembly.RuntimeError) throw e;
+    // A source may refuse a request (its read budget): that is the answer.
+    const refusal = e as { rpcCode?: unknown; message?: unknown };
+    if (typeof refusal?.rpcCode === "number" && typeof refusal.message === "string") return { error: { code: refusal.rpcCode, message: refusal.message } };
     console.error("executor state read failed", e instanceof Error ? e.message : String(e));
     return failure("execution unavailable: state could not be read");
   } finally {
     wasm.free?.();
+    if (profile && reads >= PROFILE_AFTER_ROUNDS) learn(profile, asked);
   }
 }
