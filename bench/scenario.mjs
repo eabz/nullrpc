@@ -251,7 +251,7 @@ function cacheTally(rows) {
   for (const s of rows) {
     const m = /hit=(\d+) miss=(\d+)/.exec(s.archive ?? "");
     if (m) { hit += Number(m[1]); miss += Number(m[2]); }
-    if (s.response === "hit") rhit++; else if (s.response === "miss") rmiss++;
+    if (/^hit\b/.test(s.response ?? "")) rhit++; else if (/^miss\b/.test(s.response ?? "")) rmiss++;
   }
   return { r2ReadsPerCall: rows.length ? miss / rows.length : 0, archiveHitRate: hit + miss ? hit / (hit + miss) : null, responseHitRate: rhit + rmiss ? rhit / (rhit + rmiss) : null };
 }
