@@ -103,7 +103,9 @@ async function openChain(env: Env, ctx: ExecutionContext, origin: string): Promi
   // The live pointers come from live/HEAD.json next to the archive (src/live.ts), read from the
   // bucket and kept 2 s in the edge cache under their own key (not the archive's day-long one);
   // the service binding is the fallback and the authority after a reorg.
-  const live = env.LIVE ? new Live(env.LIVE, { source: bucket, prefix: env.ARCHIVE_PREFIX, cache: edgeCache() }) : null;
+  // Live block records and the transaction index are immutable and read like archive objects,
+  // through the day-long edge cache.
+  const live = env.LIVE ? new Live(env.LIVE, { source: bucket, prefix: env.ARCHIVE_PREFIX, cache: edgeCache(), archive: source }) : null;
   return { chain: await Chain.open(archive, live), reads: source.counter };
 }
 

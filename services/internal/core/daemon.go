@@ -47,7 +47,8 @@ type daemon struct {
 	cfg     daemonConfig
 	rpc     *rpcClient
 	live    *liveClient
-	r2      *r2Archive // nil in tests: publishPointers is then a no-op
+	r2      *r2Archive // nil in tests: publishPointers and the record writes are then no-ops
+	gc      *gcList    // nil in tests: live objects are then never scheduled for deletion
 	spool   *spool
 	blobs   recordRules
 	shards  int
@@ -64,6 +65,7 @@ type daemon struct {
 	network    atomic.Pointer[BlockID] // the node's head, the status page's lag target
 	generation atomic.Uint64           // the archive generation the live window was last pruned to
 	pointersMu sync.Mutex              // serializes live/HEAD.json writes (daemon_pointers.go)
+	window     liveWindow              // the window's blocks for live/HEAD.json (daemon_records.go)
 	wake       chan struct{}
 }
 
@@ -151,6 +153,7 @@ func runDaemon(cfg daemonConfig, token string) error {
 	if err != nil {
 		return err
 	}
+	d.gc = gc
 	fmt.Fprintf(os.Stderr, "chain %d, namespace %s, live %s, spool %s\n", chainID, ns, cfg.live, cfg.spool)
 	if err := d.restart(r2); err != nil {
 		return fmt.Errorf("restart: %w", err)
@@ -277,17 +280,23 @@ func (d *daemon) restart(r2 *r2Archive) error {
 	}
 	d.liveHead.Store(&common)
 	d.head = common
-	var rewrite []*liveBlock
+	var rewrite, present []*liveBlock
 	for _, b := range chain {
 		if b.Number > common.Number {
 			rewrite = append(rewrite, b)
-		} else if dirOf[b.Hash] == spoolReady {
-			if err := d.spool.move(b.id(), spoolReady, spoolLive); err != nil {
-				return err
+		} else {
+			present = append(present, b)
+			if dirOf[b.Hash] == spoolReady {
+				if err := d.spool.move(b.id(), spoolReady, spoolLive); err != nil {
+					return err
+				}
 			}
 		}
 		d.head = b.id()
 	}
+	// The blocks the live Worker already holds get their records (a no-op when they exist);
+	// flush writes the rest with theirs.
+	d.putRecords(present)
 	d.pending = rewrite
 	if err := d.flush(true); err != nil {
 		return err
@@ -489,6 +498,12 @@ func (d *daemon) flush(all bool) error {
 		batch := groups[start:min(start+64, len(groups))]
 		last := batch[len(batch)-1]
 		head := last[len(last)-1]
+		var blocks []*liveBlock
+		for _, g := range batch {
+			blocks = append(blocks, g...)
+		}
+		// Records first: live/HEAD.json names a block only once its record is in R2.
+		d.putRecords(blocks)
 		if err := d.live.writeGroups(batch, d.shards, capAt(safe, head.Number), capAt(fin, head.Number), d.network.Load()); err != nil {
 			return err
 		}
@@ -576,6 +591,7 @@ func (d *daemon) reorg(n uint64) error {
 	if lh := d.liveHead.Load(); lh.Number > ancestor.Number {
 		d.liveHead.Store(&ancestor)
 	}
+	d.dropRecords(d.window.truncateAbove(ancestor.Number))
 	d.publishPointers()
 	fmt.Fprintf(os.Stderr, "{\"reorg\":true,\"at\":%d,\"ancestor\":%d,\"removed\":%d}\n", n, ancestor.Number, len(removed))
 	return nil
@@ -683,6 +699,7 @@ func (d *daemon) afterPromotion(to BlockID, generation uint64) error {
 	}
 	d.promoted.Store(&to)
 	d.generation.Store(generation)
+	d.dropRecords(d.window.pruneAtOrBelow(to.Number))
 	d.publishPointers()
 	ids, err := d.spool.list(spoolLive)
 	if err != nil {
