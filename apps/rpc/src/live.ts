@@ -25,6 +25,7 @@ import { sha256 } from "./archive/archive";
 import { Lru, SizedLru } from "./archive/lru";
 import type { Source } from "./archive/source";
 import type { ObjectRef } from "./archive/types";
+import { shared } from "./shared";
 
 export interface BlockId {
   number: number;
@@ -69,7 +70,12 @@ export const POINTERS_TTL_MS = 2_000;
 export const POINTERS_MAX_AGE_MS = 60_000;
 /** state() from the service binding is shared per isolate for half a block time (storage.md, "ChainDO"). */
 const STATE_TTL_MS = 6_000;
-const states = new WeakMap<LiveApi, { at: number; ttl: number; state: Promise<LiveState> }>();
+/**
+ * The pointers as last read, per binding: a settled value, never the promise of a read in
+ * flight (src/shared.ts). Requests that arrive while the first read is pending read for
+ * themselves; the read that settles last at the newest `at` is what later requests see.
+ */
+const states = new WeakMap<LiveApi, { at: number; ttl: number; state: LiveState }>();
 
 /** The edge cache as the pointers use it: `caches.default` in the Worker, a stand-in in tests. */
 export interface PointerCache {
@@ -181,8 +187,8 @@ const records = new Lru<string, Uint8Array>(512);
 // The window's index per head hash, from the documents this isolate parsed.
 const indexes = new Lru<string, LiveIndex>(16);
 // Transaction tables and bloom tables by object key (immutable; one of each per head move).
-const tables = new Lru<string, Promise<TxTable | null>>(4);
-const bloomTables = new Lru<string, Promise<BloomTable | null>>(4);
+const tables = new Lru<string, TxTable>(4);
+const bloomTables = new Lru<string, BloomTable>(4);
 
 /** Header of a transaction index object (docs/storage.md, "Live records"). */
 const TX_INDEX_MAGIC = "NRPCLIDX";
@@ -332,6 +338,9 @@ function fromHex(hex: string): Uint8Array {
 }
 
 export class Live {
+  /** Reads of this request in flight, so that one request reads each object once (src/shared.ts). */
+  private readonly pending = new Map<string, Promise<unknown>>();
+
   /** Without `pointers` every state() read goes through the service binding. */
   constructor(
     private readonly api: LiveApi,
@@ -341,22 +350,24 @@ export class Live {
   /**
    * The live pointers: from live/HEAD.json in R2 when it is current, else from the service
    * binding. `fresh` bypasses every cache and asks the live Worker (after a stale answer).
+   * The isolate shares the settled pointers, never a read in flight: a request that finds
+   * them missing or expired reads them itself (src/shared.ts).
    */
   state(fresh = false, now = Date.now()): Promise<LiveState> {
     const cached = states.get(this.api);
-    if (!fresh && cached && now - cached.at < cached.ttl) return cached.state;
-    const entry = { at: now, ttl: STATE_TTL_MS, state: Promise.resolve<LiveState | null>(null) };
-    entry.state =
-      fresh || !this.pointers
-        ? this.api.state()
-        : this.readPointers(this.pointers, now).then((s) => {
-            if (!s) return this.api.state();
-            entry.ttl = POINTERS_TTL_MS;
-            return s;
-          });
-    states.set(this.api, entry as { at: number; ttl: number; state: Promise<LiveState> });
-    entry.state.catch(() => states.get(this.api)?.state === entry.state && states.delete(this.api));
-    return entry.state as Promise<LiveState>;
+    if (!fresh && cached && now - cached.at < cached.ttl) return Promise.resolve(cached.state);
+    return this.readState(fresh, now);
+  }
+
+  private async readState(fresh: boolean, now: number): Promise<LiveState> {
+    let ttl = STATE_TTL_MS;
+    let state = fresh || !this.pointers ? null : await this.readPointers(this.pointers, now);
+    if (state) ttl = POINTERS_TTL_MS;
+    else state = await this.api.state();
+    // A fresh read (after a stale answer) is the authority; otherwise the newest read wins.
+    const cached = states.get(this.api);
+    if (fresh || !cached || cached.at <= now) states.set(this.api, { at: now, ttl, state });
+    return state;
   }
 
   /** live/HEAD.json from the data center's cache, else from R2 (then cached for 2 s); null when unusable. */
@@ -441,23 +452,20 @@ export class Live {
    * through `cache`, checked against its reference's size and digest and parsed; null when
    * unusable (not kept, so the next pin that names the object tries again).
    */
-  private object<T>(ref: ObjectRef, cache: Lru<string, Promise<T | null>>, maxBytes: number, parse: (raw: Uint8Array) => T | null, event: string): Promise<T | null> {
-    let p = cache.get(ref.key);
-    if (!p) {
-      const { archive, source } = this.pointers!;
-      p = (async () => {
+  private object<T>(ref: ObjectRef, cache: Lru<string, T>, maxBytes: number, parse: (raw: Uint8Array) => T | null, event: string): Promise<T | null> {
+    const { archive, source } = this.pointers!;
+    const read = async (): Promise<T | null> => {
+      try {
         if (ref.bytes > maxBytes) return null;
         const raw = await (archive ?? source).get(ref.key);
         if (!raw || raw.length !== ref.bytes || toHex(await sha256(raw)) !== ref.sha256) return null;
         return parse(raw);
-      })().catch((e) => {
+      } catch (e) {
         console.error(JSON.stringify({ event, key: ref.key, error: e instanceof Error ? e.message : String(e) }));
         return null;
-      });
-      cache.set(ref.key, p);
-      p.then((t) => t === null && cache.get(ref.key) === p && cache.delete(ref.key));
-    }
-    return p;
+      }
+    };
+    return shared<string, T | null>(cache, this.pending, ref.key, read, (t) => t !== null);
   }
 
   /**

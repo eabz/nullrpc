@@ -8,7 +8,7 @@ import worker from "../src/index";
 import type { BlockId, LiveApi, LiveState } from "../src/live";
 import { Live } from "../src/live";
 import { METHODS } from "../src/methods";
-import { headOf, memory, ResponseCache, responseCacheHeader, type CacheOutcome } from "../src/response-cache";
+import { headOf, memory, ResponseCache, responseCacheHeader, type CacheOutcome, INFLIGHT_WAIT_MS } from "../src/response-cache";
 import { buildArchive, PREFIX } from "./archive";
 import { FakeCache } from "./caches";
 import { encodeRecord, fixtures, type Fixture } from "./encode";
@@ -515,5 +515,42 @@ describe("identical misses in flight", () => {
     expect(runs).toBe(1);
     expect(a.result).toEqual(b.result);
     expect(b.outcome.status).toBe("miss");
+  });
+
+  test("a failed computation fails its followers too", async () => {
+    const archive = new Archive(new MemorySource(OBJECTS), PREFIX);
+    const chain = await Chain.open(archive, null, Date.now() - 5e8);
+    const f = FIXTURES[2]!;
+    let runs = 0;
+    const run = async () => {
+      runs++;
+      await new Promise((r) => setTimeout(r, 20));
+      throw new Error("boom");
+    };
+    const params = [f.block.number, false];
+    const [a, b] = await Promise.allSettled([responses.serve(chain, "eth_getBlockByNumber", params, run), responses.serve(chain, "eth_getBlockByNumber", params, run)]);
+    expect(runs).toBe(1);
+    expect(a).toMatchObject({ status: "rejected", reason: new Error("boom") });
+    expect(b).toMatchObject({ status: "rejected", reason: new Error("boom") });
+  });
+
+  test("a computation whose request vanished is not waited for past the deadline", async () => {
+    // A follower polls the entry with timers of its own (never the computing request's promise,
+    // which workerd would cancel it for); once the deadline passes it computes itself.
+    let t = 1_700_000_000_000;
+    responses = new ResponseCache(cache as unknown as Cache, ORIGIN, 1, () => {}, () => t);
+    const archive = new Archive(new MemorySource(OBJECTS), PREFIX);
+    const chain = await Chain.open(archive, null, Date.now() - 5e8);
+    const f = FIXTURES[2]!;
+    const params = [f.block.number, false];
+    // A request canceled mid-computation never settles its entry.
+    void responses.serve(chain, "eth_getBlockByNumber", params, () => new Promise(() => {}));
+    await new Promise((r) => setTimeout(r, 5));
+    let runs = 0;
+    const own = responses.serve(chain, "eth_getBlockByNumber", params, async () => ({ runs: ++runs }));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(runs).toBe(0);
+    t += INFLIGHT_WAIT_MS;
+    expect((await own).result).toEqual({ runs: 1 });
   });
 });

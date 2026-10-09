@@ -13,6 +13,7 @@ import { keccak_256 } from "@noble/hashes/sha3.js";
 import type { Archive, Pin } from "./archive";
 import { Uvarint } from "./hashindex";
 import { Lru } from "./lru";
+import { shared } from "../shared";
 import { ArchiveError, ReadBudgetError, type ObjectRef } from "./types";
 
 export type Domain = "accounts" | "storage" | "code";
@@ -59,11 +60,11 @@ export const READ_BUDGET = 8192;
 // Decoded immutable pages, per isolate. Entry counts are sized for a 128 MB isolate: an index
 // page decodes to a few hundred KB, a data page to 32 KiB, a filter block is 4 KiB and a whole
 // filter at most 256 KiB.
-const indexPages = new Lru<string, Promise<IndexEntry[]>>(128);
-const dataPages = new Lru<string, Promise<Uint8Array>>(768);
-const filterHeaders = new Lru<string, Promise<{ blocks: number; k: number }>>(1024);
-const filterBlocks = new Lru<string, Promise<Uint8Array>>(4096);
-const wholeFilters = new Lru<string, Promise<Uint8Array>>(48);
+const indexPages = new Lru<string, IndexEntry[]>(128);
+const dataPages = new Lru<string, Uint8Array>(768);
+const filterHeaders = new Lru<string, { blocks: number; k: number }>(1024);
+const filterBlocks = new Lru<string, Uint8Array>(4096);
+const wholeFilters = new Lru<string, Uint8Array>(48);
 const roots = new WeakMap<RootEntry[], { key: Uint8Array; block: number }[]>();
 
 interface IndexEntry {
@@ -151,20 +152,11 @@ function parseFilterHeader(h: Uint8Array, ref: ObjectRef): { blocks: number; k: 
   return { blocks: v.getUint32(8, true), k: v.getUint32(12, true) };
 }
 
-/** Keeps a promise in an isolate cache until it fails. */
-function remember<V>(cache: Lru<string, Promise<V>>, id: string, make: () => Promise<V>): Promise<V> {
-  let p = cache.get(id);
-  if (!p) {
-    p = make();
-    cache.set(id, p);
-    p.catch(() => cache.delete(id));
-  }
-  return p;
-}
-
 export class StateHistory {
   /** Archive reads this history made (not counting what the isolate's caches answered). */
   reads = 0;
+  /** Reads of this request in flight, so that one request reads each page once (src/shared.ts). */
+  private readonly pending = new Map<string, Promise<unknown>>();
   private readonly sorted: LayerRef[];
   private descriptors: Promise<LayerDescriptor[]> | null = null;
 
@@ -200,16 +192,16 @@ export class StateHistory {
   /** The filter's header and the 4 KiB block `block` of it, through the isolate's caches. */
   private async filterBlock(ref: ObjectRef, block: (header: { blocks: number; k: number }) => number): Promise<{ header: { blocks: number; k: number }; bits: Uint8Array } | null> {
     if (ref.bytes <= WHOLE_FILTER_MAX) {
-      const whole = await remember(wholeFilters, ref.sha256, () => this.range(ref, 0, ref.bytes));
+      const whole = await shared(wholeFilters, this.pending, `whole:${ref.sha256}`, () => this.range(ref, 0, ref.bytes));
       const header = parseFilterHeader(whole, ref);
       if (header.blocks === 0) return null;
       const at = FILTER_HEADER + block(header) * FILTER_BLOCK;
       return { header, bits: whole.subarray(at, at + FILTER_BLOCK) };
     }
-    const header = await remember(filterHeaders, ref.sha256, () => this.range(ref, 0, FILTER_HEADER).then((h) => parseFilterHeader(h, ref)));
+    const header = await shared(filterHeaders, this.pending, `header:${ref.sha256}`, () => this.range(ref, 0, FILTER_HEADER).then((h) => parseFilterHeader(h, ref)));
     if (header.blocks === 0) return null;
     const b = block(header);
-    const bits = await remember(filterBlocks, `${ref.sha256}:${b}`, () => this.range(ref, FILTER_HEADER + b * FILTER_BLOCK, FILTER_BLOCK));
+    const bits = await shared(filterBlocks, this.pending, `bits:${ref.sha256}:${b}`, () => this.range(ref, FILTER_HEADER + b * FILTER_BLOCK, FILTER_BLOCK));
     return { header, bits };
   }
 
@@ -245,7 +237,7 @@ export class StateHistory {
     const ri = lastAtOrBefore(rk, (e) => [e.key, e.block], key, n);
     if (ri < 0) return undefined;
     const rec = d.root[ri]!.record;
-    const page = await remember(indexPages, `${d.index.sha256}:${rec.offset}`, () =>
+    const page = await shared(indexPages, this.pending, `index:${d.index.sha256}:${rec.offset}`, () =>
       this.frame({ pack: d.index, offset: rec.offset, compressed: rec.length, uncompressed: rec.uncompressed_length, sha256: fromHex(rec.sha256) }).then(parseIndexPage),
     );
     const di = lastAtOrBefore(page, (e) => [e.key, e.firstBlock], key, n);
@@ -253,7 +245,7 @@ export class StateHistory {
     const e = page[di]!;
     const pack = d.packs[e.pack];
     if (!pack) throw new ArchiveError("state index names a missing pack");
-    const data = await remember(dataPages, `${pack.sha256}:${e.offset}`, () => this.frame({ pack, offset: e.offset, compressed: e.length, uncompressed: e.uncompressed, sha256: e.sha256 }));
+    const data = await shared(dataPages, this.pending, `data:${pack.sha256}:${e.offset}`, () => this.frame({ pack, offset: e.offset, compressed: e.length, uncompressed: e.uncompressed, sha256: e.sha256 }));
     return findInDataPage(data, key, n);
   }
 

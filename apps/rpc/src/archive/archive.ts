@@ -7,6 +7,7 @@ import { decompress } from "@nullrpc/frames";
 import { equal } from "../eth/hex";
 import { joinRecord } from "../eth/record";
 import { Lru } from "./lru";
+import { shared } from "../shared";
 import type { Source } from "./source";
 import { ArchiveError, type FrameRef, type Head, type Manifest, type ObjectRef, type SegmentEntry, type SegmentMeta } from "./types";
 
@@ -58,11 +59,12 @@ export interface BlockFrame {
 export const RUN_WINDOW = 256 * 1024;
 export const RUN_WINDOWS = 8;
 
-// Isolate caches, shared across requests. Every entry is immutable (keyed by digest or by an
-// immutable object's key), except the HEAD entry, which expires.
-const heads = new Map<string, { at: number; pin: Promise<Pin> }>();
-const json = new Lru<string, Promise<unknown>>(256);
-const pages = new Lru<string, Promise<Uint8Array>>(512);
+// Isolate caches, shared across requests as settled values, never as reads in flight
+// (src/shared.ts). Every entry is immutable (keyed by digest or by an immutable object's key),
+// except the HEAD entry, which expires.
+const heads = new Map<string, { at: number; pin: Pin }>();
+const json = new Lru<string, unknown>(256);
+const pages = new Lru<string, Uint8Array>(512);
 
 export async function sha256(bytes: Uint8Array): Promise<Uint8Array> {
   return new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
@@ -81,6 +83,9 @@ export interface Pin {
 }
 
 export class Archive {
+  /** Reads of this request in flight, so that one request reads each object once (src/shared.ts). */
+  private readonly pending = new Map<string, Promise<unknown>>();
+
   constructor(
     private readonly source: Source,
     /**
@@ -102,19 +107,25 @@ export class Archive {
 
   /**
    * The current generation; cached per isolate for up to 10 seconds. `fresh` re-reads HEAD.json
-   * (after the live window reports a promotion newer than the cached manifest).
+   * (after the live window reports a promotion newer than the cached manifest). The isolate
+   * shares the settled pin, never a read in flight: a request that finds it missing or expired
+   * reads HEAD.json itself (src/shared.ts).
    */
   pin(now = Date.now(), fresh = false): Promise<Pin> {
     const cached = heads.get(this.prefix);
-    if (!fresh && cached && now - cached.at < HEAD_TTL_MS) return cached.pin;
-    const pin = this.readPin();
-    heads.set(this.prefix, { at: now, pin });
-    // A failed read must not be served from the cache.
-    pin.catch(() => heads.get(this.prefix)?.pin === pin && heads.delete(this.prefix));
+    if (!fresh && cached && now - cached.at < HEAD_TTL_MS) return Promise.resolve(cached.pin);
+    return this.readPin(now, fresh);
+  }
+
+  private async readPin(now: number, fresh: boolean): Promise<Pin> {
+    const pin = await this.readHead();
+    // A fresh read is the authority; otherwise the newest read wins.
+    const cached = heads.get(this.prefix);
+    if (fresh || !cached || cached.at <= now) heads.set(this.prefix, { at: now, pin });
     return pin;
   }
 
-  private async readPin(): Promise<Pin> {
+  private async readHead(): Promise<Pin> {
     const raw = await this.source.get(`${this.prefix}/HEAD.json`);
     if (!raw) throw new ArchiveError("archive has no HEAD.json");
     const head = JSON.parse(new TextDecoder().decode(raw)) as Head;
@@ -127,19 +138,12 @@ export class Archive {
 
   /** A whole JSON object, checked against its reference; cached by digest. */
   json<T>(ref: ObjectRef): Promise<T> {
-    const id = ref.sha256;
-    let p = json.get(id);
-    if (!p) {
-      p = (async () => {
-        const raw = await this.source.get(this.key(ref));
-        if (!raw) throw new ArchiveError(`missing object ${ref.key}`);
-        await this.check(raw, ref);
-        return JSON.parse(new TextDecoder().decode(raw));
-      })();
-      json.set(id, p);
-      p.catch(() => json.delete(id));
-    }
-    return p as Promise<T>;
+    return shared(json, this.pending, `json:${ref.sha256}`, async () => {
+      const raw = await this.source.get(this.key(ref));
+      if (!raw) throw new ArchiveError(`missing object ${ref.key}`);
+      await this.check(raw, ref);
+      return JSON.parse(new TextDecoder().decode(raw)) as unknown;
+    }) as Promise<T>;
   }
 
   private async check(raw: Uint8Array, ref: ObjectRef): Promise<void> {
@@ -194,16 +198,13 @@ export class Archive {
     const page = Math.floor(i / OFFSETS_PAGE);
     const offsets = meta.files["offsets.bin"];
     const id = `${offsets.sha256}:${page}`;
-    let p = pages.get(id);
-    if (!p) {
+    const whole = await shared(pages, this.pending, `page:${id}`, () => {
       const start = page * OFFSETS_PAGE * len;
       const count = Math.min(OFFSETS_PAGE, meta.last - meta.first + 1 - page * OFFSETS_PAGE);
-      p = this.range(offsets, start, count * len);
-      pages.set(id, p);
-      p.catch(() => pages.delete(id));
-    }
+      return this.range(offsets, start, count * len);
+    });
     const at = (i % OFFSETS_PAGE) * len;
-    return (await p).subarray(at, at + len);
+    return whole.subarray(at, at + len);
   }
 
   /**

@@ -269,8 +269,21 @@ class Memory {
 /** One per isolate, shared by every request and both tiers. */
 export const memory = new Memory();
 
-/** Misses being computed right now, by their first cache key (per isolate). */
-const inflight = new Map<string, Promise<unknown>>();
+/**
+ * A miss being computed, by its first cache key (per isolate). The computing request settles
+ * the entry in place; a request that finds one waits with timers of its own and reads the
+ * settled answer, never awaiting the computing request's promise (src/shared.ts).
+ */
+interface Inflight {
+  done: boolean;
+  ok: boolean;
+  value: unknown;
+}
+const inflight = new Map<string, Inflight>();
+/** How often a waiting request looks at the entry. */
+const INFLIGHT_POLL_MS = 2;
+/** A request waits this long for another's computation before computing itself (the other may have been canceled). */
+export const INFLIGHT_WAIT_MS = 10_000;
 
 export class ResponseCache {
   constructor(
@@ -340,14 +353,20 @@ export class ResponseCache {
     // same keys at once, and one answer serves them all.
     const shared = inflight.get(keys[0]!);
     let result: unknown;
-    if (shared) result = await shared;
+    if (shared) result = await this.follow(shared, run);
     else {
-      const p = run();
-      inflight.set(keys[0]!, p);
+      const entry: Inflight = { done: false, ok: false, value: undefined };
+      inflight.set(keys[0]!, entry);
       try {
-        result = await p;
+        result = await run();
+        entry.ok = true;
+        entry.value = result;
+      } catch (e) {
+        entry.value = e;
+        throw e;
       } finally {
-        if (inflight.get(keys[0]!) === p) inflight.delete(keys[0]!);
+        entry.done = true;
+        if (inflight.get(keys[0]!) === entry) inflight.delete(keys[0]!);
       }
     }
     // A reorg re-pinned the head during the call: the answer belongs to a head we cannot name.
@@ -365,6 +384,17 @@ export class ResponseCache {
     const res = new Response(body, { headers: { "content-type": "application/json", "cache-control": `public, max-age=${ttl}` } });
     this.defer(this.cache!.put(key, res).catch(() => undefined));
     return { result, outcome: { status: "miss", tier } };
+  }
+
+  /** Another request's answer once it has settled, polled with this request's own timers; after INFLIGHT_WAIT_MS, `run` itself. */
+  private async follow(entry: Inflight, run: () => Promise<unknown>): Promise<unknown> {
+    const start = this.now();
+    while (!entry.done) {
+      if (this.now() - start >= INFLIGHT_WAIT_MS) return run();
+      await new Promise((r) => setTimeout(r, INFLIGHT_POLL_MS));
+    }
+    if (!entry.ok) throw entry.value;
+    return entry.value;
   }
 
   private expiry(tier: Tier, now: number): number {

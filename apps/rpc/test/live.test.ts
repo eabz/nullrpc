@@ -503,3 +503,48 @@ describe("page and status", () => {
     expect(html).not.toMatch(/\{\{[a-z_]+\}\}/);
   });
 });
+
+describe("isolate caches across requests", () => {
+  // workerd cancels a request that awaits a promise another request created (src/shared.ts), so
+  // overlapping requests each read for themselves and share only the settled value.
+  test("two overlapping requests read the live state for themselves and share the settled value", async () => {
+    const { api } = fakeLive();
+    const value = await api.state();
+    const releases: (() => void)[] = [];
+    const slow: LiveApi = { ...api, state: () => new Promise((r) => releases.push(() => r(value))) };
+    const now = Date.now() + 2e12;
+    const first = new Live(slow).state(false, now);
+    const second = new Live(slow).state(false, now + 1);
+    expect(releases).toHaveLength(2);
+    // The second request's read settles while the first's is still pending.
+    releases[1]!();
+    await expect(second).resolves.toEqual(value);
+    expect(await Promise.race([first.then(() => "settled"), new Promise((r) => setTimeout(() => r("pending"), 20))])).toBe("pending");
+    // A third request finds the settled pointers and reads nothing.
+    await expect(new Live(slow).state(false, now + 2)).resolves.toEqual(value);
+    expect(releases).toHaveLength(2);
+    releases[0]!();
+    await expect(first).resolves.toEqual(value);
+  });
+
+  test("two overlapping requests read the archive pin for themselves and share the settled value", async () => {
+    const inner = new MemorySource(OBJECTS);
+    const releases: (() => void)[] = [];
+    const source = {
+      range: (k: string, o: number, l: number) => inner.range(k, o, l),
+      get: (k: string) => (k.endsWith("/HEAD.json") ? new Promise<Uint8Array | null>((r) => releases.push(() => void inner.get(k).then(r))) : inner.get(k)),
+    };
+    const now = Date.now() + 2e12;
+    const first = new Archive(source, PREFIX).pin(now);
+    const second = new Archive(source, PREFIX).pin(now + 1);
+    expect(releases).toHaveLength(2);
+    releases[1]!();
+    const pin = await second;
+    expect(pin.manifest.archived_through.number).toBe(20_000_001);
+    expect(await Promise.race([first.then(() => "settled"), new Promise((r) => setTimeout(() => r("pending"), 20))])).toBe("pending");
+    await expect(new Archive(source, PREFIX).pin(now + 2)).resolves.toEqual(pin);
+    expect(releases).toHaveLength(2);
+    releases[0]!();
+    await expect(first).resolves.toEqual(pin);
+  });
+});

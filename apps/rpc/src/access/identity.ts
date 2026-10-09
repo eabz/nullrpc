@@ -8,12 +8,13 @@
 // No IP address is kept: only keyed hashes leave this module.
 
 const enc = new TextEncoder();
-const keys = new Map<string, Promise<CryptoKey>>();
+// Imported keys per isolate: settled values, never an import in flight (src/shared.ts).
+const keys = new Map<string, CryptoKey>();
 
-function hmacKey(secret: string): Promise<CryptoKey> {
+async function hmacKey(secret: string): Promise<CryptoKey> {
   let k = keys.get(secret);
   if (!k) {
-    k = crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    k = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
     keys.set(secret, k);
   }
   return k;
