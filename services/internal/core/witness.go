@@ -28,6 +28,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -490,12 +491,15 @@ func witnessStage(w *workDir) error {
 		keep++
 	}
 	if keep < len(st.Ranges) {
+		dropped := map[uint64]bool{}
 		for _, r := range st.Ranges[keep:] {
 			fmt.Fprintf(os.Stderr, "{\"witnesses\":\"%d-%d\",\"dropped\":\"past the state layer's end\"}\n", r.First, r.Last)
 			os.RemoveAll(filepath.Dir(w.archive().path(r.Offsets.Key)))
 			delete(st.Uploaded, r.First)
+			dropped[r.First] = true
 		}
 		st.Ranges = st.Ranges[:keep]
+		st.Unchecked = slices.DeleteFunc(st.Unchecked, func(first uint64) bool { return dropped[first] })
 		if err := save(); err != nil {
 			return err
 		}

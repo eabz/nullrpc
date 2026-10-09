@@ -31,9 +31,13 @@ package core
 // receipts root. A block whose replay diverges stops the run.
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
 	"runtime/debug"
+	"strconv"
+	"strings"
 
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/holiman/uint256"
@@ -76,9 +80,31 @@ func newWitnessExecutor(ctx context.Context, datadir string) (*witnessExecutor, 
 	logger.SetHandler(log.LvlFilterHandler(log.LvlWarn, log.StderrHandler))
 	codes, _ := lru.New[[32]byte, []byte](witnessCodeCache)
 	x := &witnessExecutor{db: db, engine: rulesconfig.CreateRulesEngineBareBones(ctx, db.chain, logger), codes: codes, logger: logger}
-	// Execution allocates heavily and keeps little: collect less often.
+	// Execution allocates heavily and keeps little: collect less often, but never past 80%
+	// of physical memory, since the state dump may be running in the same process.
 	debug.SetGCPercent(400)
+	if limit := physicalMemory() / 10 * 8; limit > 0 && os.Getenv("GOMEMLIMIT") == "" {
+		debug.SetMemoryLimit(int64(limit))
+	}
 	return x, func() { x.engine.Close(); release() }, nil
+}
+
+// physicalMemory is the machine's RAM in bytes from /proc/meminfo, or 0 where that is
+// unavailable.
+func physicalMemory() uint64 {
+	f, err := os.Open("/proc/meminfo")
+	if err != nil {
+		return 0
+	}
+	defer f.Close()
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		if fields := strings.Fields(sc.Text()); len(fields) >= 2 && fields[0] == "MemTotal:" {
+			kb, _ := strconv.ParseUint(fields[1], 10, 64)
+			return kb * 1024
+		}
+	}
+	return 0
 }
 
 // readTx opens a read transaction for a batch of blocks. Batches stay short so the node's
