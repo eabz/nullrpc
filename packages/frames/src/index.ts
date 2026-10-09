@@ -16,6 +16,7 @@ interface Exports {
   nullrpc_free(ptr: number, len: number): void;
   nullrpc_decompress(src: number, srcLen: number, dst: number, dstLen: number): number;
   nullrpc_frame_logs(frame: number, frameLen: number, hash: number, filter: number, filterLen: number): number;
+  nullrpc_receipts_logs(frame: number, frameLen: number, hash: number, number: number, filter: number, filterLen: number): number;
   nullrpc_out_ptr(): number;
 }
 
@@ -42,7 +43,7 @@ function instantiate(): Decoder | null {
   if (decoder !== undefined) return decoder;
   try {
     const wasm = new WebAssembly.Instance(module as WebAssembly.Module, {}).exports as unknown as Exports;
-    if (typeof wasm.nullrpc_decompress !== "function" || typeof wasm.nullrpc_frame_logs !== "function" || !(wasm.memory instanceof WebAssembly.Memory)) {
+    if (typeof wasm.nullrpc_decompress !== "function" || typeof wasm.nullrpc_frame_logs !== "function" || typeof wasm.nullrpc_receipts_logs !== "function" || !(wasm.memory instanceof WebAssembly.Memory)) {
       throw new Error("unexpected exports");
     }
     decoder = { wasm, src: { ptr: 0, cap: 0 }, dst: { ptr: 0, cap: 0 }, aux: { ptr: 0, cap: 0 } };
@@ -148,6 +149,20 @@ const utf8 = new TextDecoder();
  * module refuses the record (the caller's JavaScript decoder then reports why).
  */
 export function frameLogs(frame: Uint8Array, hash: Uint8Array, filter: LogFilter): Record<string, unknown>[] | null {
+  return extract(frame, hash, filter, (d, f) => d.wasm.nullrpc_frame_logs(d.src.ptr, frame.length, d.aux.ptr, d.aux.ptr + 32, f.length));
+}
+
+/**
+ * `frameLogs` over a layout-2 receipts frame (docs/storage.md, "Block bundles": [number,
+ * timestamp, tx_hashes, receipts, extras]), which carries everything a log needs. `number` is
+ * the block's number from the offsets record; the frame must agree.
+ */
+export function receiptsLogs(frame: Uint8Array, hash: Uint8Array, number: number, filter: LogFilter): Record<string, unknown>[] | null {
+  if (!Number.isSafeInteger(number) || number < 0) throw new Error("block number must be a safe integer");
+  return extract(frame, hash, filter, (d, f) => d.wasm.nullrpc_receipts_logs(d.src.ptr, frame.length, d.aux.ptr, number, d.aux.ptr + 32, f.length));
+}
+
+function extract(frame: Uint8Array, hash: Uint8Array, filter: LogFilter, call: (d: Decoder, f: Uint8Array) => number): Record<string, unknown>[] | null {
   const d = instantiate();
   if (!d) return null;
   if (hash.length !== 32) throw new Error("block hash must be 32 bytes");
@@ -158,7 +173,7 @@ export function frameLogs(frame: Uint8Array, hash: Uint8Array, filter: LogFilter
   mem.set(frame, d.src.ptr);
   mem.set(hash, d.aux.ptr);
   mem.set(f, d.aux.ptr + 32);
-  const n = d.wasm.nullrpc_frame_logs(d.src.ptr, frame.length, d.aux.ptr, d.aux.ptr + 32, f.length);
+  const n = call(d, f);
   if (n < 0) throw new FrameError(n);
   if (n === 0) return [];
   mem = new Uint8Array(d.wasm.memory.buffer);

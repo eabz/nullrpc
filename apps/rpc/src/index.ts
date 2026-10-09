@@ -21,7 +21,7 @@ import { Chain, type ExecStats } from "./chain";
 import { Live, type LiveApi } from "./live";
 import { METHODS } from "./methods";
 import { pageResponse, statusResponse, usageResponse, type PageConfig } from "./page/page";
-import { ResponseCache, responseCacheHeader, type CacheStatus } from "./response-cache";
+import { ResponseCache, responseCacheHeader, type CacheOutcome } from "./response-cache";
 import { errorResponse, MAX_BATCH, RpcError, validate, type MethodEnv, type RpcRequest } from "./rpc";
 import type { ExecutorApi } from "./executor";
 import { executor as localExecutor } from "@nullrpc/executor";
@@ -119,17 +119,17 @@ function ledgerFor(app: AccessApi): Ledger {
 
 type RpcResponse = { jsonrpc: string; id: RpcRequest["id"]; result?: unknown; error?: { code: number; message: string } };
 
-async function call(chain: Chain, req: RpcRequest, menv: MethodEnv, responses: ResponseCache): Promise<RpcResponse & { cache: CacheStatus }> {
+async function call(chain: Chain, req: RpcRequest, menv: MethodEnv, responses: ResponseCache): Promise<RpcResponse & { cache: CacheOutcome }> {
   const handler = METHODS[req.method];
-  if (!handler) return { ...errorResponse(req.id, new RpcError(-32601, `the method ${req.method} does not exist/is not available`)), cache: "bypass" };
+  if (!handler) return { ...errorResponse(req.id, new RpcError(-32601, `the method ${req.method} does not exist/is not available`)), cache: { status: "bypass" } };
   const params = req.params ?? [];
   try {
-    const { result, status } = await responses.serve(chain, req.method, params, () => handler(chain, params, menv));
-    return { jsonrpc: "2.0", id: req.id, result, cache: status };
+    const { result, outcome } = await responses.serve(chain, req.method, params, () => handler(chain, params, menv));
+    return { jsonrpc: "2.0", id: req.id, result, cache: outcome };
   } catch (e) {
-    if (e instanceof RpcError) return { ...errorResponse(req.id, e), cache: "bypass" };
+    if (e instanceof RpcError) return { ...errorResponse(req.id, e), cache: { status: "bypass" } };
     console.error(JSON.stringify({ event: "rpc_error", method: req.method, error: e instanceof Error ? e.message : String(e), stack: e instanceof Error ? e.stack : undefined }));
-    return { ...errorResponse(req.id, new RpcError(-32603, e instanceof ArchiveError ? "archive unavailable" : "internal error")), cache: "bypass" };
+    return { ...errorResponse(req.id, new RpcError(-32603, e instanceof ArchiveError ? "archive unavailable" : "internal error")), cache: { status: "bypass" } };
   }
 }
 
@@ -213,7 +213,7 @@ async function rpc(request: Request, env: Env, ctx: ExecutionContext): Promise<R
   }
 
   let results: RpcResponse[];
-  const statuses: CacheStatus[] = [];
+  const statuses: CacheOutcome[] = [];
   let reads: ArchiveCacheCounter = { hit: 0, miss: 0 };
   let exec: ExecStats | null = null;
   try {
@@ -227,7 +227,7 @@ async function rpc(request: Request, env: Env, ctx: ExecutionContext): Promise<R
     results = await Promise.all(items.map(async (item, i) => {
       const req = validate(item);
       if ("error" in req) {
-        statuses[i] = "bypass";
+        statuses[i] = { status: "bypass" };
         return req as RpcResponse;
       }
       const { cache, ...res } = await call(chain, req, menv, responses);

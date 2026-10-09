@@ -9,7 +9,7 @@
 //
 //   node bench/scenario.mjs [--chain 560048] [--key nr_… | NULLRPC_KEY] [--phase calls,user,stress]
 //                           [--repeat 8] [--users 25] [--user-seconds 60] [--stress-seconds 20]
-//                           [--plans free,builder,growth,scale] [--max-inflight 600] [--seed 1]
+//                           [--plans free,builder,growth,scale | --rates 200,300] [--max-inflight 600] [--seed 1]
 //                           [--out bench/results/<stamp>]
 //
 // Writes report.md and report.json (every sample, the run windows per phase for bench/cost.mjs).
@@ -251,7 +251,7 @@ function cacheTally(rows) {
   for (const s of rows) {
     const m = /hit=(\d+) miss=(\d+)/.exec(s.archive ?? "");
     if (m) { hit += Number(m[1]); miss += Number(m[2]); }
-    if (s.response === "hit") rhit++; else if (s.response === "miss") rmiss++;
+    if (/^hit\b/.test(s.response ?? "")) rhit++; else if (/^miss\b/.test(s.response ?? "")) rmiss++;
   }
   return { r2ReadsPerCall: rows.length ? miss / rows.length : 0, archiveHitRate: hit + miss ? hit / (hit + miss) : null, responseHitRate: rhit + rmiss ? rhit / (rhit + rmiss) : null };
 }
@@ -380,11 +380,12 @@ async function stressAt(rps, seconds) {
 
 const stressRows = [];
 if (PHASES.includes("stress")) {
-  const plans = String(args.plans ?? "free,builder,growth,scale").split(",");
+  // --rates runs the same mix at arbitrary rates (rows named rate-N) instead of the plans' caps.
+  const plans = args.rates ? String(args.rates).split(",").map((r) => `rate-${Number(r)}`) : String(args.plans ?? "free,builder,growth,scale").split(",");
   windows.stress = {};
   for (const plan of plans) {
-    const p = PLANS[plan];
-    if (!p) throw new Error(`unknown plan ${plan}`);
+    const p = plan.startsWith("rate-") ? { rps: Number(plan.slice(5)) } : PLANS[plan];
+    if (!p || !(p.rps > 0)) throw new Error(`unknown plan ${plan}`);
     log(`\n== stress: ${plan} at ${p.rps} req/s for ${STRESS_SECONDS}s`);
     windows.stress[plan] = { started: new Date().toISOString(), rps: p.rps };
     const { out, dropped, wall } = await stressAt(p.rps, STRESS_SECONDS);

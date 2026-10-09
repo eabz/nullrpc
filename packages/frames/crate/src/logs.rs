@@ -1,8 +1,9 @@
 //! eth_getLogs over a block record (docs/storage.md, "Block records": the RLP list
-//! [raw_block, senders, receipts, blob_gas_price, extras]): the logs the filter accepts, written
-//! as the JSON array eth_getLogs returns, with the same fields in the same order as
-//! apps/rpc/src/eth/record.ts frameLogs. Only the header, the receipts and the hash of a
-//! transaction with an accepted log are decoded.
+//! [raw_block, senders, receipts, blob_gas_price, extras]) or over a layout-2 receipts frame
+//! ([number, timestamp, tx_hashes, receipts, extras]): the logs the filter accepts, written as
+//! the JSON array eth_getLogs returns, with the same fields in the same order as
+//! apps/rpc/src/eth/record.ts frameLogs and receiptsLogs. Of a record, only the header, the
+//! receipts and the hash of a transaction with an accepted log are decoded.
 
 use crate::rlp::{Item, Items, Malformed, bytes, item};
 use sha3::{Digest, Keccak256};
@@ -14,6 +15,7 @@ pub enum Error {
     ReceiptsMismatch,
     Integer,
     Filter,
+    NumberMismatch,
 }
 
 impl From<Malformed> for Error {
@@ -32,6 +34,7 @@ impl Error {
             Error::ReceiptsMismatch => -4,
             Error::Integer => -5,
             Error::Filter => -6,
+            Error::NumberMismatch => -7,
         }
     }
 }
@@ -183,7 +186,59 @@ pub fn frame_logs(frame: &[u8], hash: &[u8], filter: &Filter, out: &mut Vec<u8>)
         return Err(Error::ReceiptsMismatch);
     }
 
-    // The fields every log of the block shares, formatted once.
+    let shared = shared_fields(number, hash, timestamp);
+    let mut count = 0u32;
+    let mut log_index = 0u64;
+    for (index, receipt) in (&mut receipts).enumerate() {
+        let tx = txs.expect()?;
+        let mut tx_hash: Option<[u8; 32]> = None;
+        log_index = receipt_logs(receipt?, filter, &shared, index as u64, log_index, &mut count, out, || {
+            *tx_hash.get_or_insert_with(|| Keccak256::digest(if tx.list { tx.raw } else { tx.payload }).into())
+        })?;
+    }
+    if count > 0 {
+        out.push(b']');
+    }
+    Ok(count)
+}
+
+/// Appends the accepted logs of a layout-2 receipts frame ([number, timestamp, tx_hashes,
+/// receipts, extras]; docs/storage.md, "Block bundles") to `out` as a JSON array (nothing when
+/// there are none) and returns how many there are. `hash` is the block's hash and `number` its
+/// number, both from the offsets record; the frame's number must agree.
+pub fn receipts_logs(frame: &[u8], hash: &[u8], number: u64, filter: &Filter, out: &mut Vec<u8>) -> Result<u32, Error> {
+    let top = item(frame)?;
+    let mut top = Items::of(&top)?;
+    let frame_number = integer(bytes(top.expect()?)?)?;
+    if frame_number != number {
+        return Err(Error::NumberMismatch);
+    }
+    let timestamp = integer(bytes(top.expect()?)?)?;
+    let hashes = bytes(top.expect()?)?;
+    let receipts = top.expect()?;
+    let mut receipts = Items::of(&receipts)?;
+    if hashes.len() % 32 != 0 || receipts.remaining()? != hashes.len() / 32 {
+        return Err(Error::ReceiptsMismatch);
+    }
+    let shared = shared_fields(number, hash, timestamp);
+    let mut count = 0u32;
+    let mut log_index = 0u64;
+    for (index, receipt) in (&mut receipts).enumerate() {
+        let h = &hashes[index * 32..index * 32 + 32];
+        log_index = receipt_logs(receipt?, filter, &shared, index as u64, log_index, &mut count, out, || {
+            let mut a = [0u8; 32];
+            a.copy_from_slice(h);
+            a
+        })?;
+    }
+    if count > 0 {
+        out.push(b']');
+    }
+    Ok(count)
+}
+
+/// The fields every log of the block shares, formatted once (up to the transaction hash).
+fn shared_fields(number: u64, hash: &[u8], timestamp: u64) -> Vec<u8> {
     let mut shared = Vec::with_capacity(160);
     shared.extend_from_slice(b",\"blockNumber\":");
     quantity_into(&mut shared, number);
@@ -192,52 +247,59 @@ pub fn frame_logs(frame: &[u8], hash: &[u8], filter: &Filter, out: &mut Vec<u8>)
     shared.extend_from_slice(b",\"blockTimestamp\":");
     quantity_into(&mut shared, timestamp);
     shared.extend_from_slice(b",\"transactionHash\":");
+    shared
+}
 
-    let mut count = 0u32;
-    let mut log_index = 0u64;
-    for (index, receipt) in (&mut receipts).enumerate() {
-        let tx = txs.expect()?;
-        let mut receipt = Items::of(&receipt?)?;
-        let _type = receipt.expect()?;
-        let _status = receipt.expect()?;
-        let _cumulative = receipt.expect()?;
-        let logs = receipt.expect()?;
-        let mut tx_hash: Option<[u8; 32]> = None;
-        let mut in_tx = 0u64;
-        for log in Items::of(&logs)? {
-            let mut parts = Items::of(&log?)?;
-            let address = bytes(parts.expect()?)?;
-            let topics = parts.expect()?;
-            let data = bytes(parts.expect()?)?;
-            if accepts(filter, address, topics)? {
-                let h = *tx_hash.get_or_insert_with(|| Keccak256::digest(if tx.list { tx.raw } else { tx.payload }).into());
-                out.push(if count == 0 { b'[' } else { b',' });
-                out.extend_from_slice(b"{\"address\":");
-                hex_into(out, address);
-                out.extend_from_slice(b",\"topics\":[");
-                for (i, t) in Items::of(&topics)?.enumerate() {
-                    if i > 0 {
-                        out.push(b',');
-                    }
-                    hex_into(out, bytes(t?)?);
+/// Writes the accepted logs of one receipt (transaction `index`, whose first log has
+/// `log_index`) and returns the log index after it. `tx_hash` is asked once, for the first
+/// accepted log.
+#[allow(clippy::too_many_arguments)]
+fn receipt_logs(
+    receipt: Item<'_>,
+    filter: &Filter,
+    shared: &[u8],
+    index: u64,
+    log_index: u64,
+    count: &mut u32,
+    out: &mut Vec<u8>,
+    mut tx_hash: impl FnMut() -> [u8; 32],
+) -> Result<u64, Error> {
+    let mut receipt = Items::of(&receipt)?;
+    let _type = receipt.expect()?;
+    let _status = receipt.expect()?;
+    let _cumulative = receipt.expect()?;
+    let logs = receipt.expect()?;
+    let mut hash: Option<[u8; 32]> = None;
+    let mut in_tx = 0u64;
+    for log in Items::of(&logs)? {
+        let mut parts = Items::of(&log?)?;
+        let address = bytes(parts.expect()?)?;
+        let topics = parts.expect()?;
+        let data = bytes(parts.expect()?)?;
+        if accepts(filter, address, topics)? {
+            let h = *hash.get_or_insert_with(&mut tx_hash);
+            out.push(if *count == 0 { b'[' } else { b',' });
+            out.extend_from_slice(b"{\"address\":");
+            hex_into(out, address);
+            out.extend_from_slice(b",\"topics\":[");
+            for (i, t) in Items::of(&topics)?.enumerate() {
+                if i > 0 {
+                    out.push(b',');
                 }
-                out.extend_from_slice(b"],\"data\":");
-                hex_into(out, data);
-                out.extend_from_slice(&shared);
-                hex_into(out, &h);
-                out.extend_from_slice(b",\"transactionIndex\":");
-                quantity_into(out, index as u64);
-                out.extend_from_slice(b",\"logIndex\":");
-                quantity_into(out, log_index + in_tx);
-                out.extend_from_slice(b",\"removed\":false}");
-                count += 1;
+                hex_into(out, bytes(t?)?);
             }
-            in_tx += 1;
+            out.extend_from_slice(b"],\"data\":");
+            hex_into(out, data);
+            out.extend_from_slice(shared);
+            hex_into(out, &h);
+            out.extend_from_slice(b",\"transactionIndex\":");
+            quantity_into(out, index);
+            out.extend_from_slice(b",\"logIndex\":");
+            quantity_into(out, log_index + in_tx);
+            out.extend_from_slice(b",\"removed\":false}");
+            *count += 1;
         }
-        log_index += in_tx;
+        in_tx += 1;
     }
-    if count > 0 {
-        out.push(b']');
-    }
-    Ok(count)
+    Ok(log_index + in_tx)
 }

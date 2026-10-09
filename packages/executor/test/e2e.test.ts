@@ -123,6 +123,10 @@ describe("protocol", () => {
     // On a chain id the cache has not seen, so the call reads state (the cases above filled
     // the cache for this block on the fixture's chain).
     const got = await execute({ ...c.request, chain: { ...chain, chainId: 0xdead }, block: f.record }, failing, session);
-    expect(got).toEqual({ error: { code: -32000, message: "execution unavailable: state could not be read" } });
+    expect(got).toEqual({ error: { code: -32000, message: "execution unavailable: state could not be read (error)" } });
+    // The cause names what failed: a Durable Object refusing the read, a reorg, a missing object or a timeout.
+    const overloaded: StateSource = { ...failing, read: async () => { throw new Error("Durable Object is overloaded. Requests queued for too long.") } };
+    const got2 = await execute({ ...c.request, chain: { ...chain, chainId: 0xdeae }, block: f.record }, overloaded, session);
+    expect(got2).toEqual({ error: { code: -32000, message: "execution unavailable: state could not be read (overloaded)" } });
   });
 });

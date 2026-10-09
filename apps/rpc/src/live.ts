@@ -20,7 +20,7 @@
 // block outside the listed range, a missing record, or an index that fails its digest.
 
 import { sha256 } from "./archive/archive";
-import { Lru } from "./archive/lru";
+import { Lru, SizedLru } from "./archive/lru";
 import type { Source } from "./archive/source";
 import type { ObjectRef } from "./archive/types";
 
@@ -237,6 +237,35 @@ export class TxTable {
 /** Most keys per getPinnedMany call (apps/live/src/index.ts). */
 export const LIVE_BATCH = 1024;
 
+/**
+ * The isolate's cache of the window's answers (docs/storage.md, "Reads above P", "Caches"):
+ * a value at block n under pin (M, H) is fixed by H (the hash fixes the chain below it), and
+ * a "no row" answer stays right across a promotion (the key is then unchanged since the new
+ * P too), so both are kept per pin hash, block and key and served without a shard call.
+ * Witnesses likewise, per pin hash and block. One cache per service binding object (one per
+ * isolate), so tests with their own fakes do not share entries.
+ */
+export const STATE_CACHE_ENTRIES = 32_768;
+/** Values longer than this (code, mostly) are not cached; the executor keeps its own code cache. */
+export const STATE_CACHE_MAX_VALUE = 4_096;
+export const WITNESS_CACHE_BYTES = 32 * 1024 * 1024;
+
+interface LiveCaches {
+  /** `${pin hash}:${n}:${domain}:${key hex}` -> the bytes, or null for "no row in the window". */
+  values: Lru<string, Uint8Array | null>;
+  /** `${pin hash}:${n}` -> the witness bytes, or null for none. */
+  witnesses: SizedLru<string, Uint8Array | null>;
+  hits: number;
+  misses: number;
+}
+const liveCaches = new WeakMap<LiveApi, LiveCaches>();
+
+export function cachesFor(api: LiveApi): LiveCaches {
+  let c = liveCaches.get(api);
+  if (!c) liveCaches.set(api, (c = { values: new Lru(STATE_CACHE_ENTRIES), witnesses: new SizedLru(WITNESS_CACHE_BYTES), hits: 0, misses: 0 }));
+  return c;
+}
+
 const toHex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 
 function fromHex(hex: string): Uint8Array {
@@ -371,10 +400,20 @@ export class Live {
    * null when the key has not changed since P (read the archive at P). Throws StaleError.
    */
   async stateValue(domain: 1 | 2 | 3, key: Uint8Array, n: number, pin: BlockId): Promise<Uint8Array | null> {
-    const r = await this.api.getPinned(domain, toHex(key), n, pin);
+    const caches = cachesFor(this.api);
+    const hex = toHex(key);
+    const id = `${pin.hash}:${n}:${domain}:${hex}`;
+    const cached = caches.values.get(id);
+    if (cached !== undefined) {
+      caches.hits++;
+      return cached;
+    }
+    caches.misses++;
+    const r = await this.api.getPinned(domain, hex, n, pin);
     if (r.stale) throw new StaleError();
-    if (r.block === null || r.value === null) return null;
-    return fromHex(r.value);
+    const value = r.block === null || r.value === null ? null : fromHex(r.value);
+    if (value === null || value.length <= STATE_CACHE_MAX_VALUE) caches.values.set(id, value);
+    return value;
   }
 
   /**
@@ -382,26 +421,64 @@ export class Live {
    * in order. Throws StaleError when any batch is stale.
    */
   async stateValues(keys: { domain: 1 | 2 | 3; key: Uint8Array }[], n: number, pin: BlockId): Promise<(Uint8Array | null)[]> {
-    const batches: Promise<(Uint8Array | null)[]>[] = [];
-    for (let i = 0; i < keys.length; i += LIVE_BATCH) {
-      const slice = keys.slice(i, i + LIVE_BATCH);
+    const caches = cachesFor(this.api);
+    const out: (Uint8Array | null)[] = new Array(keys.length);
+    // The keys the cache lacks (a key asked twice in one call is read once).
+    const missing: { domain: number; key: string; id: string; at: number[] }[] = [];
+    const byId = new Map<string, number>();
+    keys.forEach((k, i) => {
+      const hex = toHex(k.key);
+      const id = `${pin.hash}:${n}:${k.domain}:${hex}`;
+      const cached = caches.values.get(id);
+      if (cached !== undefined) {
+        caches.hits++;
+        out[i] = cached;
+        return;
+      }
+      const j = byId.get(id);
+      if (j !== undefined) {
+        missing[j]!.at.push(i);
+        return;
+      }
+      caches.misses++;
+      byId.set(id, missing.length);
+      missing.push({ domain: k.domain, key: hex, id, at: [i] });
+    });
+    const batches: Promise<void>[] = [];
+    for (let i = 0; i < missing.length; i += LIVE_BATCH) {
+      const slice = missing.slice(i, i + LIVE_BATCH);
       batches.push(
-        this.api.getPinnedMany(slice.map((k) => ({ domain: k.domain, key: toHex(k.key) })), n, pin).then((r) => {
+        this.api.getPinnedMany(slice.map((k) => ({ domain: k.domain, key: k.key })), n, pin).then((r) => {
           if (r.stale) throw new StaleError();
           if (r.values.length !== slice.length) throw new Error("the live window answered the wrong number of values");
-          return r.values.map((v) => (v.block === null || v.value === null ? null : fromHex(v.value)));
+          r.values.forEach((v, j) => {
+            const value = v.block === null || v.value === null ? null : fromHex(v.value);
+            const m = slice[j]!;
+            if (value === null || value.length <= STATE_CACHE_MAX_VALUE) caches.values.set(m.id, value);
+            for (const at of m.at) out[at] = value;
+          });
         }),
       );
     }
-    return (await Promise.all(batches)).flat();
+    await Promise.all(batches);
+    return out;
   }
 
-  /** A block's witness bytes in the window, or null. Throws StaleError. */
+  /** A block's witness bytes in the window, or null; from the isolate's cache after the first read under a pin. Throws StaleError. */
   async witness(n: number, pin: BlockId): Promise<Uint8Array | null> {
+    const caches = cachesFor(this.api);
+    const id = `${pin.hash}:${n}`;
+    const cached = caches.witnesses.get(id);
+    if (cached !== undefined) {
+      caches.hits++;
+      return cached;
+    }
+    caches.misses++;
     const r = await this.api.witness(n, pin);
-    if (!r) return null;
-    if (r.stale) throw new StaleError();
-    return fromHex(r.witness);
+    if (r?.stale) throw new StaleError();
+    const witness = r ? fromHex(r.witness) : null;
+    caches.witnesses.set(id, witness, witness ? witness.length : 0);
+    return witness;
   }
 
   /**

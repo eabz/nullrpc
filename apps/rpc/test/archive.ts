@@ -7,7 +7,7 @@ import { createHash } from "node:crypto";
 import { zstdCompressSync } from "node:zlib";
 import type { HashIndexObject, ObjectRef } from "../src/archive/types";
 import { concat, parseData } from "../src/eth/hex";
-import { encodeRecord, type Fixture } from "./encode";
+import { encodeRecord, encodeRecordParts, type Fixture } from "./encode";
 
 /** Ethereum mainnet's genesis `config` (fork schedule and blob parameters). */
 export const MAINNET_CONFIG = {
@@ -146,6 +146,8 @@ export interface ArchiveOptions {
   state?: { entries: StateEntry[]; layers: [number, number][]; filters?: boolean };
   /** Extra manifest fields (log index, witnesses, config). */
   extra?: (b: Builder) => Record<string, unknown>;
+  /** Segment layout (storage.md, "Block bundles"): 2 (the default, what the daemon writes) or 1 (older generations). */
+  layout?: 1 | 2;
 }
 
 export function buildArchive(fixtures: Fixture[], opts: ArchiveOptions = {}): Map<string, Uint8Array> {
@@ -156,24 +158,31 @@ export function buildArchive(fixtures: Fixture[], opts: ArchiveOptions = {}): Ma
     if (last && Number(last.at(-1)!.block.number) + 1 === Number(f.block.number)) last.push(f);
     else runs.push([f]);
   }
+  const layout = opts.layout ?? 2;
   const segments = runs.map((run) => {
     const first = Number(run[0]!.block.number);
     const last = Number(run.at(-1)!.block.number);
-    const p = pack(run.map(encodeRecord), 1);
-    const offsets = new Uint8Array(run.length * 80);
+    const parts = run.map(encodeRecordParts);
+    const p = pack(layout === 2 ? parts.map((x) => x.block) : run.map(encodeRecord), 1);
+    const rp = layout === 2 ? pack(parts.map((x) => x.receipts), 6) : null;
+    const len = layout === 2 ? 128 : 80;
+    const offsets = new Uint8Array(run.length * len);
     const view = new DataView(offsets.buffer);
+    const put = (at: number, fr: { offset: number; compressed: number; uncompressed: number; sha256: Uint8Array }) => {
+      view.setBigUint64(at, BigInt(fr.offset), true);
+      view.setUint32(at + 8, fr.compressed, true);
+      view.setUint32(at + 12, fr.uncompressed, true);
+      offsets.set(fr.sha256, at + 16);
+    };
     run.forEach((f, i) => {
-      const fr = p.frames[i]!;
-      offsets.set(parseData(f.block.hash)!, i * 80);
-      view.setBigUint64(i * 80 + 32, BigInt(fr.offset), true);
-      view.setUint32(i * 80 + 40, fr.compressed, true);
-      view.setUint32(i * 80 + 44, fr.uncompressed, true);
-      offsets.set(fr.sha256, i * 80 + 48);
+      offsets.set(parseData(f.block.hash)!, i * len);
+      put(i * len + 32, p.frames[i]!);
+      if (rp) put(i * len + 80, rp.frames[i]!);
     });
     const dir = `segments/${String(first).padStart(20, "0")}-${String(last).padStart(20, "0")}-${run.at(-1)!.block.hash.slice(2)}/c0ffee`;
-    const blocks = b.put(`${dir}/blocks.pack`, p.bytes);
-    const offs = b.put(`${dir}/offsets.bin`, offsets);
-    const meta = b.putJson(`${dir}/meta.json`, { first, last, first_parent_hash: run[0]!.block.parentHash, last_hash: run.at(-1)!.block.hash, files: { "blocks.pack": blocks, "offsets.bin": offs } });
+    const files: Record<string, ObjectRef> = { "blocks.pack": b.put(`${dir}/blocks.pack`, p.bytes), "offsets.bin": b.put(`${dir}/offsets.bin`, offsets) };
+    if (rp) files["receipts.pack"] = b.put(`${dir}/receipts.pack`, rp.bytes);
+    const meta = b.putJson(`${dir}/meta.json`, { first, last, first_parent_hash: run[0]!.block.parentHash, last_hash: run.at(-1)!.block.hash, ...(layout === 2 ? { layout } : {}), files });
     return { first, last, last_hash: run.at(-1)!.block.hash, meta };
   });
   const half = Math.ceil(fixtures.length / 2);

@@ -75,8 +75,8 @@ export function encodeRawBlock(f: Fixture): Uint8Array {
   return encodeList(items);
 }
 
-/** The block record frame (uncompressed). */
-export function encodeRecord(f: Fixture): Uint8Array {
+/** The record's five items, each RLP-encoded. */
+function recordItems(f: Fixture) {
   const senders = concat(...f.block.transactions.map((t: Json) => hex(t.from)));
   const receipts = f.receipts.map((r) => {
     const status = r.root ? str(r.root) : r.status === "0x1" ? encodeBytes(Uint8Array.of(1)) : encodeBytes(new Uint8Array());
@@ -84,5 +84,25 @@ export function encodeRecord(f: Fixture): Uint8Array {
     return encodeList([int(r.type), status, int(r.cumulativeGasUsed), logs]);
   });
   const blobGasPrice = f.receipts.find((r) => r.blobGasPrice)?.blobGasPrice ?? "0x0";
-  return encodeList([encodeBytes(encodeRawBlock(f)), encodeBytes(senders), encodeList(receipts), int(blobGasPrice), encodeList([])]);
+  return { rawBlock: encodeBytes(encodeRawBlock(f)), senders: encodeBytes(senders), receipts: encodeList(receipts), blobGasPrice: int(blobGasPrice), extras: encodeList([]) };
+}
+
+/** The block record frame (uncompressed; a layout-1 segment's frame). */
+export function encodeRecord(f: Fixture): Uint8Array {
+  const i = recordItems(f);
+  return encodeList([i.rawBlock, i.senders, i.receipts, i.blobGasPrice, i.extras]);
+}
+
+/**
+ * A layout-2 segment's two frames (storage.md, "Block bundles"): the block frame
+ * [raw_block, senders, blob_gas_price] and the receipts frame [number, timestamp, tx_hashes,
+ * receipts, extras].
+ */
+export function encodeRecordParts(f: Fixture): { block: Uint8Array; receipts: Uint8Array } {
+  const i = recordItems(f);
+  const hashes = concat(...f.block.transactions.map((t: Json) => hex(t.hash)));
+  return {
+    block: encodeList([i.rawBlock, i.senders, i.blobGasPrice]),
+    receipts: encodeList([int(f.block.number), int(f.block.timestamp), encodeBytes(hashes), i.receipts, i.extras]),
+  };
 }

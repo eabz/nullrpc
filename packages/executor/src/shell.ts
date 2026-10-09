@@ -199,6 +199,20 @@ function failure(message: string): ExecResponse {
   return { error: { code: -32000, message } };
 }
 
+/**
+ * Why a state read failed, from the error's message, so the answer (and the benchmark reading
+ * it) tells a Durable Object refusing the read apart from a reorg, a missing object or a
+ * timeout: "overloaded", "stale", "missing", "timeout" or "error".
+ */
+export function readFailureCause(e: unknown): string {
+  const m = (e instanceof Error ? e.message : String(e)).toLowerCase();
+  if (m.includes("overloaded") || m.includes("queued for too long")) return "overloaded";
+  if (m.includes("stale") || m.includes("reorg")) return "stale";
+  if (m.includes("missing") || m.includes("not found") || m.includes("does not exist")) return "missing";
+  if (m.includes("timeout") || m.includes("timed out") || m.includes("time budget")) return "timeout";
+  return "error";
+}
+
 const timedOut = (): ExecResponse => ({ error: { code: -32005, message: "execution exceeded its time budget (timeout)" } });
 
 async function readAll(state: StateSource, keys: StateKey[], at: number): Promise<StateValue[]> {
@@ -481,7 +495,7 @@ export async function execute(
     const refusal = e as { rpcCode?: unknown; message?: unknown };
     if (typeof refusal?.rpcCode === "number" && typeof refusal.message === "string") return { error: { code: refusal.rpcCode, message: refusal.message } };
     console.error("executor state read failed", e instanceof Error ? e.message : String(e));
-    return failure("execution unavailable: state could not be read");
+    return failure(`execution unavailable: state could not be read (${readFailureCause(e)})`);
   } finally {
     if (expire !== undefined) clearTimeout(expire);
     wasm.free?.();
