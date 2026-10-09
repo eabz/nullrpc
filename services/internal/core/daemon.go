@@ -329,6 +329,22 @@ func (d *daemon) subscribe(ctx context.Context) {
 // keeps failing its checks stops it.
 const maxFailures = 10
 
+// errNotReady is a block at the node's head that the node announced but cannot trace yet: the
+// follower retries it quietly, without counting a failure, for up to maxNotReady tries.
+var errNotReady = errors.New("the node cannot trace this block yet")
+
+const (
+	// tipSlack is how far below the node's head a block counts as at the tip.
+	tipSlack    = 2
+	maxNotReady = 30
+	notReadyGap = time.Second
+)
+
+// notReadyAtTip tells whether err is the node not yet able to trace block n, just announced.
+func notReadyAtTip(n, nodeHead uint64, err error) bool {
+	return n+tipSlack >= nodeHead && strings.Contains(err.Error(), "block not found")
+}
+
 func backoff(ctx context.Context, what string, failures int, err error) bool {
 	delay := min(time.Duration(1<<min(failures, 8))*time.Second, 5*time.Minute)
 	fmt.Fprintf(os.Stderr, "{\"retry\":%q,\"failures\":%d,\"error\":%q,\"in_s\":%.0f}\n", what, failures, err.Error(), delay.Seconds())
@@ -343,9 +359,18 @@ func backoff(ctx context.Context, what string, failures int, err error) bool {
 func (d *daemon) follow(ctx context.Context) error {
 	poll := time.NewTicker(2 * time.Second)
 	defer poll.Stop()
-	failures := 0
+	failures, notReady := 0, 0
 	for {
 		if err := d.step(); err != nil {
+			if errors.Is(err, errNotReady) && notReady < maxNotReady {
+				notReady++
+				select {
+				case <-ctx.Done():
+					return nil
+				case <-time.After(notReadyGap):
+				}
+				continue
+			}
 			var fatal *fatalError
 			if failures++; failures >= maxFailures || errors.As(err, &fatal) {
 				return err
@@ -355,7 +380,7 @@ func (d *daemon) follow(ctx context.Context) error {
 			}
 			continue
 		}
-		failures = 0
+		failures, notReady = 0, 0
 		select {
 		case <-ctx.Done():
 			return nil
@@ -409,6 +434,9 @@ func (d *daemon) step() error {
 		wg.Wait()
 		for i, b := range blocks {
 			if errs[i] != nil {
+				if notReadyAtTip(from+uint64(i), nodeHead, errs[i]) {
+					return fmt.Errorf("block %d: %w: %w", from+uint64(i), errNotReady, errs[i])
+				}
 				return fmt.Errorf("block %d: %w (if the node pruned its state, it cannot trace this block: restore it from a snapshot at or below block %d)", from+uint64(i), errs[i], d.liveHead.Load().Number)
 			}
 			if b.Parent != d.head.Hash {

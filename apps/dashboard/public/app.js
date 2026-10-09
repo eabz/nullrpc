@@ -354,7 +354,10 @@ function rates(id) {
   const dt = last.t - first.t;
   if (dt < 30 || first === last) return null;
   const fill = Math.max(0, (last.executed - first.executed) / dt);
-  const catchUp = last.lag != null && first.lag != null ? (first.lag - last.lag) / dt : null;
+  // The trend uses only samples with a known lag (none before the daemon reports a network head).
+  const known = pts.filter((p) => p.lag != null && (last.t - p.t) * 1000 <= RATE_WINDOW_MS);
+  const a = known[0], b = known[known.length - 1];
+  const catchUp = a && b && b.t - a.t >= 30 ? (a.lag - b.lag) / (b.t - a.t) : null;
   return { fill, catchUp, dt };
 }
 
@@ -490,7 +493,7 @@ function kpis(id, st) {
   const pts = historyPoints(id);
   const r = rates(id);
   const lagNow = num(st.lag);
-  const lagPrev = pts.length > 1 ? pts.find((p) => (pts[pts.length - 1].t - p.t) * 1000 <= RATE_WINDOW_MS)?.lag : null;
+  const lagPrev = pts.length > 1 ? pts.find((p) => p.lag != null && (pts[pts.length - 1].t - p.t) * 1000 <= RATE_WINDOW_MS)?.lag : null;
   let badge = null;
   if (lagNow != null && lagPrev != null) {
     const d = lagNow - lagPrev;

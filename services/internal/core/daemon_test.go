@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -283,5 +284,23 @@ func TestWitnessJobs(t *testing.T) {
 	batches := batchRanges(8192, 9000)
 	if len(batches) != 13 || batches[12] != [2]uint64{8960, 9000} {
 		t.Fatalf("batches %v", batches)
+	}
+}
+
+func TestNotReadyAtTip(t *testing.T) {
+	notFound := errors.New("trace block 100: debug_traceBlockByNumber: -32000 block not found: 100")
+	for _, c := range []struct {
+		n, head uint64
+		err     error
+		want    bool
+	}{
+		{100, 100, notFound, true},
+		{98, 100, notFound, true},
+		{97, 100, notFound, false}, // below the tip: pruned, not late
+		{100, 100, errors.New("execution timeout"), false},
+	} {
+		if got := notReadyAtTip(c.n, c.head, c.err); got != c.want {
+			t.Errorf("notReadyAtTip(%d, %d, %q) = %v, want %v", c.n, c.head, c.err, got, c.want)
+		}
 	}
 }

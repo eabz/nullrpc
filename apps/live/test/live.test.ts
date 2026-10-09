@@ -267,6 +267,22 @@ describe("status routes", () => {
     });
   });
 
+  test("before the daemon reports a network head, the target and lag are unknown", async () => {
+    const { env, chainStorage, get } = await setup();
+    const chain = env.CHAIN.get("x" as never);
+    await chain.init(id(99), 1, 4);
+    await chain.putRows([chainRow(100, 159)]);
+    // Two minutes without a network head, then one with it.
+    for (let m = 0; m < 3; m++) {
+      await chain.setHead(id(100 + 5 * m), null, null, m === 2 ? id(150) : null);
+      setSystemTime(new Date(chainStorage.alarm!));
+      await chain.alarm();
+    }
+    const points = (await get("/internal/history?range=1h")).body.points;
+    expect(points.map((p: { target: number | null; lag: number | null }) => [p.target, p.lag])).toEqual([[null, null], [null, null], [150, 40]]);
+    expect((await get("/internal/status")).body.chain).toMatchObject({ target: id(150), lag: 40 });
+  });
+
   test("history samples once a minute and buckets by range", async () => {
     const { env, chainStorage, get } = await setup();
     const chain = env.CHAIN.get("x" as never);

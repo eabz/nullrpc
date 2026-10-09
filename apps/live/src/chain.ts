@@ -24,7 +24,7 @@ export interface ChainStatus {
   at: number;
   /** The head, with its block's timestamp (seconds; null when unknown). */
   executed_head: (BlockId & { timestamp: number | null }) | null;
-  /** The network head the daemon reported with its last blocks, or the head until it reports one. */
+  /** The network head the daemon reported (the head once the head passes it); null until it reports one. */
   target: BlockId | null;
   /** target - head, in blocks. */
   lag: number | null;
@@ -54,8 +54,9 @@ export interface HistoryPoint {
   /** Bucket start (seconds). */
   t: number;
   executed: number;
-  target: number;
-  lag: number;
+  /** Null while the daemon had not reported a network head. */
+  target: number | null;
+  lag: number | null;
   /** Blocks per second since the previous sample. */
   rate: number | null;
 }
@@ -102,6 +103,12 @@ export class ChainDO extends DurableObject<Env> {
     this.sql.exec(`CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT)`);
     // One sample a minute of the head and the network head, kept 7 days.
     this.sql.exec(`CREATE TABLE IF NOT EXISTS samples (t INTEGER PRIMARY KEY, executed INTEGER, target INTEGER)`);
+    // Once: samples taken before the daemon reported a network head stored the head as the
+    // target (a false lag of 0); mark them unknown.
+    if (this.get<boolean>("samples_unknown_target") === null) {
+      this.sql.exec("UPDATE samples SET target = NULL WHERE t < (SELECT MIN(t) FROM samples WHERE target <> executed)");
+      this.set("samples_unknown_target", true);
+    }
   }
 
   private get<T>(k: string): T | null {
@@ -299,10 +306,14 @@ export class ChainDO extends DurableObject<Env> {
     };
   }
 
-  /** The network head, if the daemon reported one at or above the head; else the head. */
+  /**
+   * The network head the daemon reported; the head once the head has passed it (caught up).
+   * Null until the daemon reports one: the head is not evidence of being at the network head.
+   */
   private target(head: BlockId | null): BlockId | null {
     const net = this.get<BlockId>("network_head");
-    return net && (!head || net.number >= head.number) ? net : head;
+    if (!net) return null;
+    return !head || net.number >= head.number ? net : head;
   }
 
   /**
@@ -313,16 +324,16 @@ export class ChainDO extends DurableObject<Env> {
     const { span_s, bucket_s } = HISTORY_RANGES[range];
     const to = Math.floor(Date.now() / 1000);
     const from = to - span_s;
-    const rows = this.sql.exec<{ t: number; executed: number; target: number }>(
+    const rows = this.sql.exec<{ t: number; executed: number; target: number | null }>(
       "SELECT t, executed, target FROM samples WHERE t >= ? ORDER BY t", from - bucket_s).toArray();
-    const last = new Map<number, { t: number; executed: number; target: number }>();
+    const last = new Map<number, { t: number; executed: number; target: number | null }>();
     for (const r of rows) last.set(Math.floor(r.t / bucket_s) * bucket_s, r);
     const points: HistoryPoint[] = [];
     let prev: { t: number; executed: number } | null = null;
     for (const [t, r] of last) {
       if (t >= from - (from % bucket_s)) {
         const rate = prev && r.t > prev.t ? Math.max(0, (r.executed - prev.executed) / (r.t - prev.t)) : null;
-        points.push({ t, executed: r.executed, target: r.target, lag: Math.max(0, r.target - r.executed), rate });
+        points.push({ t, executed: r.executed, target: r.target, lag: r.target === null ? null : Math.max(0, r.target - r.executed), rate });
       }
       prev = r;
     }
@@ -340,9 +351,9 @@ export class ChainDO extends DurableObject<Env> {
     const now = Date.now();
     const head = this.get<BlockId>("head");
     if (head) {
-      const target = this.target(head)!;
+      const target = this.target(head);
       this.sql.exec("INSERT OR REPLACE INTO samples (t, executed, target) VALUES (?, ?, ?)",
-        Math.floor(now / SAMPLE_MS) * (SAMPLE_MS / 1000), head.number, target.number);
+        Math.floor(now / SAMPLE_MS) * (SAMPLE_MS / 1000), head.number, target ? target.number : null);
     }
     this.sql.exec("DELETE FROM samples WHERE t < ?", Math.floor(now / 1000) - RETENTION_S);
     await this.ctx.storage.setAlarm(nextMinute(now));
