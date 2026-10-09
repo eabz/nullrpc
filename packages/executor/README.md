@@ -19,7 +19,9 @@ Worker of its own. `src/contract.ts` is the contract (`StateSource`, `ExecReques
   (batches of at most 256, code fetched with its account), the witness for mined-transaction
   traces, and caches per isolate (bounded LRUs): bytecode by hash, witnesses and hints by block
   hash, account and storage values by (chain, block hash, block, key), and a profile per (chain,
-  callee, selector): the keys calls to that function asked for, learnt from any call that read.
+  callee, selector): the keys the dependent rounds of calls to that function asked for (the
+  first round's keys are the module's own, asked by every call), learnt from any call that read;
+  a call that needed no dependent round leaves an empty profile, which still says it is cheap.
   For a call-style request the first wave reads, together, the executor's first round (its own
   hints: sender, callee, calldata addresses, coinbase), the profile's keys the round did not
   ask for, and, when the isolate has no profile for the callee, the source's optional
