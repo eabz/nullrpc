@@ -26,8 +26,20 @@ export interface RpcRequest {
 }
 
 /** Per-request configuration the methods may need. */
+/**
+ * The data center's cache (`caches.default`) for entries a method shares beyond the isolate,
+ * scoped to the Worker's origin; fills run after the response (`ctx.waitUntil`).
+ */
+export interface EdgeCache {
+  cache: Cache;
+  origin: string;
+  defer: (p: Promise<unknown>) => void;
+}
+
 export interface MethodEnv {
   chainId: number;
+  /** Unset in tests and local development: methods then keep their shared entries in the isolate only. */
+  edge?: EdgeCache;
   /** HTTPS JSON-RPC endpoint of the transaction relay; unset disables eth_sendRawTransaction. */
   relayUrl?: string;
   /** The executor (in-process, or the executor Worker); unset disables execution and tracing. */

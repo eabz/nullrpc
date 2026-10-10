@@ -233,6 +233,15 @@ export class Archive {
     return { hash, kind: "record", frame: joinRecord(b, r) };
   }
 
+  /** Block `n`'s hash from its offsets record (no frame read), or null outside the archive. */
+  async blockHash(pin: Pin, n: number): Promise<Uint8Array | null> {
+    const seg = this.segment(pin, n);
+    if (!seg) return null;
+    const meta = await this.json<SegmentMeta>(seg.meta);
+    const rec = await this.offsetsRecord(meta, n, offsetRecordLength(meta));
+    return rec.subarray(0, 32);
+  }
+
   // ---- coalesced block reads
 
   /**
