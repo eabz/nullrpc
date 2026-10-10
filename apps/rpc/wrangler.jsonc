@@ -17,7 +17,9 @@
   // Smart Placement is off: tried on 2026-10-10 (bench/results/20261010T000930Z-smart-placement),
   // it moved the Worker to EWR near the Durable Objects and D1, adding about 60ms to every cheap
   // head call while making deep lookups and tracers 2 to 4x faster. Wallet traffic loses; an
-  // archive-heavy endpoint may want `"placement": { "mode": "smart" }`.
+  // archive-heavy endpoint may want `"placement": { "mode": "smart" }`. Set explicitly: a deploy
+  // that omits the key leaves the account-side setting as it was.
+  "placement": { "mode": "off" },
   "main": "src/index.ts",
   // The executor's and the frame decoders' WebAssembly are built from packages/*/crate before
   // bundling (their crate/pkg are git-ignored); wrangler bundles the .wasm files as compiled modules.
