@@ -1,0 +1,348 @@
+{
+ "windows": [
+  {
+   "label": "stress free",
+   "from": "2026-10-10T02:23:45.764Z",
+   "to": "2026-10-10T02:24:35.908Z",
+   "requests": 420,
+   "scripts": {
+    "nullrpc-live-560048": {
+     "requests": 163,
+     "errors": 0,
+     "subrequests": 292,
+     "cpuMs": 514.163,
+     "cpuP50": 0.896,
+     "cpuP99": 62.577
+    },
+    "nullrpc-app": {
+     "requests": 17,
+     "errors": 0,
+     "subrequests": 0,
+     "cpuMs": 58.689,
+     "cpuP50": 3.074,
+     "cpuP99": 7.531
+    },
+    "nullrpc-rpc-560048": {
+     "requests": 415,
+     "errors": 0,
+     "subrequests": 177,
+     "cpuMs": 7889.472,
+     "cpuP50": 2.867,
+     "cpuP99": 367.6
+    }
+   },
+   "doReq": 296,
+   "byClass": [
+    {
+     "name": "nullrpc-live-560048/StateShard",
+     "requests": 283,
+     "wallMs": 36007.209,
+     "durationGbS": 0.002482112
+    },
+    {
+     "name": "nullrpc-live-560048/ChainDO",
+     "requests": 13,
+     "wallMs": 1402.712,
+     "durationGbS": 0.01424584
+    }
+   ],
+   "doGbS": 0.016727951999999997,
+   "rowsRead": 459,
+   "rowsWritten": 56,
+   "r2ClassA": 54,
+   "r2ClassB": 636,
+   "cost": 0.0008667745793999999,
+   "per1M": 2.063748998571428,
+   "breakdown": {
+    "Workers requests": 0.0001245,
+    "Workers CPU": 0.00016924648000000002,
+    "DO requests": 0.000044399999999999995,
+    "DO duration": 2.0909939999999998e-7,
+    "DO rows": 0.000056458999999999996,
+    "R2 Class B": 0.00022896,
+    "R2 Class A": 0.000243
+   },
+   "units": {
+    "rpcReq": 0.9880952380952381,
+    "liveCalls": 0.3880952380952381,
+    "appCalls": 0.04047619047619048,
+    "cpuMs": 20.148390476190478,
+    "doReq": 0.7047619047619048,
+    "r2ClassB": 1.5142857142857142,
+    "rowsRead": 1.0928571428571427
+   }
+  },
+  {
+   "label": "stress builder",
+   "from": "2026-10-10T02:24:40.916Z",
+   "to": "2026-10-10T02:25:31.263Z",
+   "requests": 5250,
+   "scripts": {
+    "nullrpc-live-560048": {
+     "requests": 1069,
+     "errors": 0,
+     "subrequests": 1972,
+     "cpuMs": 1624.216,
+     "cpuP50": 0.831,
+     "cpuP99": 22.103
+    },
+    "nullrpc-app": {
+     "requests": 342,
+     "errors": 0,
+     "subrequests": 0,
+     "cpuMs": 561.088,
+     "cpuP50": 1.312,
+     "cpuP99": 4.888
+    },
+    "nullrpc-rpc-560048": {
+     "requests": 5260,
+     "errors": 0,
+     "subrequests": 1404,
+     "cpuMs": 60600.28,
+     "cpuP50": 2.039,
+     "cpuP99": 213.171
+    }
+   },
+   "doReq": 1927,
+   "byClass": [
+    {
+     "name": "nullrpc-live-560048/StateShard",
+     "requests": 1890,
+     "wallMs": 446779.605,
+     "durationGbS": 1.8234987040000001
+    },
+    {
+     "name": "nullrpc-live-560048/ChainDO",
+     "requests": 37,
+     "wallMs": 2796.673,
+     "durationGbS": 0.057072976000000004
+    }
+   ],
+   "doGbS": 1.88057168,
+   "rowsRead": 13052,
+   "rowsWritten": 226,
+   "r2ClassA": 52,
+   "r2ClassB": 1123,
+   "cost": 0.004023600826,
+   "per1M": 0.7664001573333333,
+   "breakdown": {
+    "Workers requests": 0.001578,
+    "Workers CPU": 0.0012557116800000002,
+    "DO requests": 0.00028905,
+    "DO duration": 0.000023507146000000003,
+    "DO rows": 0.000239052,
+    "R2 Class B": 0.00040427999999999997,
+    "R2 Class A": 0.000234
+   },
+   "units": {
+    "rpcReq": 1.0019047619047619,
+    "liveCalls": 0.20361904761904762,
+    "appCalls": 0.06514285714285714,
+    "cpuMs": 11.959158857142858,
+    "doReq": 0.36704761904761907,
+    "r2ClassB": 0.2139047619047619,
+    "rowsRead": 2.486095238095238
+   }
+  },
+  {
+   "label": "stress growth",
+   "from": "2026-10-10T02:25:36.277Z",
+   "to": "2026-10-10T02:26:27.040Z",
+   "requests": 18856,
+   "scripts": {
+    "nullrpc-live-560048": {
+     "requests": 1474,
+     "errors": 0,
+     "subrequests": 2727,
+     "cpuMs": 2459.064,
+     "cpuP50": 0.751,
+     "cpuP99": 28.741
+    },
+    "nullrpc-app": {
+     "requests": 750,
+     "errors": 0,
+     "subrequests": 0,
+     "cpuMs": 1425.752,
+     "cpuP50": 1.746,
+     "cpuP99": 5.022
+    },
+    "nullrpc-rpc-560048": {
+     "requests": 18966,
+     "errors": 0,
+     "subrequests": 2214,
+     "cpuMs": 105642.247,
+     "cpuP50": 1.519,
+     "cpuP99": 130.414
+    }
+   },
+   "doReq": 2691,
+   "byClass": [
+    {
+     "name": "nullrpc-live-560048/StateShard",
+     "requests": 2660,
+     "wallMs": 342567.79,
+     "durationGbS": 0.001158848
+    },
+    {
+     "name": "nullrpc-live-560048/ChainDO",
+     "requests": 31,
+     "wallMs": 2111.381,
+     "durationGbS": 0.00732432
+    }
+   ],
+   "doGbS": 0.008483168,
+   "rowsRead": 239,
+   "rowsWritten": 28,
+   "r2ClassA": 46,
+   "r2ClassB": 2330,
+   "cost": 0.009358136299600002,
+   "per1M": 0.4962948822443786,
+   "breakdown": {
+    "Workers requests": 0.0056898,
+    "Workers CPU": 0.00219054126,
+    "DO requests": 0.00040364999999999997,
+    "DO duration": 1.060396e-7,
+    "DO rows": 0.000028239,
+    "R2 Class B": 0.0008388,
+    "R2 Class A": 0.00020700000000000002
+   },
+   "units": {
+    "rpcReq": 1.0058336868901145,
+    "liveCalls": 0.078171404327535,
+    "appCalls": 0.03977513788714467,
+    "cpuMs": 5.808605377598643,
+    "doReq": 0.1427131947390751,
+    "r2ClassB": 0.1235680950360628,
+    "rowsRead": 0.012675010606703436
+   }
+  },
+  {
+   "label": "stress scale",
+   "from": "2026-10-10T02:26:32.059Z",
+   "to": "2026-10-10T02:27:22.613Z",
+   "requests": 47257,
+   "scripts": {
+    "nullrpc-live-560048": {
+     "requests": 2411,
+     "errors": 0,
+     "subrequests": 4919,
+     "cpuMs": 5904.45,
+     "cpuP50": 0.818,
+     "cpuP99": 37.792
+    },
+    "nullrpc-app": {
+     "requests": 1287,
+     "errors": 0,
+     "subrequests": 0,
+     "cpuMs": 2657.331,
+     "cpuP50": 1.785,
+     "cpuP99": 5.775
+    },
+    "nullrpc-rpc-560048": {
+     "requests": 47375,
+     "errors": 0,
+     "subrequests": 3699,
+     "cpuMs": 204327.729,
+     "cpuP50": 1.297,
+     "cpuP99": 82.706
+    }
+   },
+   "doReq": 4955,
+   "byClass": [
+    {
+     "name": "nullrpc-live-560048/StateShard",
+     "requests": 4859,
+     "wallMs": 655209.143,
+     "durationGbS": 0.937713008
+    },
+    {
+     "name": "nullrpc-live-560048/ChainDO",
+     "requests": 96,
+     "wallMs": 6287.174,
+     "durationGbS": 0.034090624
+    }
+   ],
+   "doGbS": 0.971803632,
+   "rowsRead": 21011,
+   "rowsWritten": 113,
+   "r2ClassA": 26,
+   "r2ClassB": 4278,
+   "cost": 0.0210167787454,
+   "per1M": 0.44473366369849965,
+   "breakdown": {
+    "Workers requests": 0.0142125,
+    "Workers CPU": 0.0042577902,
+    "DO requests": 0.00074325,
+    "DO duration": 0.0000121475454,
+    "DO rows": 0.000134011,
+    "R2 Class B": 0.0015400799999999999,
+    "R2 Class A": 0.000117
+   },
+   "units": {
+    "rpcReq": 1.002496984573714,
+    "liveCalls": 0.051018896671392595,
+    "appCalls": 0.027234060562456357,
+    "cpuMs": 4.504930698097636,
+    "doReq": 0.10485219120976787,
+    "r2ClassB": 0.09052627124023954,
+    "rowsRead": 0.444611380324608
+   }
+  }
+ ],
+ "plans": [
+  [
+   "plan",
+   "$/mo",
+   "revenue $ per 1M req",
+   "cost $ per 1M req (stress scale)",
+   "margin per 1M req",
+   "cost of the full quota",
+   "margin at full quota"
+  ],
+  [
+   "public",
+   0,
+   "0.000",
+   "0.445",
+   "-0.445",
+   "0.21",
+   "-0.21"
+  ],
+  [
+   "free",
+   0,
+   "0.000",
+   "0.445",
+   "-0.445",
+   "0.43",
+   "-0.43"
+  ],
+  [
+   "builder",
+   19,
+   "0.658",
+   "0.445",
+   "0.213",
+   "12.85",
+   "6.15"
+  ],
+  [
+   "growth",
+   89,
+   "0.616",
+   "0.445",
+   "0.172",
+   "64.23",
+   "24.77"
+  ],
+  [
+   "scale",
+   599,
+   "0.622",
+   "0.445",
+   "0.177",
+   "428.17",
+   "170.83"
+  ]
+ ]
+}

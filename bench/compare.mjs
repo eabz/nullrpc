@@ -70,7 +70,7 @@ if (a.stress && b.stress) {
   md.push("## Throughput (stress stages, one client)", "", `| stage | ${LA} achieved | p50 | p99 | errors | ${LB} achieved | p50 | p99 | errors |`, "|---|---:|---:|---:|---:|---:|---:|---:|---:|");
   for (const sa of a.stress.stress) {
     const sb = b.stress.stress.find((s) => s.plan === sa.plan);
-    const cell = (s) => (s ? `${s.achieved.toFixed(0)} req/s | ${fmtMs(s.p50)} | ${fmtMs(s.p99)} | ${s.errors} (${s.errRate.toFixed(1)}%)` : "- | - | - | -");
+    const cell = (s) => (s ? `${s.achieved.toFixed(0)} req/s | ${fmtMs(s.p50)} | ${fmtMs(s.p99)} | ${s.err} (${s.errRate.toFixed(1)}%)` : "- | - | - | -");
     md.push(`| ${sa.plan} (${sa.target} rps) | ${cell(sa)} | ${cell(sb)} |`);
   }
   md.push("");

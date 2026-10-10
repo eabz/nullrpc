@@ -1,0 +1,19 @@
+Analytics are sampled and arrive with a delay of a few minutes; run this at least 5 minutes after the scenario. Windows include 30s of tail for in-flight work.
+stress free: 420 client requests; per request: rpc 0.99, live calls 0.4, app calls 0.04, DO 0.7, R2 B 1.5, cpu 20.1ms; $2.06 per 1M requests = Workers requests 14%, Workers CPU 20%, DO requests 5%, DO duration 0%, DO rows 7%, R2 Class B 26%, R2 Class A 28%
+  DO by class: live-560048/StateShard 283 req (0.67/req, busy 36.0s); live-560048/ChainDO 13 req (0.03/req, busy 1.4s)
+stress builder: 5250 client requests; per request: rpc 1.00, live calls 0.2, app calls 0.07, DO 0.4, R2 B 0.2, cpu 12.0ms; $0.77 per 1M requests = Workers requests 39%, Workers CPU 31%, DO requests 7%, DO duration 1%, DO rows 6%, R2 Class B 10%, R2 Class A 6%
+  DO by class: live-560048/StateShard 1890 req (0.36/req, busy 446.8s); live-560048/ChainDO 37 req (0.01/req, busy 2.8s)
+stress growth: 18856 client requests; per request: rpc 1.01, live calls 0.1, app calls 0.04, DO 0.1, R2 B 0.1, cpu 5.8ms; $0.50 per 1M requests = Workers requests 61%, Workers CPU 23%, DO requests 4%, DO duration 0%, DO rows 0%, R2 Class B 9%, R2 Class A 2%
+  DO by class: live-560048/StateShard 2660 req (0.14/req, busy 342.6s); live-560048/ChainDO 31 req (0.00/req, busy 2.1s)
+stress scale: 47257 client requests; per request: rpc 1.00, live calls 0.1, app calls 0.03, DO 0.1, R2 B 0.1, cpu 4.5ms; $0.44 per 1M requests = Workers requests 68%, Workers CPU 20%, DO requests 4%, DO duration 0%, DO rows 1%, R2 Class B 7%, R2 Class A 1%
+  DO by class: live-560048/StateShard 4859 req (0.10/req, busy 655.2s); live-560048/ChainDO 96 req (0.00/req, busy 6.3s)
+
+plan     $/mo  revenue $ per 1M req  cost $ per 1M req (stress scale)  margin per 1M req  cost of the full quota  margin at full quota
+-------  ----  --------------------  --------------------------------  -----------------  ----------------------  --------------------
+public      0                 0.000                             0.445             -0.445                    0.21                 -0.21
+free        0                 0.000                             0.445             -0.445                    0.43                 -0.43
+builder    19                 0.658                             0.445              0.213                   12.85                  6.15
+growth     89                 0.616                             0.445              0.172                   64.23                 24.77
+scale     599                 0.622                             0.445              0.177                  428.17                170.83
+
+wrote bench/results/20261010T022332Z-milestone-560048/stress/cost.md

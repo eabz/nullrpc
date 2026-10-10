@@ -1,0 +1,15 @@
+Analytics are sampled and arrive with a delay of a few minutes; run this at least 5 minutes after the scenario. Windows include 30s of tail for in-flight work.
+calls: 536 client requests; per request: rpc 2.40, live calls 2.8, app calls 0.58, DO 19.2, R2 B 30.5, cpu 1041.3ms; $41.77 per 1M requests = Workers requests 2%, Workers CPU 50%, DO requests 7%, DO duration 1%, DO rows 7%, R2 Class B 26%, R2 Class A 7%
+  DO by class: live-1/StateShard 9965 req (18.59/req, busy 1624.6s); live-1/ChainDO 343 req (0.64/req, busy 105.7s)
+user: 1529 client requests; per request: rpc 1.01, live calls 0.7, app calls 0.18, DO 4.0, R2 B 1.3, cpu 205.1ms; $5.96 per 1M requests = Workers requests 5%, Workers CPU 69%, DO requests 10%, DO duration 0%, DO rows 4%, R2 Class B 8%, R2 Class A 4%
+  DO by class: live-1/StateShard 5956 req (3.90/req, busy 906.4s); live-1/ChainDO 89 req (0.06/req, busy 35.4s)
+
+plan     $/mo  revenue $ per 1M req  cost $ per 1M req (user)  margin per 1M req  cost of the full quota  margin at full quota
+-------  ----  --------------------  ------------------------  -----------------  ----------------------  --------------------
+public      0                 0.000                     5.965             -5.965                    2.88                 -2.88
+free        0                 0.000                     5.965             -5.965                    5.76                 -5.76
+builder    19                 0.656                     5.965             -5.309                  172.81               -153.81
+growth     89                 0.614                     5.965             -5.350                  864.05               -775.05
+scale     599                 0.620                     5.965             -5.344                 5760.32              -5161.32
+
+wrote bench/results/20261010T022332Z-milestone-1/cost.md

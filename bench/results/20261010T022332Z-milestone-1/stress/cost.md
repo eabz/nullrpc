@@ -6,10 +6,10 @@ Service-binding and RPC calls between Workers are not billed as requests (their 
 
 | window | client req | rpc req/req | live calls/req | app calls/req | DO req/req | R2 B/req | cpu ms/req | rpc cpu p50/p99 | $ per 1M req | biggest cost |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
-| stress free | 420 | 31.72 | 5.0 | 2.38 | 9.7 | 4.4 | 567.9 | 1.9 / 517.1 ms | 24.426 | Workers CPU 46% |
-| stress builder | 5250 | 4.52 | 0.4 | 0.74 | 0.9 | 0.5 | 50.7 | 1.7 / 234.4 ms | 2.709 | Workers requests 50% |
-| stress growth | 18489 | 3.41 | 0.3 | 0.44 | 0.5 | 0.3 | 29.4 | 1.4 / 173.7 ms | 1.791 | Workers requests 57% |
-| stress scale | 44564 | 1.00 | 0.1 | 0.11 | 0.2 | 0.1 | 8.4 | 1.3 / 181.4 ms | 0.522 | Workers requests 57% |
+| stress free | 420 | 0.99 | 1.0 | 0.28 | 8.1 | 67.2 | 373.3 | 26.0 / 4864.3 ms | 35.048 | R2 Class B 69% |
+| stress builder | 5160 | 1.00 | 0.5 | 0.22 | 2.7 | 4.6 | 209.5 | 19.0 / 3346.0 ms | 6.648 | Workers CPU 63% |
+| stress growth | 14233 | 1.00 | 0.4 | 0.12 | 2.3 | 1.9 | 148.8 | 2.8 / 2783.0 ms | 4.402 | Workers CPU 68% |
+| stress scale | 23561 | 1.00 | 0.4 | 0.08 | 2.3 | 0.7 | 125.0 | 2.1 / 2695.9 ms | 3.429 | Workers CPU 73% |
 
 ## Margin per plan
 
@@ -17,8 +17,8 @@ Revenue per 1M requests is the plan price over the requests its quota buys at 20
 
 | plan | $/mo | revenue $ per 1M req | cost $ per 1M req (stress scale) | margin per 1M req | cost of the full quota | margin at full quota |
 |---|---|---|---|---|---|---|
-| public | 0 | 0.000 | 0.522 | -0.522 | 0.25 | -0.25 |
-| free | 0 | 0.000 | 0.522 | -0.522 | 0.50 | -0.50 |
-| builder | 19 | 0.658 | 0.522 | 0.136 | 15.07 | 3.93 |
-| growth | 89 | 0.616 | 0.522 | 0.094 | 75.37 | 13.63 |
-| scale | 599 | 0.622 | 0.522 | 0.100 | 502.48 | 96.52 |
+| public | 0 | 0.000 | 3.429 | -3.429 | 1.65 | -1.65 |
+| free | 0 | 0.000 | 3.429 | -3.429 | 3.30 | -3.30 |
+| builder | 19 | 0.658 | 3.429 | -2.772 | 99.05 | -80.05 |
+| growth | 89 | 0.616 | 3.429 | -2.813 | 495.26 | -406.26 |
+| scale | 599 | 0.622 | 3.429 | -2.807 | 3301.71 | -2702.71 |
