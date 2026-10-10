@@ -185,9 +185,9 @@ daemon --spool /mnt/nullrpc/spool
 | `--ws` | `--rpc` with `ws://` (env `NULLRPC_WS_URL`) | the node's WebSocket, for `newHeads`; polling covers its absence |
 | `--live` | `https://live-{chain-id}.nullrpc.dev` (env `NULLRPC_LIVE_URL`) | the chain's live Worker; the daemon refuses one that serves another chain |
 | `--batch` | 256 | blocks per promotion |
-| `--max-age` | 2h | promote a smaller batch once the oldest unpromoted finalized block is this old |
+| `--max-age` | 2h | promote a smaller batch once the oldest unpromoted finalized block is this old; only once the live window is within a batch of the node's head, so a catch-up promotes full batches |
 | `--max-batches` | 8 | batches promoted at most at once |
-| `--max-objects` | 6 | state layers, hash index objects and log index objects kept above the base |
+| `--max-objects` | 6 | state layers, hash index objects and log index objects kept above the base; compaction merges beyond it, each kind in its own goroutine |
 | `--group` | 1 | blocks per live window row; divides `--batch` |
 | `--window` | 16 | blocks extracted in parallel while catching up |
 | `--genesis` | bundled for Ethereum mainnet and Hoodi | the chain's genesis JSON for any other chain |
@@ -210,11 +210,14 @@ from where it stopped. It logs one JSON line per promotion, merge, reorg and ret
 4. **Promotion.** When a batch is finalized: segments, witness ranges, hash and log index objects
    and a level-0 state layer to R2, a new manifest, `HEAD.json` with `If-Match`, then the live
    window is pruned.
-5. **Compaction.** Between promotions, one merge per generation: two adjacent state layers or
-   index objects into one (small neighbours fold at once; beyond `--max-objects` above the base,
-   the closest-sized pair), so a lookup's fan-out stays at about six objects however long the
-   chain runs; a complete chunk's segments and witness ranges into one. Replaced objects are
-   deleted 7 days later (docs/storage.md, "Compaction").
+5. **Compaction.** In a goroutine per kind, beside the promotion: a run of adjacent state
+   layers, hash index objects or log index objects into one, one merge per generation (behind
+   `--max-objects` above the base, the run removing the most objects per cost, up to 16; at the
+   cap, the closest-sized pair; small neighbours fold at once), so a lookup's fan-out stays at
+   about six objects however long the chain runs; a complete chunk's segments and witness ranges
+   into one. A merge builds and uploads while promotions go on and publishes against the
+   manifest of the moment. Replaced objects are deleted 7 days later (docs/storage.md,
+   "Compaction").
 
 ## nullrpc-live-{chain-id}
 

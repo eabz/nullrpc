@@ -4,42 +4,80 @@ package core
 //
 // promote moves finalized blocks P+1 … P′ from the spool into a new R2 generation: one
 // segment and one witness range per chunk the blocks touch, a hash index object, a log index
-// object and a level-0 state layer. compact then runs one merge at a time, each publishing
-// its own generation: two adjacent state layers, hash index objects or log index objects into
-// one (mergeablePair: small neighbours fold at once, and the closest-sized pair merges while
-// more than max-objects objects sit above the base), or a complete chunk's segments and witness
-// ranges into one.
-// Objects a new generation no longer names are deleted 7 days later.
+// object and a level-0 state layer. compact runs in a goroutine per kind of merge, each
+// publishing its own generation: a run of adjacent state layers, hash index objects or log
+// index objects into one (mergeableRun picks the run: a daemon behind on compaction folds the
+// small objects at the tail several at a time, small neighbours fold at once, and at the cap
+// the closest-sized pair merges), or a complete chunk's segments and witness ranges into one.
+// A merge reads, builds and uploads while the promotion and the other kinds' merges go on;
+// commit then publishes it against the manifest of the moment, under the publish lock, as a
+// promotion's commit does. Objects a new generation no longer names are deleted 7 days later.
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
+	"sync"
 	"time"
 )
 
-// promotion is the daemon's R2 writer: one goroutine, so generations are published one at a
-// time.
+// promotion is the daemon's R2 writer. The promotion and the merges of each kind build and
+// upload their objects concurrently, each in its own staging tree, and publish one at a time
+// (commit).
 type promotion struct {
-	d     *daemon
-	r2    *r2Archive
-	gc    *gcList
-	local localArchive
+	d      *daemon
+	r2     *r2Archive
+	gc     *gcList
+	local  localArchive                 // the promotion's staging tree
+	merges [mergeChunk + 1]localArchive // one staging tree per kind of merge
+	tmp    [mergeChunk + 1]string       // and one directory for its sort runs
+	mu     sync.Mutex                   // serializes commit: HEAD.json's read-modify-publish and what follows it
+	merged chan struct{}                // a token per published merge, for a promotion waiting on a full list
 }
 
-func (p *promotion) stage() (localArchive, error) {
-	if err := os.RemoveAll(p.local.root); err != nil {
-		return p.local, err
+func newPromotion(d *daemon, r2 *r2Archive, gc *gcList, spool string) *promotion {
+	p := &promotion{d: d, r2: r2, gc: gc, local: localArchive{filepath.Join(spool, "stage")}, merged: make(chan struct{}, 1)}
+	for kind := mergeStateLayers; kind <= mergeChunk; kind++ {
+		p.merges[kind] = localArchive{filepath.Join(spool, "stage-merge-"+kind.dir())}
+		p.tmp[kind] = filepath.Join(spool, "merge-"+kind.dir()+".tmp")
 	}
-	return p.local, os.MkdirAll(p.local.root, 0o755)
+	return p
 }
 
-// promote publishes blocks P+1 … to. It returns the new last promoted block.
+// clearStage empties a staging tree.
+func clearStage(local localArchive) error {
+	if err := os.RemoveAll(local.root); err != nil {
+		return err
+	}
+	return os.MkdirAll(local.root, 0o755)
+}
+
+// manifestObjectsLimit is the most objects a manifest's hash index or log index may list
+// (checkHashIndex, checkLogIndex). A promotion against a full list waits for a merge.
+const manifestObjectsLimit = 1024
+
+var errManifestFull = errors.New("the manifest is full, waiting for a merge")
+
+// maxFullWaits is how many merges (a minute at most each) a promotion waits for room.
+const maxFullWaits = 30
+
+func manifestFull(m *Manifest) error {
+	if n := len(m.HashIndex.Objects); n >= manifestObjectsLimit {
+		return fmt.Errorf("%w: %d hash index objects", errManifestFull, n)
+	}
+	if n := len(m.LogIndex.Objects); n >= manifestObjectsLimit {
+		return fmt.Errorf("%w: %d log index objects", errManifestFull, n)
+	}
+	return nil
+}
+
+// promote publishes blocks P+1 … to.
 func (p *promotion) promote(to BlockID, finalized BlockID) error {
 	started := time.Now()
-	head, etag, m, err := p.r2.current()
+	_, _, m, err := p.r2.current()
 	if err != nil {
 		return err
 	}
@@ -71,15 +109,12 @@ func (p *promotion) promote(to BlockID, finalized BlockID) error {
 	if len(blocks) == 0 || blocks[len(blocks)-1].Number != to.Number || prev != to.Hash {
 		return fmt.Errorf("spool does not hold blocks %d … %d", from, to.Number)
 	}
-	local, err := p.stage()
-	if err != nil {
+	if err := clearStage(p.local); err != nil {
 		return err
 	}
-	ns := p.r2.ns
-	next := *m
-	next.Segments = append([]SegmentRef(nil), m.Segments...)
-	next.Witnesses.Ranges = append([]WitnessRange(nil), m.Witnesses.Ranges...)
-	next.StateHistory.Layers = append([]StateHistoryLayerRef(nil), m.StateHistory.Layers...)
+	local, ns := p.local, p.r2.ns
+	var segments []SegmentRef
+	var ranges []WitnessRange
 	var upload []ObjectRef
 
 	// Segments and witness ranges, split at chunk boundaries.
@@ -110,13 +145,13 @@ func (p *promotion) promote(to BlockID, finalized BlockID) error {
 			return err
 		}
 		upload = append(upload, refsOf(objs)...)
-		next.Segments = append(next.Segments, SegmentRef{First: ref.FirstBlock, Last: ref.LastBlock, LastHash: ref.LastBlockHash, Meta: ref.Metadata})
+		segments = append(segments, SegmentRef{First: ref.FirstBlock, Last: ref.LastBlock, LastHash: ref.LastBlockHash, Meta: ref.Metadata})
 		rng, wobjs, err := writeWitnessRange(local, ns, blocks[at].Number, frames)
 		if err != nil {
 			return err
 		}
 		upload = append(upload, refsOf(wobjs)...)
-		next.Witnesses.Ranges = append(next.Witnesses.Ranges, rng)
+		ranges = append(ranges, rng)
 		firstParent = blocks[end-1].Hash
 		at = end
 	}
@@ -155,9 +190,6 @@ func (p *promotion) promote(to BlockID, finalized BlockID) error {
 		return err
 	}
 	upload = append(upload, refsOf(lobj.objects())...)
-	next.HashIndex = &HashIndex{KeyBytes: hashIndexKeyBytes, Objects: append(append([]HashIndexObject(nil), m.HashIndex.Objects...), hobj)}
-	next.LogIndex = &LogIndex{KeyBytes: logIndexKeyBytes, PartitionBlocks: logIndexPartitionBlocks,
-		Objects: append(append([]LogIndexObject(nil), m.LogIndex.Objects...), lobj)}
 
 	// The level-0 state layer.
 	layerRef, lobjs, err := buildDiffLayer(local, ns, from, to.Number, blocks)
@@ -165,32 +197,86 @@ func (p *promotion) promote(to BlockID, finalized BlockID) error {
 		return err
 	}
 	upload = append(upload, lobjs...)
-	next.StateHistory.Layers = append(next.StateHistory.Layers, layerRef)
 
 	last := blocks[len(blocks)-1]
-	next.Generation = m.Generation + 1
-	next.Previous = &head.Manifest
-	next.ArchivedThrough = BlockAnchor{Number: last.Number, Hash: last.Hash, StateRoot: last.StateRoot}
-	next.FinalizedObserved = Anchor{Number: finalized.Number, Hash: finalized.Hash}
-	next.CreatedAt = time.Now().UTC().Format(time.RFC3339)
-	if err := checkHashIndex(ns, &next); err != nil {
-		return err
-	}
-	if err := checkLogIndex(ns, &next); err != nil {
-		return err
-	}
 	if err := p.r2.upload(local, upload); err != nil {
 		return err
 	}
-	if _, _, err := p.r2.publish(&next, etag); err != nil {
-		return err
+	tip := BlockAnchor{Number: last.Number, Hash: last.Hash, StateRoot: last.StateRoot}
+	apply := func(cur *Manifest) (*Manifest, error) {
+		if cur.ArchivedThrough != m.ArchivedThrough {
+			return nil, fmt.Errorf("the archive moved from %d to %d during the promotion", m.ArchivedThrough.Number, cur.ArchivedThrough.Number)
+		}
+		if err := manifestFull(cur); err != nil {
+			return nil, err
+		}
+		next := *cur
+		next.Segments = append(append([]SegmentRef(nil), cur.Segments...), segments...)
+		next.Witnesses.Ranges = append(append([]WitnessRange(nil), cur.Witnesses.Ranges...), ranges...)
+		next.HashIndex = &HashIndex{KeyBytes: hashIndexKeyBytes, Objects: append(append([]HashIndexObject(nil), cur.HashIndex.Objects...), hobj)}
+		next.LogIndex = &LogIndex{KeyBytes: logIndexKeyBytes, PartitionBlocks: logIndexPartitionBlocks,
+			Objects: append(append([]LogIndexObject(nil), cur.LogIndex.Objects...), lobj)}
+		next.StateHistory.Layers = append(append([]StateHistoryLayerRef(nil), cur.StateHistory.Layers...), layerRef)
+		next.ArchivedThrough = tip
+		next.FinalizedObserved = Anchor{Number: finalized.Number, Hash: finalized.Hash}
+		return &next, nil
 	}
-	if err := p.d.afterPromotion(last.id(), next.Generation); err != nil {
+	var next *Manifest
+	for waits := 0; ; waits++ {
+		next, err = p.commit(apply, func(next *Manifest) error { return p.d.afterPromotion(last.id(), next.Generation) })
+		if !errors.Is(err, errManifestFull) || waits == maxFullWaits {
+			break
+		}
+		// An index list is at the manifest's limit: the merge in flight makes room.
+		fmt.Fprintf(os.Stderr, "{\"promotion_waits\":%q,\"to\":%d}\n", err.Error(), to.Number)
+		select {
+		case <-p.merged:
+		case <-time.After(time.Minute):
+		}
+	}
+	if err != nil {
 		return err
 	}
 	fmt.Fprintf(os.Stderr, "{\"promoted\":%d,\"from\":%d,\"generation\":%d,\"objects\":%d,\"seconds\":%.1f}\n",
 		last.Number, from, next.Generation, len(upload), time.Since(started).Seconds())
 	return nil
+}
+
+// commit publishes the next generation. Under the publish lock it reads the current manifest,
+// derives the next one from it with apply (a promotion appends its objects, a merge replaces
+// the run it read), checks the indexes, publishes with If-Match on HEAD.json, and runs after
+// (the live window's prune and the bookkeeping that must precede the next publish). The new
+// objects were uploaded before: they are immutable and unreferenced until the publish names
+// them, so a commit that fails leaves nothing wrong behind.
+func (p *promotion) commit(apply func(cur *Manifest) (*Manifest, error), after func(next *Manifest) error) (*Manifest, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	head, etag, cur, err := p.r2.current()
+	if err != nil {
+		return nil, err
+	}
+	next, err := apply(cur)
+	if err != nil {
+		return nil, err
+	}
+	next.Generation = cur.Generation + 1
+	next.Previous = &head.Manifest
+	next.CreatedAt = time.Now().UTC().Format(time.RFC3339)
+	if err := checkHashIndex(p.r2.ns, next); err != nil {
+		return nil, err
+	}
+	if err := checkLogIndex(p.r2.ns, next); err != nil {
+		return nil, err
+	}
+	if _, _, err := p.r2.publish(next, etag); err != nil {
+		return nil, err
+	}
+	if after != nil {
+		if err := after(next); err != nil {
+			return nil, err
+		}
+	}
+	return next, nil
 }
 
 // buildDiffLayer writes the state history layer of blocks from … to from their diffs: each
@@ -250,93 +336,180 @@ func buildDiffLayer(local localArchive, ns string, from, to uint64, blocks []*li
 	return writeLayerDescriptor(local, ns, staging, layer, 0)
 }
 
-// compact runs at most one merge and publishes it. It reports whether it merged anything.
-func (p *promotion) compact() (bool, error) {
-	head, etag, m, err := p.r2.current()
+// ---- compaction ----
+
+type mergeKind int
+
+const (
+	mergeNothing mergeKind = iota
+	mergeStateLayers
+	mergeHashIndex
+	mergeLogIndex
+	mergeChunk
+)
+
+func (k mergeKind) String() string {
+	return [...]string{"nothing", "state layers", "hash index objects", "log index objects", "chunk"}[k]
+}
+
+func (k mergeKind) dir() string { return [...]string{"", "layers", "hash", "log", "chunk"}[k] }
+
+// mergePlan is the next merge: a run of width objects at position at of one kind's list, or a
+// complete chunk's segments and witness ranges.
+type mergePlan struct {
+	kind      mergeKind
+	at, width int
+	chunk     uint64
+}
+
+// planMerge chooses the next merge of one kind: the run mergeableRun picks in that kind's list,
+// or, for mergeChunk, the oldest complete chunk with more than one segment. Each kind has its
+// own compaction goroutine, so a run of one kind's merges cannot starve another's, as the
+// fixed order of one loop did on mainnet (every promotion added a hash index object that
+// merged first, and the log index reached 307 objects).
+func (p *promotion) planMerge(m *Manifest, kind mergeKind) mergePlan {
+	cfg := p.d.cfg
+	run := func(n int, object func(int) (uint64, uint64, bool)) mergePlan {
+		at, width := mergeableRun(n, cfg.maxObjects, cfg.batch, object)
+		if at < 0 {
+			return mergePlan{}
+		}
+		return mergePlan{kind: kind, at: at, width: width}
+	}
+	switch kind {
+	case mergeStateLayers:
+		ls := m.StateHistory.Layers
+		return run(len(ls), func(i int) (uint64, uint64, bool) { return ls[i].FirstBlock, ls[i].LastBlock, ls[i].Level == baseLevel })
+	case mergeHashIndex:
+		// The first index object is the base (the backfill's).
+		hs := m.HashIndex.Objects
+		return run(len(hs), func(i int) (uint64, uint64, bool) { return hs[i].FirstBlock, hs[i].LastBlock, i == 0 })
+	case mergeLogIndex:
+		lo := m.LogIndex.Objects
+		return run(len(lo), func(i int) (uint64, uint64, bool) { return lo[i].FirstBlock, lo[i].LastBlock, i == 0 })
+	case mergeChunk:
+		if chunk, ok := completeChunk(m); ok {
+			return mergePlan{kind: mergeChunk, chunk: chunk}
+		}
+	}
+	return mergePlan{}
+}
+
+var errRunGone = errors.New("the objects to merge are no longer in the manifest")
+
+// compact runs the next merge of one kind (planMerge), if any, and publishes it. It reports
+// whether it merged anything. The merge reads the objects of the manifest it planned on and
+// builds the replacement while promotions and the other kinds' merges go on; commit then
+// replaces the same objects, found by key, in the manifest of the moment.
+func (p *promotion) compact(kind mergeKind) (bool, error) {
+	_, _, m, err := p.r2.current()
 	if err != nil {
 		return false, err
 	}
-	local, err := p.stage()
-	if err != nil {
+	plan := p.planMerge(m, kind)
+	if plan.kind == mergeNothing {
+		return false, nil
+	}
+	if err := clearStage(p.merges[kind]); err != nil {
 		return false, err
 	}
-	ns, tmp := p.r2.ns, filepath.Join(p.d.cfg.spool, "merge.tmp")
+	local, ns, tmp := p.merges[kind], p.r2.ns, p.tmp[kind]
 	defer os.RemoveAll(tmp)
-	next := *m
+	started := time.Now()
 	var upload []ObjectRef
 	var removed []string
+	var apply func(cur *Manifest) (*Manifest, error)
 	what := ""
-	layerAt := p.mergeableLayers(m)
-	hashAt := p.mergeableIndex(len(m.HashIndex.Objects), func(i int) (uint64, uint64) {
-		o := m.HashIndex.Objects[i]
-		return o.FirstBlock, o.LastBlock
-	})
-	logAt := p.mergeableIndex(len(m.LogIndex.Objects), func(i int) (uint64, uint64) {
-		o := m.LogIndex.Objects[i]
-		return o.FirstBlock, o.LastBlock
-	})
 
-	switch {
-	case layerAt >= 0:
-		group := m.StateHistory.Layers[layerAt : layerAt+mergeWidth]
+	switch plan.kind {
+	case mergeStateLayers:
+		group := m.StateHistory.Layers[plan.at : plan.at+plan.width]
 		layers := make([]*stateLayer, len(group))
+		keys := make([]string, len(group))
 		for i, ref := range group {
 			if layers[i], err = p.r2.layer(ref); err != nil {
 				return false, err
 			}
-			keys, err := p.r2.layerKeys(ref)
+			objs, err := p.r2.layerKeys(ref)
 			if err != nil {
 				return false, err
 			}
-			removed = append(removed, keys...)
+			removed = append(removed, objs...)
+			keys[i] = ref.Descriptor.Key
 		}
 		merged, objs, err := mergeLayers(p.r2.src, layers, group, local, ns, uint32(indexLevel(group[0].FirstBlock, group[len(group)-1].LastBlock, p.d.cfg.batch)))
 		if err != nil {
 			return false, err
 		}
 		upload = objs
-		next.StateHistory.Layers = replaceRun(m.StateHistory.Layers, layerAt, merged)
-		what = fmt.Sprintf("state layers %d-%d to level %d", merged.FirstBlock, merged.LastBlock, merged.Level)
+		apply = func(cur *Manifest) (*Manifest, error) {
+			ls := cur.StateHistory.Layers
+			at, ok := runAt(len(ls), func(i int) string { return ls[i].Descriptor.Key }, keys)
+			if !ok {
+				return nil, errRunGone
+			}
+			next := *cur
+			next.StateHistory.Layers = replaceRun(ls, at, plan.width, merged)
+			return &next, nil
+		}
+		what = fmt.Sprintf("%d state layers %d-%d to level %d", len(group), merged.FirstBlock, merged.LastBlock, merged.Level)
 
-	case hashAt >= 0:
-		group := m.HashIndex.Objects[hashAt : hashAt+mergeWidth]
-		for _, o := range group {
+	case mergeHashIndex:
+		group := m.HashIndex.Objects[plan.at : plan.at+plan.width]
+		keys := make([]string, len(group))
+		for i, o := range group {
 			removed = append(removed, hashIndexKeys(o)...)
+			keys[i] = o.Transactions.Directory.Key
 		}
 		merged, objs, err := mergeHashIndexObjects(p.r2.src, group, local, ns, tmp)
 		if err != nil {
 			return false, err
 		}
 		upload = objs
-		next.HashIndex = &HashIndex{KeyBytes: hashIndexKeyBytes, Objects: replaceRun(m.HashIndex.Objects, hashAt, merged)}
-		what = fmt.Sprintf("hash index %d-%d", merged.FirstBlock, merged.LastBlock)
+		apply = func(cur *Manifest) (*Manifest, error) {
+			hs := cur.HashIndex.Objects
+			at, ok := runAt(len(hs), func(i int) string { return hs[i].Transactions.Directory.Key }, keys)
+			if !ok {
+				return nil, errRunGone
+			}
+			next := *cur
+			next.HashIndex = &HashIndex{KeyBytes: hashIndexKeyBytes, Objects: replaceRun(hs, at, plan.width, merged)}
+			return &next, nil
+		}
+		what = fmt.Sprintf("%d hash index objects %d-%d", len(group), merged.FirstBlock, merged.LastBlock)
 
-	case logAt >= 0:
-		group := m.LogIndex.Objects[logAt : logAt+mergeWidth]
-		for _, o := range group {
+	case mergeLogIndex:
+		group := m.LogIndex.Objects[plan.at : plan.at+plan.width]
+		keys := make([]string, len(group))
+		for i, o := range group {
 			removed = append(removed, logIndexKeys(o)...)
+			keys[i] = o.Directory.Key
 		}
 		merged, objs, err := mergeLogIndexObjects(p.r2.src, group, local, ns, tmp)
 		if err != nil {
 			return false, err
 		}
 		upload = objs
-		next.LogIndex = &LogIndex{KeyBytes: logIndexKeyBytes, PartitionBlocks: logIndexPartitionBlocks,
-			Objects: replaceRun(m.LogIndex.Objects, logAt, merged)}
-		what = fmt.Sprintf("log index %d-%d", merged.FirstBlock, merged.LastBlock)
-
-	default:
-		chunk, ok := completeChunk(m)
-		if !ok {
-			return false, nil
+		apply = func(cur *Manifest) (*Manifest, error) {
+			lo := cur.LogIndex.Objects
+			at, ok := runAt(len(lo), func(i int) string { return lo[i].Directory.Key }, keys)
+			if !ok {
+				return nil, errRunGone
+			}
+			next := *cur
+			next.LogIndex = &LogIndex{KeyBytes: logIndexKeyBytes, PartitionBlocks: logIndexPartitionBlocks, Objects: replaceRun(lo, at, plan.width, merged)}
+			return &next, nil
 		}
+		what = fmt.Sprintf("%d log index objects %d-%d", len(group), merged.FirstBlock, merged.LastBlock)
+
+	case mergeChunk:
+		chunk := plan.chunk
+		segKeys, rangeKeys := map[string]bool{}, map[string]bool{}
 		var segs []SegmentRef
-		var keep []SegmentRef
 		for _, s := range m.Segments {
 			if s.First/m.ChunkBlocks == chunk {
 				segs = append(segs, s)
-			} else {
-				keep = append(keep, s)
+				segKeys[s.Meta.Key] = true
 			}
 		}
 		var blocks []segmentBlock
@@ -365,15 +538,12 @@ func (p *promotion) compact() (bool, error) {
 			return false, err
 		}
 		upload = refsOf(objs)
-		next.Segments = append(keep, SegmentRef{First: ref.FirstBlock, Last: ref.LastBlock, LastHash: ref.LastBlockHash, Meta: ref.Metadata})
-		sortSegments(next.Segments)
+		segment := SegmentRef{First: ref.FirstBlock, Last: ref.LastBlock, LastHash: ref.LastBlockHash, Meta: ref.Metadata}
 		// The chunk's witness ranges become one.
 		var frames []frame
-		var keepW []WitnessRange
 		first := uint64(0)
 		for _, w := range m.Witnesses.Ranges {
 			if w.First/m.ChunkBlocks != chunk {
-				keepW = append(keepW, w)
 				continue
 			}
 			if len(frames) == 0 {
@@ -385,119 +555,212 @@ func (p *promotion) compact() (bool, error) {
 			}
 			frames = append(frames, fs...)
 			removed = append(removed, witnessKeys(w)...)
+			rangeKeys[w.Offsets.Key] = true
 		}
 		rng, wobjs, err := writeWitnessRange(local, ns, first, frames)
 		if err != nil {
 			return false, err
 		}
 		upload = append(upload, refsOf(wobjs)...)
-		next.Witnesses.Ranges = append(keepW, rng)
-		sort.Slice(next.Witnesses.Ranges, func(i, j int) bool { return next.Witnesses.Ranges[i].First < next.Witnesses.Ranges[j].First })
+		apply = func(cur *Manifest) (*Manifest, error) {
+			// The chunk must still consist of the segments and ranges that were read.
+			var keep []SegmentRef
+			found := 0
+			for _, s := range cur.Segments {
+				if s.First/cur.ChunkBlocks != chunk {
+					keep = append(keep, s)
+				} else if !segKeys[s.Meta.Key] {
+					return nil, errRunGone
+				} else {
+					found++
+				}
+			}
+			var keepW []WitnessRange
+			foundW := 0
+			for _, w := range cur.Witnesses.Ranges {
+				if w.First/cur.ChunkBlocks != chunk {
+					keepW = append(keepW, w)
+				} else if !rangeKeys[w.Offsets.Key] {
+					return nil, errRunGone
+				} else {
+					foundW++
+				}
+			}
+			if found != len(segKeys) || foundW != len(rangeKeys) {
+				return nil, errRunGone
+			}
+			next := *cur
+			next.Segments = append(keep, segment)
+			sortSegments(next.Segments)
+			next.Witnesses.Ranges = append(keepW, rng)
+			sort.Slice(next.Witnesses.Ranges, func(i, j int) bool { return next.Witnesses.Ranges[i].First < next.Witnesses.Ranges[j].First })
+			return &next, nil
+		}
 		what = fmt.Sprintf("chunk %d: %d segments into one", chunk, len(segs))
 	}
 
-	started := time.Now()
-	next.Generation = m.Generation + 1
-	next.Previous = &head.Manifest
-	next.CreatedAt = time.Now().UTC().Format(time.RFC3339)
-	if err := checkHashIndex(ns, &next); err != nil {
-		return false, err
-	}
-	if err := checkLogIndex(ns, &next); err != nil {
-		return false, err
-	}
 	if err := p.r2.upload(local, upload); err != nil {
 		return false, err
 	}
-	if _, _, err := p.r2.publish(&next, etag); err != nil {
-		return false, err
+	next, err := p.commit(apply, func(next *Manifest) error {
+		if err := p.gc.schedule(removed); err != nil {
+			return err
+		}
+		p.d.generation.Store(next.Generation)
+		return p.d.live.prune(next.ArchivedThrough.anchorID(), next.Generation)
+	})
+	if err != nil {
+		if errors.Is(err, errRunGone) {
+			// Another writer replaced them: the merged objects reference nothing.
+			unreferenced := make([]string, len(upload))
+			for i, ref := range upload {
+				unreferenced[i] = ref.Key
+			}
+			p.gc.schedule(unreferenced)
+		}
+		return false, fmt.Errorf("merge %s: %w", what, err)
 	}
-	if err := p.gc.schedule(removed); err != nil {
-		return false, err
-	}
-	if err := p.d.live.prune(next.ArchivedThrough.anchorID(), next.Generation); err != nil {
-		return false, err
+	select {
+	case p.merged <- struct{}{}:
+	default:
 	}
 	fmt.Fprintf(os.Stderr, "{\"merged\":%q,\"generation\":%d,\"seconds\":%.1f}\n", what, next.Generation, time.Since(started).Seconds())
 	return true, nil
 }
 
-// mergeWidth is how many adjacent objects a merge folds into one.
-const mergeWidth = 2
-
-// mergeableLayers picks the state layers the next merge replaces (mergeablePair), returning
-// the older one's position in the manifest, or -1. The base (level 99) never merges.
-func (p *promotion) mergeableLayers(m *Manifest) int {
-	ls := m.StateHistory.Layers
-	return mergeablePair(len(ls), p.d.cfg.maxObjects, p.d.cfg.batch, func(i int) (uint64, uint64, bool) {
-		l := ls[i]
-		return l.FirstBlock, l.LastBlock, l.Level == baseLevel
-	})
+// runAt finds keys as a run of adjacent objects in a list of n, each object named by key.
+func runAt(n int, key func(int) string, keys []string) (int, bool) {
+	for i := 0; i+len(keys) <= n; i++ {
+		ok := true
+		for j, k := range keys {
+			if key(i+j) != k {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			return i, true
+		}
+	}
+	return -1, false
 }
 
-// mergeableIndex picks the index objects the next merge replaces, likewise; the first object is
-// the base (the backfill's).
-func (p *promotion) mergeableIndex(n int, span func(int) (uint64, uint64)) int {
-	return mergeablePair(n, p.d.cfg.maxObjects, p.d.cfg.batch, func(i int) (uint64, uint64, bool) {
-		f, l := span(i)
-		return f, l, i == 0
-	})
-}
+// mergeMaxWidth is the most objects one merge folds into one.
+const mergeMaxWidth = 16
 
-// mergeablePair chooses, among n objects ordered by first block, the two adjacent, contiguous
-// objects the next merge folds into one, neither the base:
+// mergeBudgetBatches bounds a wide merge (three or more objects) at this many batches of
+// blocks, about a quarter of a mainnet chunk. A pair is not bounded: holding the cap needs the
+// two largest objects above the base to merge whenever the history above it doubles.
+const mergeBudgetBatches = 16
+
+// mergeFixedCostBatches is a merge's cost besides the blocks it rewrites, in batches: reading
+// and publishing a generation (HEAD.json, two manifests of a few MB on mainnet, the live
+// window's prune) takes about as long as rewriting two batches of index entries.
+const mergeFixedCostBatches = 2
+
+// mergeableRun chooses, among n objects ordered by first block, the adjacent, contiguous objects
+// the next merge folds into one, none of them the base:
 //
-//  1. the pair with the smallest combined span, when that span is at most a batch: the small
-//     objects that max-age promotions write fold into their neighbour at once, before they
-//     count toward the cap;
-//  2. otherwise, when more than maxObjects objects sit above the base, the pair whose spans are
-//     closest (the lowest larger/smaller ratio; ties go to the smaller pair, so the tail
-//     folds first). The spans then stay roughly geometric, so the count holds at the cap and every
-//     block is rewritten about log2(blocks/batch) times over its life. The oldest object above
-//     the base is rewritten once each time the history above the base doubles.
+//  1. when the count above the base exceeds maxObjects by two or more, the daemon is behind:
+//     promotions landed faster than merges. Among the runs of 2 to mergeMaxWidth objects within
+//     mergeBudgetBatches batches, the one removing the most objects per cost (its span plus
+//     mergeFixedCostBatches batches) merges, when it has three or more objects: the small
+//     objects at the tail fold together, several per generation, and the large ones are left
+//     alone. Among the runs of one width, the smallest span, then the newest. When no run of
+//     three is worth it (one or two small objects at the tail), rule 3 merges a pair instead,
+//     so the larger objects keep merging while the tail is quiet;
+//  2. otherwise, the widest run, up to mergeMaxWidth, whose combined span is at most a batch:
+//     the small objects that max-age promotions and a catch-up's slices write (16 to 64 blocks
+//     against a batch of 256) fold into one at once, before they count toward the cap;
+//  3. otherwise, above the cap, the pair whose spans are closest (the lowest larger/smaller
+//     ratio; ties go to the smaller pair, so the tail folds first). The spans then stay roughly
+//     geometric, so the count holds at the cap and every block is rewritten about
+//     log2(blocks/batch) times over its life. The oldest object above the base is rewritten
+//     once each time the history above the base doubles.
 //
-// It returns the older object's position, or -1 when nothing should merge.
-func mergeablePair(n int, maxObjects, batch uint64, object func(int) (first, last uint64, base bool)) int {
-	small, smallSpan := -1, uint64(0)
-	closest, closestRatio, closestSpan := -1, 0.0, uint64(0)
+// It returns the oldest object's position and the run's width, or -1 and 0 when nothing should
+// merge.
+func mergeableRun(n int, maxObjects, batch uint64, object func(int) (first, last uint64, base bool)) (int, int) {
+	first, last, base := make([]uint64, n), make([]uint64, n), make([]bool, n)
 	above := uint64(0)
 	for i := 0; i < n; i++ {
-		f, l, base := object(i)
-		if base {
+		first[i], last[i], base[i] = object(i)
+		if !base[i] {
+			above++
+		}
+	}
+	// span is the combined span of the run of width w at i, or 0 when the run breaks: a base
+	// object or a gap.
+	span := func(i, w int) uint64 {
+		sum := uint64(0)
+		for j := i; j < i+w; j++ {
+			if base[j] || (j > i && first[j] != last[j-1]+1) {
+				return 0
+			}
+			sum += last[j] - first[j] + 1
+		}
+		return sum
+	}
+	// smallest finds the run of width w with the smallest combined span, the newest among equals.
+	smallest := func(w int) (int, uint64) {
+		at, best := -1, uint64(0)
+		for i := 0; i+w <= n; i++ {
+			if s := span(i, w); s > 0 && (at < 0 || s <= best) {
+				at, best = i, s
+			}
+		}
+		return at, best
+	}
+	widest := min(n, mergeMaxWidth)
+	behind := above > maxObjects
+	if behind {
+		bestAt, bestWidth, bestValue := -1, 0, 0.0
+		for w := 2; w <= widest; w++ {
+			at, s := smallest(w)
+			if at < 0 || s > batch*mergeBudgetBatches {
+				continue
+			}
+			if value := float64(w-1) / float64(s+batch*mergeFixedCostBatches); value > bestValue {
+				bestAt, bestWidth, bestValue = at, w, value
+			}
+		}
+		if bestWidth >= 3 {
+			return bestAt, bestWidth
+		}
+	}
+	if !behind {
+		for w := widest; w >= 2; w-- {
+			if at, s := smallest(w); at >= 0 && s <= batch {
+				return at, w
+			}
+		}
+		if above <= maxObjects {
+			return -1, 0
+		}
+	}
+	closest, closestRatio, closestSpan := -1, 0.0, uint64(0)
+	for i := 1; i < n; i++ {
+		if span(i-1, 2) == 0 {
 			continue
 		}
-		above++
-		if i == 0 {
-			continue
-		}
-		pf, pl, pbase := object(i - 1)
-		if pbase || f != pl+1 {
-			continue
-		}
-		older, newer := pl-pf+1, l-f+1
-		if sum := older + newer; sum <= batch && (small < 0 || sum <= smallSpan) {
-			small, smallSpan = i-1, sum
-		}
+		older, newer := last[i-1]-first[i-1]+1, last[i]-first[i]+1
 		if ratio := float64(max(older, newer)) / float64(min(older, newer)); closest < 0 || ratio < closestRatio || (ratio == closestRatio && older+newer <= closestSpan) {
 			closest, closestRatio, closestSpan = i-1, ratio, older+newer
 		}
 	}
-	switch {
-	case small >= 0:
-		return small
-	case above > maxObjects:
-		return closest
+	if closest < 0 {
+		return -1, 0
 	}
-	return -1
+	return closest, 2
 }
 
-// replaceRun returns list with the mergeWidth objects at start replaced by merged, in place, so
-// the manifest's lists stay ordered by first block and contiguous.
-func replaceRun[T any](list []T, start int, merged T) []T {
-	out := make([]T, 0, len(list)-mergeWidth+1)
+// replaceRun returns list with the width objects at start replaced by merged, in place, so the
+// manifest's lists stay ordered by first block and contiguous.
+func replaceRun[T any](list []T, start, width int, merged T) []T {
+	out := make([]T, 0, len(list)-width+1)
 	out = append(out, list[:start]...)
 	out = append(out, merged)
-	return append(out, list[start+mergeWidth:]...)
+	return append(out, list[start+width:]...)
 }
 
 // completeChunk finds a chunk wholly at or below the archive tip that has more than one

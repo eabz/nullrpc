@@ -9,7 +9,8 @@ package core
 //   - Block (dags.md, "Block"): for every new block, extract and check it, spool it, write it
 //     to the live window (in groups of `group` blocks), then move the head.
 //   - Reorg (dags.md, "Reorg"): when a block's parent is not the spooled head.
-//   - Promotion and compaction (daemon_promote.go), in their own goroutine.
+//   - Promotion and compaction (daemon_promote.go): the promotion and each kind of merge in
+//     its own goroutine.
 
 import (
 	"context"
@@ -163,7 +164,7 @@ func runDaemon(cfg daemonConfig, token string) error {
 	go d.subscribe(ctx)
 	errs := make(chan error, 2)
 	go func() {
-		errs <- d.maintain(ctx, &promotion{d: d, r2: r2, gc: gc, local: localArchive{filepath.Join(cfg.spool, "stage")}})
+		errs <- d.maintain(ctx, newPromotion(d, r2, gc, cfg.spool))
 	}()
 	go func() { errs <- d.follow(ctx) }()
 	select {
@@ -609,38 +610,66 @@ func (d *daemon) reorg(n uint64) error {
 
 // ---- promotion and compaction loop ----
 
+// maintain promotes when a target is due and compacts in a goroutine per kind of merge
+// (compactLoop), so a merge never delays a promotion, promotions never starve the merges, and
+// one kind's merges never starve another's. Any loop stopping on an error stops the daemon.
 func (d *daemon) maintain(ctx context.Context, p *promotion) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	errs := make(chan error, mergeChunk)
+	for kind := mergeStateLayers; kind <= mergeChunk; kind++ {
+		go func() { errs <- d.compactLoop(ctx, p, kind) }()
+	}
 	tick := time.NewTicker(10 * time.Second)
 	defer tick.Stop()
 	failures := 0
-	retry := func(err error) error {
-		if failures++; failures >= maxFailures {
-			return err
-		}
-		if !backoff(ctx, "promotion", failures, err) {
-			return context.Canceled
-		}
-		return nil
-	}
 	for {
+		select {
+		case err := <-errs:
+			return err
+		default:
+		}
 		target, ok, err := d.promotionTarget()
 		if err != nil {
 			return err
 		}
 		if ok {
 			if err := p.promote(target, *d.finalized.Load()); err != nil {
-				if err := retry(fmt.Errorf("promotion to %d: %w", target.Number, err)); err != nil {
-					return ignoreCanceled(err)
+				if failures++; failures >= maxFailures {
+					return fmt.Errorf("promotion to %d: %w", target.Number, err)
+				}
+				if !backoff(ctx, "promotion", failures, err) {
+					return nil
 				}
 				continue
 			}
 			failures = 0
 			continue
 		}
-		merged, err := p.compact()
+		d.spool.expire()
+		select {
+		case <-ctx.Done():
+			return nil
+		case err := <-errs:
+			return err
+		case <-tick.C:
+		}
+	}
+}
+
+// compactLoop runs one kind's merges back to back while there is something to merge; when
+// there is nothing, it looks again in 10 s. The chunk loop, idle most of the time, also deletes
+// the objects due for deletion.
+func (d *daemon) compactLoop(ctx context.Context, p *promotion, kind mergeKind) error {
+	failures := 0
+	for ctx.Err() == nil {
+		merged, err := p.compact(kind)
 		if err != nil {
-			if err := retry(fmt.Errorf("compaction: %w", err)); err != nil {
-				return ignoreCanceled(err)
+			if failures++; failures >= maxFailures {
+				return fmt.Errorf("compaction of %s: %w", kind, err)
+			}
+			if !backoff(ctx, "compaction of "+kind.String(), failures, err) {
+				return nil
 			}
 			continue
 		}
@@ -648,21 +677,27 @@ func (d *daemon) maintain(ctx context.Context, p *promotion) error {
 		if merged {
 			continue
 		}
-		if err := p.gc.collect(p.r2); err != nil {
-			fmt.Fprintf(os.Stderr, "{\"gc_error\":%q}\n", err.Error())
+		if kind == mergeChunk {
+			if err := p.gc.collect(p.r2); err != nil {
+				fmt.Fprintf(os.Stderr, "{\"gc_error\":%q}\n", err.Error())
+			}
 		}
-		d.spool.expire()
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-tick.C:
+		case <-time.After(10 * time.Second):
 		}
 	}
+	return nil
 }
 
 // promotionTarget decides whether blocks are due for promotion: a full batch is finalized, or
 // the oldest unpromoted finalized block is older than max-age. The target ends at a group
 // boundary and at most max-batches batches above P, and never above the live window's head.
+// The max-age rule applies only once the live window is within a batch of the node's head:
+// while the daemon catches up, every spooled block is old, and the rule would promote each
+// extraction window of 16 blocks as its own batch (mainnet's catch-up of 2026-10-10 wrote 140
+// objects of 16 or 32 blocks per kind in 35 minutes); until then only full batches go.
 func (d *daemon) promotionTarget() (BlockID, bool, error) {
 	p, fin, lh := d.promoted.Load(), d.finalized.Load(), d.liveHead.Load()
 	if fin == nil || lh == nil {
@@ -675,6 +710,9 @@ func (d *daemon) promotionTarget() (BlockID, bool, error) {
 		return BlockID{}, false, nil
 	}
 	if to-p.Number < d.cfg.batch {
+		if head := d.network.Load(); head != nil && head.Number > lh.Number+d.cfg.batch {
+			return BlockID{}, false, nil
+		}
 		first, err := d.spool.read(spoolLive, d.spoolID(p.Number+1))
 		if err != nil {
 			return BlockID{}, false, nil

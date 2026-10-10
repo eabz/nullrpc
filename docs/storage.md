@@ -408,7 +408,7 @@ filter, so results equal a full scan.
 ### Index tiers
 
 Promotion adds one hash index object and one log index object per batch. Compaction merges
-adjacent objects two at a time so that at most `max_objects` (6) sit above the backfill's base
+runs of adjacent objects so that at most `max_objects` (6) sit above the backfill's base
 object, with spans that stay roughly geometric ("Compaction" below). An object's level is
 informational and follows from its span: level ℓ covers at least `batch × 4^ℓ` blocks; the base
 is below all levels. A lookup reads every object in parallel, so it costs about one round of
@@ -480,13 +480,14 @@ same round.
 before `n`, in parallel. Search the layers whose filter accepts the key, newest first; the first
 layer with an entry at or before `n` answers. If none does, the key was absent or zero at `n`.
 
-**Tiers.** Promotion writes one level-0 layer per batch. Compaction merges adjacent layers two
-at a time so that at most `max_objects` (6) sit above the backfill's base layer, with spans that
+**Tiers.** Promotion writes one level-0 layer per batch. Compaction merges runs of adjacent
+layers so that at most `max_objects` (6) sit above the backfill's base layer, with spans that
 stay roughly geometric ("Compaction" below). A layer's level is informational and follows from
 its span (level ℓ covers at least `batch × 4^ℓ` blocks); the base is below all levels. A lookup
 therefore reads at most 7 filter blocks in one round and two pages after it, however long the
-chain runs. The daemon runs merges one at a time between promotions; each publishes its own
-generation, which replaces the merged layers and keeps every block.
+chain runs. The daemon runs the layers' merges in their own goroutine, one at a time, alongside
+promotions; each publishes its own generation, which replaces the merged layers and keeps every
+block.
 
 ### Witnesses
 
@@ -741,31 +742,60 @@ blocks' diffs, the manifest and `HEAD.json`. That is tens of objects an hour.
 
 ### Compaction
 
-Between promotions the daemon compacts, one step at a time, each step publishing its own
-generation:
+The daemon compacts in four goroutines beside the promotion, one per kind of merge, each
+running one merge at a time and publishing its own generation:
 
-1. two adjacent state layers, neither the base, into one;
-2. two adjacent hash index objects, then log index objects, likewise;
-3. a chunk that is complete and has more than one segment: its segments into one, and its
+1. a run of adjacent state layers, none the base, into one;
+2. a run of adjacent hash index objects, likewise;
+3. a run of adjacent log index objects, likewise;
+4. a chunk that is complete and has more than one segment: its segments into one, and its
    witness ranges into one.
 
-**Which two.** The Worker reads every layer and index object in parallel and runs about six
-subrequests at a time, so the count above the base is what a lookup costs. The daemon picks:
+A merge reads the objects it replaces from R2, builds and uploads the merged object while the
+promotion and the other kinds' merges go on, then takes the publish lock, re-reads the manifest
+of the moment, replaces the same objects in it (found by key: a promotion only appends, and
+nothing else touches a kind's list), and moves `HEAD.json`. A promotion commits the same way:
+it builds and uploads from a snapshot and appends its objects to the manifest of the moment.
+Merges therefore never delay a promotion, and promotions never starve the merges; a long run of
+one kind's merges never starves another kind, which a single loop serving the kinds in a fixed
+order did on mainnet (every promotion added a hash index object that merged first; the log index
+reached 307 objects). A promotion waits for a merge only when an index list is at the manifest's
+limit of 1,024 objects.
 
-- the adjacent pair with the smallest combined span, when that is at most a batch: the small
-  objects that `max_age` promotions write (32 to 64 blocks against a batch of 256) fold into
-  their neighbour at once, before they count;
-- otherwise, while more than `max_objects` (6, `--max-objects`) objects sit above the base, the
-  adjacent pair whose spans are closest (the lowest larger/smaller ratio); ties go to the
-  smaller pair.
+**Which run.** The Worker reads every layer and index object in parallel and runs about six
+subrequests at a time, so the count above the base is what a lookup costs. For each kind the
+daemon picks:
 
-The merged object replaces the pair in place, so the lists stay ordered by first block and
-contiguous. The spans then stay roughly geometric: a promotion leaves at most `max_objects + 1`
-objects, and the merge that follows brings the count back to the cap, usually by folding the
-two newest. Each block is rewritten about log2 of the history above the base, in blocks, over
-batch times: 10 to 25 times over the life of a chain. The oldest object above the base holds
-most of that history and is rewritten once each time it doubles; that is the largest merge and
-it never touches the base, which is never rewritten.
+- above `max_objects` (6, `--max-objects`): the daemon is behind, since a promotion landed
+  before the merges caught up. Among the runs of 2 to 16 adjacent objects within 16 batches,
+  the one that removes the most objects per cost, the cost being the blocks it rewrites plus two
+  batches for the generation itself (reading and publishing the manifests, pruning the live
+  window), when that run has three or more objects: the small objects at the tail (a catch-up's
+  slices of 16 or 32 blocks, max-age promotions) fold together, several per generation, and the
+  large ones are left alone. When no run of three is worth it, the pair whose spans are closest
+  (the lowest larger/smaller ratio; ties go to the smaller pair) merges instead, however large,
+  so the older objects keep merging while the tail is quiet;
+- at or under the cap: the widest run whose combined span is at most a batch, so small objects
+  fold into one before they count.
+
+The merged object replaces the run in place, so the lists stay ordered by first block and
+contiguous. The spans stay roughly geometric: the pair rule merges the two closest objects, and
+the oldest object above the base, which holds most of the history, is rewritten once each time
+that history doubles; that is the largest merge and it never touches the base, which is never
+rewritten. Simulated over 200 promotions, each block is rewritten about five times; over the
+life of a chain, about log2 of the history above the base in batches, 10 to 25 times. Simulated
+on mainnet's manifest 925 (6 layers, 16 hash index objects and 306 log index objects above the
+base) with mainnet's cadence (a 256-block promotion every 51 minutes, merges of 15 to 60 s), the
+three kinds are at the cap after 27 merges, 9 minutes in; a catch-up that promotes 140 slices
+of 16 or 32 blocks in 35 minutes peaks at 9 objects per kind and is at the cap 25 s after it
+ends. A promotion that lands during a merge leaves a kind one over the cap until the merge
+publishes.
+
+**Catch-up.** The max-age rule applies only once the live window is within a batch of the
+node's head: while the daemon catches up after an outage, every spooled block is older than
+`max_age`, and the rule would otherwise promote each extraction window of 16 blocks as its own
+batch, 140 objects per kind for a 13-hour outage on mainnet. Until then only full batches are
+promoted.
 
 Merges read the objects they replace from R2 (no egress fees). The replaced objects are deleted 7
 days after the generation that dropped them; manifests are kept.
