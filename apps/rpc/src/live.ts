@@ -427,6 +427,19 @@ export class Live {
     return { number: r.number, hash: r.hash, record };
   }
 
+  /**
+   * The hash of block `n` as the pin's document listed it (lowercase, 0x), or the pin's own;
+   * null when the pin came from state(), the block lies outside the listed range or above the
+   * pin: only the record then says.
+   */
+  listedHash(n: number, pin: BlockId): string | null {
+    if (n === pin.number) return pin.hash;
+    if (n > pin.number) return null;
+    const index = this.pointers ? indexes.get(pin.hash) : undefined;
+    if (!index || n < index.first || n >= index.first + index.hashes.length) return null;
+    return index.hashes[n - index.first]!;
+  }
+
   /** The record at `live/records/…` from the isolate, the edge cache or R2; null when missing. */
   private async readRecord(number: number, hash: string): Promise<Uint8Array | null> {
     const cached = records.get(hash);

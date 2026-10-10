@@ -138,7 +138,8 @@ Workers RPC instead, as it did before the package. Nothing else uses that Worker
 Two caches in the data center's Cache API (`caches.default`) sit between a request and R2. Both
 need a custom domain (the Cache API is inert on `workers.dev`) and both are filled after the
 response is sent (`ctx.waitUntil`), so a miss never waits for the fill. Every JSON-RPC response
-reports them in two headers (exposed to browsers through `access-control-expose-headers`):
+reports them in two headers (exposed to browsers through `access-control-expose-headers`). A
+third, smaller one holds what the fee methods derive from each block (below).
 
 | Header | Values | Meaning |
 |---|---|---|
@@ -159,6 +160,17 @@ nothing is invalidated. The archive generation is not part of any key: an answer
 is identical in every later generation, and generations advance on every promotion and
 compaction merge. Bump `VERSION` in `src/response-cache.ts` when a method's JSON changes, and in
 `src/archive/cached.ts` when the stored byte representation changes.
+
+Fee inputs (`src/methods/fees.ts`): the gas price oracle reads the latest 20 blocks (up to 40) and
+`eth_feeHistory` up to 257, but needs only a few header fields and every transaction's effective
+tip and gas used of each. Those are fixed by the block's hash, so once computed from a record they
+are kept per isolate (512 blocks) and at the edge for a day under `/_cache/fees/v1/<chain
+id>/<hash>`, and a block whose hash the request knows without reading it (the pinned head's
+listing of the live window in `live/HEAD.json`, the archive's offsets record) costs no record read
+or decode. A new head then costs one record, the head's, instead of the oracle's whole window:
+on a chain with large blocks the window was most of a fee answer's latency, and the response
+cache's head tier misses on every new head by design. The reads do not count in
+`x-nullrpc-archive-cache`.
 
 ## Develop
 

@@ -1,0 +1,1601 @@
+{
+ "target": {
+  "url": "https://eth.nullrpc.dev",
+  "chainId": 1,
+  "keyed": false
+ },
+ "head": 26159291,
+ "archived_through": 26158987,
+ "generation": 966,
+ "windows": {
+  "calls": {
+   "started": "2026-10-10T03:18:32.146Z",
+   "ended": "2026-10-10T03:18:54.402Z"
+  }
+ },
+ "cases": [
+  {
+   "cls": "normal",
+   "label": "eth_chainId"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_blockNumber"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_gasPrice"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_maxPriorityFeePerGas"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_feeHistory 4"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getBlockByNumber latest hashes"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getBlockByNumber recent hashes"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getBlockByHash recent"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getBlockTransactionCountByNumber"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getBalance latest"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getTransactionCount latest"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getCode latest"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getStorageAt latest"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getTransactionByHash recent"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getTransactionReceipt recent"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getTransactionByBlockNumberAndIndex"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_getLogs 10 blocks, token"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_call balanceOf"
+  },
+  {
+   "cls": "normal",
+   "label": "eth_estimateGas transfer"
+  },
+  {
+   "cls": "normal",
+   "label": "web3_clientVersion"
+  },
+  {
+   "cls": "normal",
+   "label": "net_version"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_getBlockByNumber recent full"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_getBlockReceipts recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_getLogs 1000 blocks, no filter"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_getLogs 10000 blocks, token"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_getLogs 1000 blocks, Transfer topic"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_call real calldata latest"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_estimateGas real calldata"
+  },
+  {
+   "cls": "heavy",
+   "label": "eth_createAccessList"
+  },
+  {
+   "cls": "heavy",
+   "label": "debug_traceCall callTracer"
+  },
+  {
+   "cls": "heavy",
+   "label": "trace_call"
+  },
+  {
+   "cls": "heavy",
+   "label": "debug_traceTransaction recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "trace_transaction recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "trace_replayTransaction recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "debug_traceBlockByNumber recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "debug_traceBlockByHash recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "trace_block recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "trace_replayBlockTransactions recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "debug_getRawBlock recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "debug_getRawReceipts recent"
+  },
+  {
+   "cls": "heavy",
+   "label": "batch of 10 mixed"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getBlockByNumber deep hashes"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getBlockByHash deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getBalance deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getTransactionCount deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getCode deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getStorageAt deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getTransactionByHash deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getTransactionReceipt deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_getLogs 10 blocks deep"
+  },
+  {
+   "cls": "deep",
+   "label": "eth_feeHistory 4 deep"
+  },
+  {
+   "cls": "deep",
+   "label": "debug_getRawHeader deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "eth_getBlockByNumber deep full"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "eth_getBlockReceipts deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "eth_getLogs 1000 blocks deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "eth_getLogs 10000 blocks deep, Transfer"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "eth_call replay at n-1"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "eth_estimateGas replay at n-1"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "debug_traceCall replay at n-1"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "debug_traceTransaction deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "trace_transaction deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "trace_replayTransaction deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "debug_traceBlockByNumber deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "trace_block deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "trace_replayBlockTransactions deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "debug_getRawBlock deep"
+  },
+  {
+   "cls": "deep-heavy",
+   "label": "debug_getRawReceipts deep"
+  }
+ ],
+ "samples": {
+  "calls": [
+   {
+    "cls": "normal",
+    "label": "eth_maxPriorityFeePerGas",
+    "method": "eth_maxPriorityFeePerGas",
+    "ms": 821.5332499999995,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=2 miss=1",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_blockNumber",
+    "method": "eth_blockNumber",
+    "ms": 686.5263749999995,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getStorageAt latest",
+    "method": "eth_getStorageAt",
+    "ms": 1036.2429579999998,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=21 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionCount latest",
+    "method": "eth_getTransactionCount",
+    "ms": 944.3725410000006,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBalance latest",
+    "method": "eth_getBalance",
+    "ms": 650.1709169999995,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getStorageAt latest",
+    "method": "eth_getStorageAt",
+    "ms": 691.1514590000006,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=16 miss=2",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_call real calldata latest",
+    "method": "eth_call",
+    "ms": 11915.737417,
+    "ok": false,
+    "refused": false,
+    "http": 503,
+    "code": 0,
+    "message": "non-JSON (503)",
+    "credits": 30,
+    "params": [
+     {
+      "from": "0x87b160869ef82716b3f8b4e0a6e0f75be7d894ac",
+      "to": "0x16f730bb792523a63c0934ab109ef76493d0857b",
+      "data": "0xe00af4a7000000000000000000000000dac17f958d2ee523a2206206994597c13d831ec7",
+      "value": "0x0"
+     },
+     "latest"
+    ]
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionByBlockNumberAndIndex",
+    "method": "eth_getTransactionByBlockNumberAndIndex",
+    "ms": 229.20783400000073,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_blockNumber",
+    "method": "eth_blockNumber",
+    "ms": 83.42849999999999,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getStorageAt latest",
+    "method": "eth_getStorageAt",
+    "ms": 660.3402920000008,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=20 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_feeHistory 4 deep",
+    "method": "eth_feeHistory",
+    "ms": 66.29349999999977,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_maxPriorityFeePerGas",
+    "method": "eth_maxPriorityFeePerGas",
+    "ms": 76.48870900000111,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getCode latest",
+    "method": "eth_getCode",
+    "ms": 652.739791,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=26 miss=2",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getCode latest",
+    "method": "eth_getCode",
+    "ms": 602.1599580000002,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=10 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getCode latest",
+    "method": "eth_getCode",
+    "ms": 425.4112499999992,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=10 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getCode latest",
+    "method": "eth_getCode",
+    "ms": 77.35395900000003,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionByBlockNumberAndIndex",
+    "method": "eth_getTransactionByBlockNumberAndIndex",
+    "ms": 67.69879199999923,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_call real calldata latest",
+    "method": "eth_call",
+    "ms": 8697.121999999998,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=1046 miss=95",
+    "response": "miss head",
+    "exec": "rounds=5 keys=437 hints=4144 live=30 archive=455"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_feeHistory 4",
+    "method": "eth_feeHistory",
+    "ms": 89.7138329999998,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_feeHistory 4",
+    "method": "eth_feeHistory",
+    "ms": 61.46208300000035,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getStorageAt latest",
+    "method": "eth_getStorageAt",
+    "ms": 54.687416999999186,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_feeHistory 4",
+    "method": "eth_feeHistory",
+    "ms": 50.34870799999953,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_feeHistory 4 deep",
+    "method": "eth_feeHistory",
+    "ms": 84.53641699999935,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_call real calldata latest",
+    "method": "eth_call",
+    "ms": 7392.2762920000005,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=1050 miss=102",
+    "response": "miss head",
+    "exec": "rounds=5 keys=438 hints=4144 live=31 archive=455"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBalance latest",
+    "method": "eth_getBalance",
+    "ms": 209.44325000000026,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_maxPriorityFeePerGas",
+    "method": "eth_maxPriorityFeePerGas",
+    "ms": 76.68454200000087,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_gasPrice",
+    "method": "eth_gasPrice",
+    "ms": 100.39512500000092,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_feeHistory 4",
+    "method": "eth_feeHistory",
+    "ms": 90.82337499999994,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_call real calldata latest",
+    "method": "eth_call",
+    "ms": 13556.135709,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=1090 miss=128",
+    "response": "miss head",
+    "exec": "rounds=17 keys=456 hints=4144 live=33 archive=471"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_gasPrice",
+    "method": "eth_gasPrice",
+    "ms": 713.0451670000002,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=1",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_feeHistory 4 deep",
+    "method": "eth_feeHistory",
+    "ms": 558.8895420000008,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=1",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_feeHistory 4",
+    "method": "eth_feeHistory",
+    "ms": 493.50579199999993,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=1",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_blockNumber",
+    "method": "eth_blockNumber",
+    "ms": 252.68133300000045,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByNumber latest hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 87.5815419999999,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionByBlockNumberAndIndex",
+    "method": "eth_getTransactionByBlockNumberAndIndex",
+    "ms": 99.79316699999981,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_feeHistory 4 deep",
+    "method": "eth_feeHistory",
+    "ms": 97.1213749999988,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_feeHistory 4",
+    "method": "eth_feeHistory",
+    "ms": 54.66362500000105,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByNumber latest hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 61.63133300000118,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_maxPriorityFeePerGas",
+    "method": "eth_maxPriorityFeePerGas",
+    "ms": 127.13258300000234,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getCode latest",
+    "method": "eth_getCode",
+    "ms": 327.58350000000064,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_gasPrice",
+    "method": "eth_gasPrice",
+    "ms": 49.22087499999907,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionByBlockNumberAndIndex",
+    "method": "eth_getTransactionByBlockNumberAndIndex",
+    "ms": 114.45087500000227,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_blockNumber",
+    "method": "eth_blockNumber",
+    "ms": 52.749125000002095,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_feeHistory 4 deep",
+    "method": "eth_feeHistory",
+    "ms": 67.17704199999935,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionByBlockNumberAndIndex",
+    "method": "eth_getTransactionByBlockNumberAndIndex",
+    "ms": 80.50512499999968,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionByBlockNumberAndIndex",
+    "method": "eth_getTransactionByBlockNumberAndIndex",
+    "ms": 67.11195899999802,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_feeHistory 4 deep",
+    "method": "eth_feeHistory",
+    "ms": 65.68533300000126,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionByBlockNumberAndIndex",
+    "method": "eth_getTransactionByBlockNumberAndIndex",
+    "ms": 100.3982079999987,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getCode latest",
+    "method": "eth_getCode",
+    "ms": 66.5611659999995,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBalance latest",
+    "method": "eth_getBalance",
+    "ms": 226.32191600000078,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_call real calldata latest",
+    "method": "eth_call",
+    "ms": 3407.8392910000002,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": 3,
+    "message": "execution reverted",
+    "credits": 30,
+    "archive": "hit=301 miss=33",
+    "response": "bypass",
+    "exec": "rounds=2 keys=127 hints=4144 live=14 archive=161",
+    "params": [
+     {
+      "from": "0xa67d7eb4dc68fa6ce8e34ef8cadaf075b9893fbb",
+      "to": "0xccc88a9d1b4ed6b0eaba998850414b24f1c315be",
+      "data": "0x0a2b8f36000000000000000000000000f70da97812cb96acdf810712aa562db8dfa3dbef00000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000001a000000000000000000000000055d8e9fec50aefeba5d2e9c0600db4f3f13b1c2e00000000000000000000000055d8e9fec50aefeba5d2e9c0600db4f3f13b1c2e000000000000000000000000000000000000000000000000000000000000144000000000000000000000000000000000000000000000000000000000000014a0000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000003b00319e3e99000000000000000000000000000000000000000000000000000000006ac9bc690000000000000000000000000000000000000000000000000000000000000001000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48000000000000000000000000000000000000000000000000000000001da409040000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000001600000000000000000000000000000000000000000000000000000000000001020000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb480000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000044095ea7b30000000000000000000000006131b5fae19ea4f9d964eac0408e4408b66337b5000000000000000000000000000000000000000000000000000000001da40904000000000000000000000000000000000000000000000000000000000000000000000000000000006131b5fae19ea4f9d964eac0408e4408b66337b50000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000e04e21fd0e900000000000000000000000000000000000000000000000000000000000000200000000000000000000000008f10b468b06c6fd214b65f87778827f7d113f996000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000ac00000000000000000000000000000000000000000000000000000000000000d0000000000000000000000000000000000000000000000000000000000000009f4d7a5c6b52756e795f680b0f7e0c2f21281dde6ef0000000000000000000000001da409040000000000000000000000001da40904000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000004176e010b0872ebc443ba40dd5dce3a0ca439a4817cc6569463405e8bbce1487bc40f32670d9305a65b7cc219118bbd564d688cc65aeabf27e1a357b1be3349dc81b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008e0000000000000000000000000b92fe925dc43a0ecde6c8b1a2709c170ec4fff4f000000000000000000000000000000000000000000000000000000000000014000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000001c28a22a0000000000000000000000001f1f6fdd0000000000000000000000001da4090400000000000001775bc169264dabc6f70000000000000000000000000000000018997823556dff0000000000000000000000000000000000000000001111110f0f73c0b2ef09ec012eae758b3e03a9020000000000000000000000001111110f0f73c0b2ef09ec012eae758b3e03a902000000000000000000000000000000000000000000000000000000006ac9b30900000000000000000000000000000000000000000000000000000000000008c0000000000000000000000000000000000000000000000000000000000000000261f598cd00000000000000007b0e2e8300899b647d5ebc66f9d4fa3f16c5406191dd734600000000000000007b0e2e8300899b647d5ebc66f9d4fa3f16c54061000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000680000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48800000000000000000000000000001f10000000000000000000000001da409040000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000001da40904736e774d0000000000000001069c11bfc769be175bfae2d20bddce34e46514cc00000000000000000000000000000000000000000000000000000000000000800000000000000000000000008f10b468b06c6fd214b65f87778827f7d113f9960000000000000000000000000000000000000000000000000000000000000220000000000000000000000000000000000004444c5dc75cb358380d2e3de08a900000000000000000000000000000000000000000000000000000000000000101000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48000000000000000000000000000000000000000000000000000000001da40904000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020000000000000000000000000b32e10022ffbedfe10bc818a1c7e67d9d87e0fa7000000000000000000000000000000000000000000000000000000000000271000000000000000000000000000000000000000000000000000000000000000c8000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000fc886985c8770e62ba7054ee7e1d20000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000001da40904736e774d0000000000000001069c11bfc769be175bfae2d20bddce34e46514cc00000000000000000000000000000000000000000000000000000000000000800000000000000000000000008f10b468b06c6fd214b65f87778827f7d113f9960000000000000000000000000000000000000000000000000000000000000220000000000000000000000000000000000004444c5dc75cb358380d2e3de08a900000000000000000000000000000000000000000000000000000000000000101000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48000000000000000000000000000000000000000000000000000000001da40904000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020000000000000000000000000b32e10022ffbedfe10bc818a1c7e67d9d87e0fa7000000000000000000000000000000000000000000000000000000000000271000000000000000000000000000000000000000000000000000000000000000c8000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000fc886985c8770e62ba7054ee7e1d20000000000000000000000000000000000000000000000000000000000000000000000000000000000000000b32e10022ffbedfe10bc818a1c7e67d9d87e0fa78000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48000000000000000000000000b32e10022ffbedfe10bc818a1c7e67d9d87e0fa7000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000001a000000000000000000000000000000000000000000000000000000000000001e00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000b92fe925dc43a0ecde6c8b1a2709c170ec4fff4f000000000000000000000000000000000000000000000000000000001da40904000000000000000000000000000000000000000000000164972af0b1302ffd030000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000022000000000000000000000000000000000000000000000000000000000000000010000000000000000000000008f10b468b06c6fd214b65f87778827f7d113f9960000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000001da4090400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000b87b22536f75726365223a2272656c61792d666f6d6f222c22416d6f756e74496e555344223a223439372e323131373235222c22416d6f756e744f7574555344223a223438392e383830323431222c22416d6f756e744f7574223a2236393234313430373038393832323731323331373334222c22526f7574654944223a2230656331356336655953424f6c724d353a32386236663530656b523941644a7958222c2254696d657374616d70223a313739313630323236357d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000b92fe925dc43a0ecde6c8b1a2709c170ec4fff4f00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000001a49bb43718000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001400000000000000000000000000000000000000000000000000000000000000001000000000000000000000000b32e10022ffbedfe10bc818a1c7e67d9d87e0fa7000000000000000000000000000000000000000000000000000000000000000100000000000000000000000055d8e9fec50aefeba5d2e9c0600db4f3f13b1c2e0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000218920d2d3e6ec786e18f02d7fcd4eaed5d4d9a652b3e1fc4a435da5262206197100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000218920d2d3e6ec786e18f02d7fcd4eaed5d4d9a652b3e1fc4a435da526220619710000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004147c80999c751472c5fa3870f65c1672a8ff9b409b83f568ed48cca65928e9bf750ff285148fc52f061f14d2ca595fe973629d05712d6ce0ab6d405320353a2cf1c00000000000000000000000000000000000000000000000000000000000000c8572b1df24afc0d0080d3eb439b0fe78db18f51af6b15aaa91bd8efc7a68517",
+      "value": "0x0"
+     },
+     "latest"
+    ]
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getCode latest",
+    "method": "eth_getCode",
+    "ms": 81.16150000000198,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_call real calldata latest",
+    "method": "eth_call",
+    "ms": 3224.034917000001,
+    "ok": false,
+    "refused": true,
+    "http": 200,
+    "code": 3,
+    "message": "execution reverted",
+    "credits": 30,
+    "archive": "hit=314 miss=10",
+    "response": "bypass",
+    "exec": "rounds=2 keys=124 hints=4144 live=13 archive=159",
+    "params": [
+     {
+      "from": "0x4337016838785634c63fce393bfc6222564436c4",
+      "to": "0x4337084d9e255ff0702461cf8895ce9e3b5ff108",
+      "data": "0x765e827f00000000000000000000000000000000000000000000000000000000000000400000000000000000000000004337016838785634c63fce393bfc6222564436c400000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020000000000000000000000000c31e52cac02bbe0c5f953a2f5a884215bed8c60800000000000000000000000000000000000001a123d0b0840000000000000000000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000001400000000000000000000000000003d0900000000000000000000000000000a48c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000240000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a4b61d27f6000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc200000000000000000000000000000000000000000000000000613ca482575c0000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000004d0e30db000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004137ea4ca2ad7b5d084c88d138d8c8528d1a54ac464b1b844b5147b9a2033c914073b0c388e31e1c14a30a70579a2fa55244d39d59a675aa534772dbf302a1a2fd1c00000000000000000000000000000000000000000000000000000000000000",
+      "value": "0x0"
+     },
+     "latest"
+    ]
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByNumber latest hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 461.63566699999865,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=1 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionCount latest",
+    "method": "eth_getTransactionCount",
+    "ms": 212.86208400000032,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_feeHistory 4 deep",
+    "method": "eth_feeHistory",
+    "ms": 61.671041999998124,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionCount latest",
+    "method": "eth_getTransactionCount",
+    "ms": 195.82937500000116,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByNumber latest hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 364.39933400000155,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=1 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_blockNumber",
+    "method": "eth_blockNumber",
+    "ms": 64.90291699999943,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_gasPrice",
+    "method": "eth_gasPrice",
+    "ms": 640.4772499999999,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=1",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_blockNumber",
+    "method": "eth_blockNumber",
+    "ms": 58.23912500000006,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_call real calldata latest",
+    "method": "eth_call",
+    "ms": 1313.1426659999997,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=9 miss=17",
+    "response": "miss head",
+    "exec": "rounds=3 keys=120 hints=0 live=7 archive=113"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBalance latest",
+    "method": "eth_getBalance",
+    "ms": 342.78683300000193,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_gasPrice",
+    "method": "eth_gasPrice",
+    "ms": 95.61008299999958,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getStorageAt latest",
+    "method": "eth_getStorageAt",
+    "ms": 95.281458999998,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_feeHistory 4",
+    "method": "eth_feeHistory",
+    "ms": 80.24333399999887,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_maxPriorityFeePerGas",
+    "method": "eth_maxPriorityFeePerGas",
+    "ms": 79.67004200000156,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_gasPrice",
+    "method": "eth_gasPrice",
+    "ms": 65.4751249999972,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionCount latest",
+    "method": "eth_getTransactionCount",
+    "ms": 191.89133299999958,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionByBlockNumberAndIndex",
+    "method": "eth_getTransactionByBlockNumberAndIndex",
+    "ms": 51.94262499999968,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getStorageAt latest",
+    "method": "eth_getStorageAt",
+    "ms": 295.8900829999984,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=8 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionCount latest",
+    "method": "eth_getTransactionCount",
+    "ms": 535.312417000001,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=18 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByNumber latest hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 53.657624999999825,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionCount latest",
+    "method": "eth_getTransactionCount",
+    "ms": 601.5703749999993,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=1 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "deep",
+    "label": "eth_feeHistory 4 deep",
+    "method": "eth_feeHistory",
+    "ms": 50.12370799999917,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit immutable",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getCode latest",
+    "method": "eth_getCode",
+    "ms": 399.461041999999,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=6 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBalance latest",
+    "method": "eth_getBalance",
+    "ms": 202.72233399999823,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionCount latest",
+    "method": "eth_getTransactionCount",
+    "ms": 202.08012499999677,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "heavy",
+    "label": "eth_call real calldata latest",
+    "method": "eth_call",
+    "ms": 5017.487500000003,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 30,
+    "archive": "hit=356 miss=35",
+    "response": "miss head",
+    "exec": "rounds=5 keys=145 hints=4144 live=32 archive=161"
+   },
+   {
+    "cls": "normal",
+    "label": "eth_maxPriorityFeePerGas",
+    "method": "eth_maxPriorityFeePerGas",
+    "ms": 63.8267909999995,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getStorageAt latest",
+    "method": "eth_getStorageAt",
+    "ms": 68.14337499999965,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getTransactionCount latest",
+    "method": "eth_getTransactionCount",
+    "ms": 195.73270799999955,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByNumber latest hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 69.3368330000012,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_blockNumber",
+    "method": "eth_blockNumber",
+    "ms": 58.20141700000022,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_maxPriorityFeePerGas",
+    "method": "eth_maxPriorityFeePerGas",
+    "ms": 54.938459000000876,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_feeHistory 4",
+    "method": "eth_feeHistory",
+    "ms": 72.9931660000002,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getStorageAt latest",
+    "method": "eth_getStorageAt",
+    "ms": 274.55787500000224,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=11 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByNumber latest hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 167.13916700000118,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_blockNumber",
+    "method": "eth_blockNumber",
+    "ms": 62.393958000000566,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBalance latest",
+    "method": "eth_getBalance",
+    "ms": 223.06187499999942,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_gasPrice",
+    "method": "eth_gasPrice",
+    "ms": 75.29783399999724,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_maxPriorityFeePerGas",
+    "method": "eth_maxPriorityFeePerGas",
+    "ms": 52.10841699999946,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBlockByNumber latest hashes",
+    "method": "eth_getBlockByNumber",
+    "ms": 54.623459000002185,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 20,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_gasPrice",
+    "method": "eth_gasPrice",
+    "ms": 53.578125,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 10,
+    "archive": "hit=0 miss=0",
+    "response": "hit head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBalance latest",
+    "method": "eth_getBalance",
+    "ms": 200.45729199999914,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   },
+   {
+    "cls": "normal",
+    "label": "eth_getBalance latest",
+    "method": "eth_getBalance",
+    "ms": 199.50445799999943,
+    "ok": true,
+    "refused": false,
+    "http": 200,
+    "credits": 15,
+    "archive": "hit=0 miss=0",
+    "response": "miss head",
+    "exec": null
+   }
+  ],
+  "user": [],
+  "stress": {}
+ },
+ "stress": [],
+ "economics": {
+  "mixCredits": 20,
+  "plans": {
+   "public": {
+    "price": 0,
+    "included": 10000000,
+    "rps": 10
+   },
+   "free": {
+    "price": 0,
+    "included": 20000000,
+    "rps": 20
+   },
+   "builder": {
+    "price": 19,
+    "included": 600000000,
+    "rps": 250
+   },
+   "growth": {
+    "price": 89,
+    "included": 3000000000,
+    "rps": 1000
+   },
+   "scale": {
+    "price": 599,
+    "included": 20000000000,
+    "rps": 3000
+   }
+  }
+ }
+}

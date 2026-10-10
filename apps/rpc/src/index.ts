@@ -227,8 +227,10 @@ async function rpc(request: Request, env: Env, ctx: ExecutionContext): Promise<R
     reads = opened.reads;
     const chain = opened.chain;
     exec = chain.exec;
-    const menv: MethodEnv = { chainId: Number(env.CHAIN_ID), relayUrl: env.RELAY_URL, executor: env.EXECUTOR ?? localExecutor };
-    const responses = new ResponseCache(edgeCache(), origin, Number(env.CHAIN_ID), (p) => ctx.waitUntil(p));
+    const edge = edgeCache();
+    const defer = (p: Promise<unknown>) => ctx.waitUntil(p);
+    const menv: MethodEnv = { chainId: Number(env.CHAIN_ID), relayUrl: env.RELAY_URL, executor: env.EXECUTOR ?? localExecutor, edge: edge ? { cache: edge, origin, defer } : undefined };
+    const responses = new ResponseCache(edge, origin, Number(env.CHAIN_ID), defer);
     results = await Promise.all(items.map(async (item, i) => {
       const req = validate(item);
       if ("error" in req) {

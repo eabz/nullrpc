@@ -185,6 +185,22 @@ export class Chain {
     return null;
   }
 
+  /**
+   * The hash of block `n` (lowercase, 0x) when it is known without reading the block: from the
+   * archive's offsets record at or below P, from the pinned head's listing of the window above
+   * it. Null when only the record says (above the head, a window the document does not list,
+   * or a pin from state()). A hash fixes a block's contents, so what a method derives from a
+   * block can be kept under it across requests and heads (src/methods/fees.ts).
+   */
+  async hashOf(n: number): Promise<string | null> {
+    if (n <= this.archived) {
+      const hash = await this.archive.blockHash(this.pin, n);
+      return hash ? data(hash) : null;
+    }
+    const head = this.head;
+    return head && this.live ? this.live.listedHash(n, head) : null;
+  }
+
   private async archiveBlock(n: number): Promise<BlockRecord | null> {
     const found = await this.archive.blockFrame(this.pin, n);
     return found && this.archiveRecord(n, found);
