@@ -128,7 +128,17 @@ const callsOf = (txs) => txs.filter((tx) => tx.to && tx.input && tx.input.length
 const recentCalls = callsOf(recentTxs);
 const deepCalls = callsOf(deepTxs);
 const addrs = [...new Set(recentTxs.flatMap((tx) => [tx.from, tx.to]).filter(Boolean))];
-const logsRecent = await must("eth_getLogs", [{ fromBlock: hex(head - 100), toBlock: hex(head), topics: [TRANSFER] }]);
+// Recent Transfer logs for the token corpus; a chain with dense logs refuses 100 blocks, so the
+// range narrows until the query fits (the refusal names the range that would).
+let logsRecent = [];
+for (let span = 100; span >= 1; span = Math.floor(span / 4)) {
+  const r = await call("eth_getLogs", [{ fromBlock: hex(head - span), toBlock: hex(head), topics: [TRANSFER] }]);
+  if (r.ok) {
+    logsRecent = r.result;
+    break;
+  }
+  if (!/more than \d+ logs/.test(r.message ?? "")) throw new Error(`eth_getLogs: ${r.code} ${r.message}`);
+}
 const byToken = new Map();
 for (const l of logsRecent) {
   if (l.topics.length < 3) continue;
